@@ -1124,7 +1124,50 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         content: args.content
       }).select().single();
       if (error) throw error;
-      return { success: true, note: data };
+      
+      // Generate AI insights for the note
+      if (data.content.trim().length >= 10) {
+        try {
+          const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("user_context, full_name")
+            .eq("id", userId)
+            .single();
+          
+          const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+          if (LOVABLE_API_KEY) {
+            const insightsResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  { 
+                    role: "system", 
+                    content: `Você é Axiom, um consultor estratégico pessoal com QI 180. Analise a nota do Brain Dump e forneça insights profundos.
+${profile?.user_context ? `CONTEXTO DO USUÁRIO:\n${profile.user_context}\n` : ''}${profile?.full_name ? `Nome: ${profile.full_name}` : ''}
+REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIGHTS (2-3 pontos), 🎯 PRÓXIMO PASSO (1 ação). Limite a ~120 palavras.`
+                  },
+                  { role: "user", content: `Analise:\n\n${data.content}` }
+                ],
+              }),
+            });
+            
+            if (insightsResponse.ok) {
+              const insightsData = await insightsResponse.json();
+              const insights = insightsData.choices[0].message.content;
+              await supabaseAdmin.from("notes").update({ ai_insights: insights }).eq("id", data.id);
+            }
+          }
+        } catch (e) {
+          console.error("Error generating note insights:", e);
+        }
+      }
+      
+      return { success: true, note: data, message: `Nota criada! ✅ Insights gerados automaticamente.` };
     }
 
     case "list_notes": {
@@ -1228,7 +1271,52 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         tags: args.tags || null
       }).select().single();
       if (error) throw error;
-      return { success: true, entry: data };
+      
+      // Generate AI insights for the journal entry
+      if (data.content.trim().length >= 10) {
+        try {
+          const { data: profile } = await supabaseAdmin
+            .from("profiles")
+            .select("user_context, full_name")
+            .eq("id", userId)
+            .single();
+          
+          const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+          if (LOVABLE_API_KEY) {
+            const moodText = data.mood ? `O humor do usuário é: ${data.mood}` : '';
+            const insightsResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  { 
+                    role: "system", 
+                    content: `Você é Axiom, um consultor estratégico pessoal com QI 180. Analise a entrada de diário e forneça insights profundos.
+${profile?.user_context ? `CONTEXTO DO USUÁRIO:\n${profile.user_context}\n` : ''}${profile?.full_name ? `Nome: ${profile.full_name}` : ''}
+${moodText}
+REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIGHTS (2-3 pontos), 🎯 PRÓXIMO PASSO (1 ação). Limite a ~120 palavras.`
+                  },
+                  { role: "user", content: `Analise:\n\n${data.content}` }
+                ],
+              }),
+            });
+            
+            if (insightsResponse.ok) {
+              const insightsData = await insightsResponse.json();
+              const insights = insightsData.choices[0].message.content;
+              await supabaseAdmin.from("journal_entries").update({ ai_insights: insights }).eq("id", data.id);
+            }
+          }
+        } catch (e) {
+          console.error("Error generating journal insights:", e);
+        }
+      }
+      
+      return { success: true, entry: data, message: `Entrada do diário criada! ✅ Insights gerados automaticamente.` };
     }
 
     case "list_journal_entries": {
