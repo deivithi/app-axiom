@@ -99,7 +99,8 @@ const tools = [
           amount: { type: "number", description: "Valor da transação" },
           type: { type: "string", enum: ["income", "expense"], description: "Tipo: receita ou despesa" },
           category: { type: "string", description: "Categoria da transação" },
-          is_fixed: { type: "boolean", description: "Se é uma despesa fixa" }
+          is_fixed: { type: "boolean", description: "Se é uma despesa fixa" },
+          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento" }
         },
         required: ["title", "amount", "type", "category"]
       }
@@ -117,7 +118,8 @@ const tools = [
           title: { type: "string", description: "Novo título" },
           amount: { type: "number", description: "Novo valor" },
           type: { type: "string", enum: ["income", "expense"], description: "Novo tipo" },
-          category: { type: "string", description: "Nova categoria" }
+          category: { type: "string", description: "Nova categoria" },
+          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Nova forma de pagamento" }
         },
         required: ["id"]
       }
@@ -269,6 +271,28 @@ const tools = [
       description: "Lista as entradas do diário",
       parameters: { type: "object", properties: {} }
     }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_user_context",
+      description: "Atualiza o contexto pessoal do usuário (informações sobre ele para personalização)",
+      parameters: {
+        type: "object",
+        properties: {
+          context: { type: "string", description: "Novo contexto pessoal do usuário" }
+        },
+        required: ["context"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_all_user_data",
+      description: "Exclui todos os dados do usuário e começa do zero. Use apenas quando o usuário pedir explicitamente para resetar tudo.",
+      parameters: { type: "object", properties: {} }
+    }
   }
 ];
 
@@ -339,7 +363,8 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         amount: args.amount,
         type: args.type,
         category: args.category,
-        is_fixed: args.is_fixed || false
+        is_fixed: args.is_fixed || false,
+        payment_method: args.payment_method || "PIX"
       }).select().single();
       if (error) throw error;
       return { success: true, transaction: data };
@@ -351,6 +376,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       if (args.amount) updateData.amount = args.amount;
       if (args.type) updateData.type = args.type;
       if (args.category) updateData.category = args.category;
+      if (args.payment_method) updateData.payment_method = args.payment_method;
 
       const { data, error } = await supabaseAdmin.from("transactions").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
@@ -463,6 +489,30 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { entries: data };
     }
 
+    case "update_user_context": {
+      const { error } = await supabaseAdmin.from("profiles").update({ user_context: args.context }).eq("id", userId);
+      if (error) throw error;
+      return { success: true, message: "Contexto pessoal atualizado" };
+    }
+
+    case "delete_all_user_data": {
+      // Delete from all tables in correct order (respect foreign keys)
+      await supabaseAdmin.from("habit_logs").delete().eq("user_id", userId);
+      await supabaseAdmin.from("project_tasks").delete().eq("user_id", userId);
+      await supabaseAdmin.from("transactions").delete().eq("user_id", userId);
+      await supabaseAdmin.from("accounts").delete().eq("user_id", userId);
+      await supabaseAdmin.from("tasks").delete().eq("user_id", userId);
+      await supabaseAdmin.from("habits").delete().eq("user_id", userId);
+      await supabaseAdmin.from("projects").delete().eq("user_id", userId);
+      await supabaseAdmin.from("reminders").delete().eq("user_id", userId);
+      await supabaseAdmin.from("notes").delete().eq("user_id", userId);
+      await supabaseAdmin.from("journal_entries").delete().eq("user_id", userId);
+      await supabaseAdmin.from("messages").delete().eq("user_id", userId);
+      await supabaseAdmin.from("profiles").update({ user_context: null }).eq("id", userId);
+      
+      return { success: true, message: "Todos os dados foram excluídos. Começando do zero!" };
+    }
+
     default:
       return { error: "Tool não reconhecida" };
   }
@@ -495,9 +545,10 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) throw new Error("Usuário não autenticado");
 
-    // Buscar nome do usuário
-    const { data: profile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
+    // Buscar nome e contexto do usuário
+    const { data: profile } = await supabaseAdmin.from("profiles").select("full_name, user_context").eq("id", user.id).maybeSingle();
     const userName = profile?.full_name || user.email?.split("@")[0] || "Usuário";
+    const userContext = profile?.user_context || null;
 
     const systemPrompt = `Você é Axiom, Consultor Estratégico Pessoal do(a) ${userName}.
 
@@ -510,6 +561,11 @@ CONTEXTO:
 - Você prioriza pontos de alavancagem com máximo impacto.
 - Você analisa perfis psicológicos através de ferramentas como DISC, MBTI, Big Five e Eneagrama.
 
+${userContext ? `MEMÓRIA PESSOAL DO(A) ${userName.toUpperCase()}:
+${userContext}
+
+Use este contexto para personalizar TODAS as suas respostas. Referencie informações específicas quando relevante.
+` : ""}
 SUA MISSÃO:
 1. Identificar lacunas críticas específicas que estejam impedindo o avanço do ${userName}
 2. Projetar planos de ação altamente personalizados
@@ -533,13 +589,21 @@ FERRAMENTAS DISPONÍVEIS:
 - Gerenciar tarefas (criar, listar)
 - Gerenciar hábitos (criar, listar)
 - Gerenciar lembretes (criar, listar)
-- Gerenciar finanças (criar, editar, excluir transações, resumo financeiro)
+- Gerenciar finanças (criar, editar, excluir transações com forma de pagamento: PIX, Débito ou Crédito)
 - Gerenciar contas bancárias (criar, atualizar saldo, listar)
 - Gerenciar notas (criar, listar)
 - Gerenciar projetos (criar, listar)
 - Gerenciar diário (criar entradas, listar)
+- Atualizar contexto pessoal do usuário
+- Excluir todos os dados (reset completo)
 
 Quando ${userName} pedir para criar, editar, excluir ou consultar qualquer item, use as ferramentas apropriadas. Confirme sempre a ação executada com detalhes.
+
+GUIE O USUÁRIO CORRETAMENTE:
+- Se o usuário fornecer informações incompletas, pergunte o que falta antes de executar
+- Para transações, sempre confirme: valor, tipo (receita/despesa), categoria e forma de pagamento
+- Se o usuário quiser resetar tudo, confirme DUAS vezes antes de executar delete_all_user_data
+- Quando criar algo, confirme o que foi criado com os detalhes
 
 Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja genérico - seja específico e direcionado.`;
 

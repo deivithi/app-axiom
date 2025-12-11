@@ -9,6 +9,7 @@ import {
   Wallet,
   BookOpen,
   Brain,
+  Settings,
   LogOut,
   Menu,
   X
@@ -28,6 +29,7 @@ const navItems = [
   { icon: Wallet, label: 'Finanças', path: '/finances' },
   { icon: BookOpen, label: 'Diário', path: '/diary' },
   { icon: Brain, label: 'Brain Dump', path: '/brain-dump' },
+  { icon: Settings, label: 'Configurações', path: '/settings' },
 ];
 
 const NavContent = ({ onClose }: { onClose?: () => void }) => {

@@ -14,6 +14,7 @@ import Reminders from "./pages/Reminders";
 import Finances from "./pages/Finances";
 import Diary from "./pages/Diary";
 import BrainDump from "./pages/BrainDump";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -68,6 +69,7 @@ function AppRoutes() {
       <Route path="/finances" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
       <Route path="/diary" element={<ProtectedRoute><Diary /></ProtectedRoute>} />
       <Route path="/brain-dump" element={<ProtectedRoute><BrainDump /></ProtectedRoute>} />
+      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

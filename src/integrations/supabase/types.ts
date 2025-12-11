@@ -206,6 +206,7 @@ export type Database = {
           full_name: string | null
           id: string
           updated_at: string
+          user_context: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -213,6 +214,7 @@ export type Database = {
           full_name?: string | null
           id: string
           updated_at?: string
+          user_context?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -220,6 +222,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+          user_context?: string | null
         }
         Relationships: []
       }
@@ -378,6 +381,7 @@ export type Database = {
           id: string
           is_fixed: boolean
           is_installment: boolean
+          payment_method: string | null
           title: string
           total_installments: number | null
           transaction_date: string
@@ -392,6 +396,7 @@ export type Database = {
           id?: string
           is_fixed?: boolean
           is_installment?: boolean
+          payment_method?: string | null
           title: string
           total_installments?: number | null
           transaction_date?: string
@@ -406,6 +411,7 @@ export type Database = {
           id?: string
           is_fixed?: boolean
           is_installment?: boolean
+          payment_method?: string | null
           title?: string
           total_installments?: number | null
           transaction_date?: string
