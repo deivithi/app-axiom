@@ -5,6 +5,7 @@ import { ptBR } from 'date-fns/locale';
 interface UserMessageProps {
   content: string;
   timestamp: string;
+  avatarUrl?: string | null;
 }
 
 const formatTimestamp = (timestamp: string) => {
@@ -18,7 +19,7 @@ const formatTimestamp = (timestamp: string) => {
   return format(date, "dd/MM 'às' HH:mm", { locale: ptBR });
 };
 
-export function UserMessage({ content, timestamp }: UserMessageProps) {
+export function UserMessage({ content, timestamp, avatarUrl }: UserMessageProps) {
   return (
     <div className="flex items-end gap-3 justify-end animate-fade-in">
       <div className="flex flex-col items-end max-w-[80%]">
@@ -29,9 +30,17 @@ export function UserMessage({ content, timestamp }: UserMessageProps) {
           {formatTimestamp(timestamp)}
         </span>
       </div>
-      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-        <User className="w-4 h-4 text-muted-foreground" />
-      </div>
+      {avatarUrl ? (
+        <img 
+          src={avatarUrl} 
+          alt="Você"
+          className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-primary/50"
+        />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+          <User className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
     </div>
   );
 }
