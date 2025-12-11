@@ -3,13 +3,11 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Loader2, Save, Trash2, Sparkles } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -18,6 +16,7 @@ interface JournalEntry {
   content: string;
   mood: 'happy' | 'neutral' | 'sad' | 'excited' | 'anxious' | 'calm' | null;
   tags: string[] | null;
+  ai_insights: string | null;
   entry_date: string;
 }
 
@@ -47,6 +46,7 @@ export default function Diary() {
   const [mood, setMood] = useState<JournalEntry['mood']>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingInsights, setGeneratingInsights] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -77,6 +77,43 @@ export default function Diary() {
     setLoading(false);
   };
 
+  const generateInsights = async (entryId: string, entryContent: string, entryMood: string | null) => {
+    if (entryContent.trim().length < 10) return;
+    
+    setGeneratingInsights(true);
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_context, full_name')
+        .eq('id', user?.id)
+        .single();
+
+      const response = await supabase.functions.invoke('analyze-content', {
+        body: {
+          content: entryContent,
+          type: 'journal',
+          mood: entryMood,
+          userContext: profile?.user_context,
+          userName: profile?.full_name,
+        }
+      });
+
+      if (response.data?.insights) {
+        await supabase
+          .from('journal_entries')
+          .update({ ai_insights: response.data.insights })
+          .eq('id', entryId);
+        
+        loadEntries();
+        toast({ title: '✨ Insights gerados!', description: 'Axiom analisou sua entrada' });
+      }
+    } catch (error) {
+      console.error('Error generating insights:', error);
+    } finally {
+      setGeneratingInsights(false);
+    }
+  };
+
   const saveEntry = async () => {
     if (!content.trim()) return;
     setSaving(true);
@@ -94,24 +131,34 @@ export default function Diary() {
       } else {
         toast({ title: 'Salvo', description: 'Entrada atualizada!' });
         loadEntries();
+        generateInsights(currentEntry.id, content, mood);
       }
     } else {
-      const { error } = await supabase.from('journal_entries').insert({
+      const { data, error } = await supabase.from('journal_entries').insert({
         user_id: user?.id,
         content,
         mood,
         entry_date: entryDate,
-      });
+      }).select().single();
 
       if (error) {
         toast({ title: 'Erro', description: 'Erro ao salvar', variant: 'destructive' });
       } else {
         toast({ title: 'Salvo', description: 'Nova entrada criada!' });
         loadEntries();
+        if (data) {
+          generateInsights(data.id, content, mood);
+        }
       }
     }
 
     setSaving(false);
+  };
+
+  const regenerateInsights = async () => {
+    if (currentEntry) {
+      generateInsights(currentEntry.id, currentEntry.content, currentEntry.mood);
+    }
   };
 
   const deleteEntry = async () => {
@@ -164,60 +211,110 @@ export default function Diary() {
               </CardContent>
             </Card>
 
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle>
-                    {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
-                  </CardTitle>
-                  {currentEntry && (
+            <div className="lg:col-span-2 space-y-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle>
+                      {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
+                    </CardTitle>
+                    {currentEntry && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive"
+                        onClick={deleteEntry}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-2">Como você está se sentindo?</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(Object.keys(moodEmojis) as Array<keyof typeof moodEmojis>).map((m) => (
+                        <Button
+                          key={m}
+                          variant={mood === m ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setMood(m)}
+                          className="gap-1"
+                        >
+                          <span>{moodEmojis[m]}</span>
+                          <span className="hidden sm:inline">{moodLabels[m]}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    placeholder="Escreva sobre o seu dia..."
+                    className="min-h-[200px] resize-none"
+                  />
+
+                  <Button onClick={saveEntry} disabled={saving || !content.trim()} className="w-full">
+                    {saving ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Salvar
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Insights da IA */}
+              {generatingInsights ? (
+                <Card className="bg-gradient-to-br from-primary/10 to-cyan-500/10 border-primary/20">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm">Axiom analisando sua entrada...</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : currentEntry?.ai_insights ? (
+                <Card className="bg-gradient-to-br from-primary/10 to-cyan-500/10 border-primary/20">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium text-primary">Insights do Axiom</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={regenerateInsights}
+                        className="text-xs"
+                      >
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        Regenerar
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {currentEntry.ai_insights}
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : currentEntry ? (
+                <Card className="border-dashed border-primary/30">
+                  <CardContent className="p-4 text-center">
                     <Button
                       variant="ghost"
-                      size="icon"
-                      className="text-destructive"
-                      onClick={deleteEntry}
+                      onClick={regenerateInsights}
+                      className="text-muted-foreground"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Gerar insights com Axiom
                     </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-2">Como você está se sentindo?</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(Object.keys(moodEmojis) as Array<keyof typeof moodEmojis>).map((m) => (
-                      <Button
-                        key={m}
-                        variant={mood === m ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setMood(m)}
-                        className="gap-1"
-                      >
-                        <span>{moodEmojis[m]}</span>
-                        <span className="hidden sm:inline">{moodLabels[m]}</span>
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-
-                <Textarea
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
-                  placeholder="Escreva sobre o seu dia..."
-                  className="min-h-[300px] resize-none"
-                />
-
-                <Button onClick={saveEntry} disabled={saving || !content.trim()} className="w-full">
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Save className="h-4 w-4 mr-2" />
-                  )}
-                  Salvar
-                </Button>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              ) : null}
+            </div>
           </div>
         )}
       </div>

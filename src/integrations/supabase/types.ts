@@ -114,6 +114,7 @@ export type Database = {
       }
       journal_entries: {
         Row: {
+          ai_insights: string | null
           content: string
           created_at: string
           entry_date: string
@@ -124,6 +125,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_insights?: string | null
           content: string
           created_at?: string
           entry_date?: string
@@ -134,6 +136,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_insights?: string | null
           content?: string
           created_at?: string
           entry_date?: string
@@ -171,6 +174,7 @@ export type Database = {
       }
       notes: {
         Row: {
+          ai_insights: string | null
           content: string
           created_at: string
           id: string
@@ -180,6 +184,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          ai_insights?: string | null
           content: string
           created_at?: string
           id?: string
@@ -189,6 +194,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          ai_insights?: string | null
           content?: string
           created_at?: string
           id?: string

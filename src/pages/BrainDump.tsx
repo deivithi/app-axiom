@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Trash2, Pin, PinOff, Search } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pin, PinOff, Search, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,6 +19,7 @@ interface Note {
   title: string | null;
   content: string;
   is_pinned: boolean;
+  ai_insights: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -30,6 +31,7 @@ export default function BrainDump() {
   const [search, setSearch] = useState('');
   const [selectedNote, setSelectedNote] = useState<Note | null>(null);
   const [newNote, setNewNote] = useState({ title: '', content: '' });
+  const [generatingInsights, setGeneratingInsights] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -47,19 +49,55 @@ export default function BrainDump() {
     if (error) {
       toast({ title: 'Erro', description: 'Erro ao carregar notas', variant: 'destructive' });
     } else {
-      setNotes(data || []);
+      setNotes((data || []) as Note[]);
     }
     setLoading(false);
+  };
+
+  const generateInsights = async (noteId: string, content: string) => {
+    if (content.trim().length < 10) return;
+    
+    setGeneratingInsights(true);
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_context, full_name')
+        .eq('id', user?.id)
+        .single();
+
+      const response = await supabase.functions.invoke('analyze-content', {
+        body: {
+          content,
+          type: 'note',
+          userContext: profile?.user_context,
+          userName: profile?.full_name,
+        }
+      });
+
+      if (response.data?.insights) {
+        await supabase
+          .from('notes')
+          .update({ ai_insights: response.data.insights })
+          .eq('id', noteId);
+        
+        loadNotes();
+        toast({ title: '✨ Insights gerados!', description: 'Axiom analisou sua nota' });
+      }
+    } catch (error) {
+      console.error('Error generating insights:', error);
+    } finally {
+      setGeneratingInsights(false);
+    }
   };
 
   const createNote = async () => {
     if (!newNote.content.trim()) return;
 
-    const { error } = await supabase.from('notes').insert({
+    const { data, error } = await supabase.from('notes').insert({
       user_id: user?.id,
       title: newNote.title || null,
       content: newNote.content,
-    });
+    }).select().single();
 
     if (error) {
       toast({ title: 'Erro', description: 'Erro ao criar nota', variant: 'destructive' });
@@ -68,6 +106,10 @@ export default function BrainDump() {
       setNewNote({ title: '', content: '' });
       setDialogOpen(false);
       loadNotes();
+      
+      if (data) {
+        generateInsights(data.id, newNote.content);
+      }
     }
   };
 
@@ -81,6 +123,12 @@ export default function BrainDump() {
       toast({ title: 'Erro', description: 'Erro ao atualizar', variant: 'destructive' });
     } else {
       loadNotes();
+    }
+  };
+
+  const regenerateInsights = async () => {
+    if (selectedNote) {
+      generateInsights(selectedNote.id, selectedNote.content);
     }
   };
 
@@ -211,35 +259,85 @@ export default function BrainDump() {
               </div>
             </div>
 
-            <div className="lg:sticky lg:top-6 h-fit">
+            <div className="lg:sticky lg:top-6 h-fit space-y-4">
               {selectedNote ? (
-                <Card>
-                  <CardContent className="p-4 space-y-4">
-                    <Input
-                      value={selectedNote.title || ''}
-                      onChange={(e) =>
-                        setSelectedNote({ ...selectedNote, title: e.target.value })
-                      }
-                      onBlur={() => updateNote(selectedNote)}
-                      placeholder="Título"
-                      className="text-lg font-semibold border-none p-0 focus-visible:ring-0"
-                    />
-                    <Textarea
-                      value={selectedNote.content}
-                      onChange={(e) =>
-                        setSelectedNote({ ...selectedNote, content: e.target.value })
-                      }
-                      onBlur={() => updateNote(selectedNote)}
-                      className="min-h-[400px] resize-none border-none p-0 focus-visible:ring-0"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Última atualização:{' '}
-                      {format(new Date(selectedNote.updated_at), "dd/MM/yyyy 'às' HH:mm", {
-                        locale: ptBR,
-                      })}
-                    </p>
-                  </CardContent>
-                </Card>
+                <>
+                  <Card>
+                    <CardContent className="p-4 space-y-4">
+                      <Input
+                        value={selectedNote.title || ''}
+                        onChange={(e) =>
+                          setSelectedNote({ ...selectedNote, title: e.target.value })
+                        }
+                        onBlur={() => updateNote(selectedNote)}
+                        placeholder="Título"
+                        className="text-lg font-semibold border-none p-0 focus-visible:ring-0"
+                      />
+                      <Textarea
+                        value={selectedNote.content}
+                        onChange={(e) =>
+                          setSelectedNote({ ...selectedNote, content: e.target.value })
+                        }
+                        onBlur={() => updateNote(selectedNote)}
+                        className="min-h-[300px] resize-none border-none p-0 focus-visible:ring-0"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Última atualização:{' '}
+                        {format(new Date(selectedNote.updated_at), "dd/MM/yyyy 'às' HH:mm", {
+                          locale: ptBR,
+                        })}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Insights da IA */}
+                  {generatingInsights ? (
+                    <Card className="bg-gradient-to-br from-primary/10 to-cyan-500/10 border-primary/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-sm">Axiom analisando...</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : selectedNote.ai_insights ? (
+                    <Card className="bg-gradient-to-br from-primary/10 to-cyan-500/10 border-primary/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium text-primary">Insights do Axiom</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={regenerateInsights}
+                            className="text-xs"
+                          >
+                            <Sparkles className="h-3 w-3 mr-1" />
+                            Regenerar
+                          </Button>
+                        </div>
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          {selectedNote.ai_insights}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <Card className="border-dashed border-primary/30">
+                      <CardContent className="p-4 text-center">
+                        <Button
+                          variant="ghost"
+                          onClick={regenerateInsights}
+                          className="text-muted-foreground"
+                        >
+                          <Sparkles className="h-4 w-4 mr-2" />
+                          Gerar insights com Axiom
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
               ) : (
                 <Card className="p-8 text-center text-muted-foreground">
                   Selecione uma nota para editar
@@ -274,7 +372,12 @@ function NoteCard({
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            {note.title && <p className="font-medium truncate">{note.title}</p>}
+            <div className="flex items-center gap-2">
+              {note.title && <p className="font-medium truncate">{note.title}</p>}
+              {note.ai_insights && (
+                <Sparkles className="h-3 w-3 text-primary flex-shrink-0" />
+              )}
+            </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{note.content}</p>
             <p className="text-xs text-muted-foreground mt-2">
               {format(new Date(note.created_at), 'dd/MM/yyyy', { locale: ptBR })}
