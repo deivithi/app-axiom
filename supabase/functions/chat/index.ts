@@ -30,7 +30,7 @@ const tools = [
     type: "function",
     function: {
       name: "list_tasks",
-      description: "Lista as tarefas do usuário",
+      description: "Lista as tarefas do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar ou excluir tarefas.",
       parameters: {
         type: "object",
         properties: {
@@ -43,11 +43,11 @@ const tools = [
     type: "function",
     function: {
       name: "update_task",
-      description: "Atualiza uma tarefa existente",
+      description: "Atualiza uma tarefa existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_tasks (ex: 8ab82e89-4601-420e-b3f0-9494b9480b27). NUNCA use IDs fictícios como 1, 2, 3.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da tarefa" },
+          id: { type: "string", description: "UUID da tarefa (obtenha de list_tasks primeiro)" },
           title: { type: "string", description: "Novo título" },
           description: { type: "string", description: "Nova descrição" },
           priority: { type: "string", enum: ["low", "medium", "high"], description: "Nova prioridade" },
@@ -61,11 +61,25 @@ const tools = [
     type: "function",
     function: {
       name: "delete_task",
-      description: "Exclui uma tarefa",
+      description: "Exclui uma tarefa. IMPORTANTE: O ID deve ser um UUID real obtido de list_tasks. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da tarefa a excluir" }
+          id: { type: "string", description: "UUID da tarefa (obtenha de list_tasks primeiro)" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "complete_task",
+      description: "Marca uma tarefa como concluída (atalho para update_task com status='done'). IMPORTANTE: O ID deve ser um UUID real obtido de list_tasks.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID da tarefa (obtenha de list_tasks primeiro)" }
         },
         required: ["id"]
       }
@@ -93,7 +107,7 @@ const tools = [
     type: "function",
     function: {
       name: "list_habits",
-      description: "Lista os hábitos do usuário",
+      description: "Lista os hábitos do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar, excluir ou marcar hábitos como concluídos.",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -101,11 +115,11 @@ const tools = [
     type: "function",
     function: {
       name: "update_habit",
-      description: "Atualiza um hábito existente",
+      description: "Atualiza um hábito existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_habits. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID do hábito" },
+          id: { type: "string", description: "UUID do hábito (obtenha de list_habits primeiro)" },
           title: { type: "string", description: "Novo nome" },
           frequency: { type: "string", enum: ["daily", "weekly"], description: "Nova frequência" },
           color: { type: "string", description: "Nova cor em hex" }
@@ -118,13 +132,58 @@ const tools = [
     type: "function",
     function: {
       name: "delete_habit",
-      description: "Exclui um hábito",
+      description: "Exclui um hábito. IMPORTANTE: O ID deve ser um UUID real obtido de list_habits. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID do hábito a excluir" }
+          id: { type: "string", description: "UUID do hábito (obtenha de list_habits primeiro)" }
         },
         required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "log_habit_completion",
+      description: "Marca um hábito como concluído para um dia específico. IMPORTANTE: O habit_id deve ser um UUID real obtido de list_habits.",
+      parameters: {
+        type: "object",
+        properties: {
+          habit_id: { type: "string", description: "UUID do hábito (obtenha de list_habits primeiro)" },
+          completed_at: { type: "string", description: "Data da conclusão (YYYY-MM-DD). Se não informado, usa a data de hoje." }
+        },
+        required: ["habit_id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_habit_completion",
+      description: "Remove a marcação de conclusão de um hábito para um dia específico. IMPORTANTE: O habit_id deve ser um UUID real obtido de list_habits.",
+      parameters: {
+        type: "object",
+        properties: {
+          habit_id: { type: "string", description: "UUID do hábito (obtenha de list_habits primeiro)" },
+          completed_at: { type: "string", description: "Data para remover (YYYY-MM-DD). Se não informado, usa a data de hoje." }
+        },
+        required: ["habit_id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_habit_logs",
+      description: "Lista o histórico de conclusões de um hábito. Útil para verificar se um hábito foi feito em determinado dia.",
+      parameters: {
+        type: "object",
+        properties: {
+          habit_id: { type: "string", description: "UUID do hábito (obtenha de list_habits primeiro)" },
+          days: { type: "number", description: "Número de dias para buscar (default: 7)" }
+        },
+        required: ["habit_id"]
       }
     }
   },
@@ -150,7 +209,7 @@ const tools = [
     type: "function",
     function: {
       name: "list_reminders",
-      description: "Lista os lembretes do usuário",
+      description: "Lista os lembretes do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar, excluir ou concluir lembretes.",
       parameters: {
         type: "object",
         properties: {
@@ -163,16 +222,16 @@ const tools = [
     type: "function",
     function: {
       name: "update_reminder",
-      description: "Atualiza um lembrete existente",
+      description: "Atualiza um lembrete existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_reminders. NUNCA use IDs fictícios. Use is_completed: false para voltar um lembrete para pendente.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID do lembrete" },
+          id: { type: "string", description: "UUID do lembrete (obtenha de list_reminders primeiro)" },
           title: { type: "string", description: "Novo título" },
           description: { type: "string", description: "Nova descrição" },
           remind_at: { type: "string", description: "Nova data/hora" },
           category: { type: "string", enum: ["personal", "work", "health", "other"], description: "Nova categoria" },
-          is_completed: { type: "boolean", description: "Marcar como concluído ou pendente" }
+          is_completed: { type: "boolean", description: "true para concluir, false para voltar para pendente" }
         },
         required: ["id"]
       }
@@ -182,11 +241,25 @@ const tools = [
     type: "function",
     function: {
       name: "delete_reminder",
-      description: "Exclui um lembrete",
+      description: "Exclui um lembrete. IMPORTANTE: O ID deve ser um UUID real obtido de list_reminders. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID do lembrete a excluir" }
+          id: { type: "string", description: "UUID do lembrete (obtenha de list_reminders primeiro)" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "complete_reminder",
+      description: "Marca um lembrete como concluído (atalho para update_reminder com is_completed=true). IMPORTANTE: O ID deve ser um UUID real obtido de list_reminders.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do lembrete (obtenha de list_reminders primeiro)" }
         },
         required: ["id"]
       }
@@ -216,11 +289,11 @@ const tools = [
     type: "function",
     function: {
       name: "update_transaction",
-      description: "Atualiza uma transação existente",
+      description: "Atualiza uma transação existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_transactions. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da transação" },
+          id: { type: "string", description: "UUID da transação (obtenha de list_transactions primeiro)" },
           title: { type: "string", description: "Novo título" },
           amount: { type: "number", description: "Novo valor" },
           type: { type: "string", enum: ["income", "expense"], description: "Novo tipo" },
@@ -235,11 +308,11 @@ const tools = [
     type: "function",
     function: {
       name: "delete_transaction",
-      description: "Exclui uma transação",
+      description: "Exclui uma transação. IMPORTANTE: O ID deve ser um UUID real obtido de list_transactions. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da transação a excluir" }
+          id: { type: "string", description: "UUID da transação (obtenha de list_transactions primeiro)" }
         },
         required: ["id"]
       }
@@ -249,7 +322,7 @@ const tools = [
     type: "function",
     function: {
       name: "list_transactions",
-      description: "Lista as transações do usuário",
+      description: "Lista as transações do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar ou excluir transações.",
       parameters: {
         type: "object",
         properties: {
@@ -288,11 +361,11 @@ const tools = [
     type: "function",
     function: {
       name: "update_account",
-      description: "Atualiza uma conta bancária (nome ou saldo)",
+      description: "Atualiza uma conta bancária (nome ou saldo). IMPORTANTE: O ID deve ser um UUID real obtido de list_accounts. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da conta" },
+          id: { type: "string", description: "UUID da conta (obtenha de list_accounts primeiro)" },
           name: { type: "string", description: "Novo nome" },
           balance: { type: "number", description: "Novo saldo" }
         },
@@ -304,11 +377,11 @@ const tools = [
     type: "function",
     function: {
       name: "delete_account",
-      description: "Exclui uma conta bancária",
+      description: "Exclui uma conta bancária. IMPORTANTE: O ID deve ser um UUID real obtido de list_accounts. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da conta a excluir" }
+          id: { type: "string", description: "UUID da conta (obtenha de list_accounts primeiro)" }
         },
         required: ["id"]
       }
@@ -318,7 +391,7 @@ const tools = [
     type: "function",
     function: {
       name: "list_accounts",
-      description: "Lista as contas bancárias do usuário",
+      description: "Lista as contas bancárias do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar ou excluir contas.",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -342,7 +415,7 @@ const tools = [
     type: "function",
     function: {
       name: "list_notes",
-      description: "Lista as notas do usuário",
+      description: "Lista as notas do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar ou excluir notas.",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -350,11 +423,11 @@ const tools = [
     type: "function",
     function: {
       name: "update_note",
-      description: "Atualiza uma nota existente",
+      description: "Atualiza uma nota existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_notes. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da nota" },
+          id: { type: "string", description: "UUID da nota (obtenha de list_notes primeiro)" },
           title: { type: "string", description: "Novo título" },
           content: { type: "string", description: "Novo conteúdo" },
           is_pinned: { type: "boolean", description: "Fixar/desafixar nota" }
@@ -367,11 +440,11 @@ const tools = [
     type: "function",
     function: {
       name: "delete_note",
-      description: "Exclui uma nota",
+      description: "Exclui uma nota. IMPORTANTE: O ID deve ser um UUID real obtido de list_notes. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da nota a excluir" }
+          id: { type: "string", description: "UUID da nota (obtenha de list_notes primeiro)" }
         },
         required: ["id"]
       }
@@ -398,7 +471,7 @@ const tools = [
     type: "function",
     function: {
       name: "list_projects",
-      description: "Lista os projetos do usuário",
+      description: "Lista os projetos do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar, excluir ou adicionar subtarefas a projetos.",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -406,11 +479,11 @@ const tools = [
     type: "function",
     function: {
       name: "update_project",
-      description: "Atualiza um projeto existente",
+      description: "Atualiza um projeto existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_projects. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID do projeto" },
+          id: { type: "string", description: "UUID do projeto (obtenha de list_projects primeiro)" },
           title: { type: "string", description: "Novo nome" },
           description: { type: "string", description: "Nova descrição" },
           status: { type: "string", enum: ["active", "paused", "completed"], description: "Novo status" }
@@ -423,11 +496,11 @@ const tools = [
     type: "function",
     function: {
       name: "delete_project",
-      description: "Exclui um projeto e todas suas subtarefas",
+      description: "Exclui um projeto e todas suas subtarefas. IMPORTANTE: O ID deve ser um UUID real obtido de list_projects. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID do projeto a excluir" }
+          id: { type: "string", description: "UUID do projeto (obtenha de list_projects primeiro)" }
         },
         required: ["id"]
       }
@@ -437,11 +510,11 @@ const tools = [
     type: "function",
     function: {
       name: "create_project_task",
-      description: "Cria uma subtarefa em um projeto",
+      description: "Cria uma subtarefa em um projeto. IMPORTANTE: O project_id deve ser um UUID real obtido de list_projects.",
       parameters: {
         type: "object",
         properties: {
-          project_id: { type: "string", description: "ID do projeto" },
+          project_id: { type: "string", description: "UUID do projeto (obtenha de list_projects primeiro)" },
           title: { type: "string", description: "Título da subtarefa" }
         },
         required: ["project_id", "title"]
@@ -451,12 +524,42 @@ const tools = [
   {
     type: "function",
     function: {
-      name: "delete_project_task",
-      description: "Exclui uma subtarefa de um projeto",
+      name: "list_project_tasks",
+      description: "Lista as subtarefas de um projeto. SEMPRE use esta função para obter os IDs reais das subtarefas antes de excluí-las ou atualizá-las.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da subtarefa a excluir" }
+          project_id: { type: "string", description: "UUID do projeto" }
+        },
+        required: ["project_id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_project_task",
+      description: "Atualiza uma subtarefa de projeto (marcar como concluída ou alterar título). IMPORTANTE: O ID deve ser um UUID real obtido de list_project_tasks.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID da subtarefa" },
+          title: { type: "string", description: "Novo título" },
+          completed: { type: "boolean", description: "Marcar como concluída" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_project_task",
+      description: "Exclui uma subtarefa de um projeto. IMPORTANTE: O ID deve ser um UUID real obtido de list_project_tasks. NUNCA use IDs fictícios.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID da subtarefa (obtenha de list_project_tasks primeiro)" }
         },
         required: ["id"]
       }
@@ -483,7 +586,7 @@ const tools = [
     type: "function",
     function: {
       name: "list_journal_entries",
-      description: "Lista as entradas do diário",
+      description: "Lista as entradas do diário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar ou excluir entradas.",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -491,11 +594,11 @@ const tools = [
     type: "function",
     function: {
       name: "update_journal_entry",
-      description: "Atualiza uma entrada do diário",
+      description: "Atualiza uma entrada do diário. IMPORTANTE: O ID deve ser um UUID real obtido de list_journal_entries. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da entrada" },
+          id: { type: "string", description: "UUID da entrada (obtenha de list_journal_entries primeiro)" },
           content: { type: "string", description: "Novo conteúdo" },
           mood: { type: "string", description: "Novo humor" },
           tags: { type: "array", items: { type: "string" }, description: "Novas tags" }
@@ -508,11 +611,11 @@ const tools = [
     type: "function",
     function: {
       name: "delete_journal_entry",
-      description: "Exclui uma entrada do diário",
+      description: "Exclui uma entrada do diário. IMPORTANTE: O ID deve ser um UUID real obtido de list_journal_entries. NUNCA use IDs fictícios.",
       parameters: {
         type: "object",
         properties: {
-          id: { type: "string", description: "ID da entrada a excluir" }
+          id: { type: "string", description: "UUID da entrada (obtenha de list_journal_entries primeiro)" }
         },
         required: ["id"]
       }
@@ -543,6 +646,61 @@ const tools = [
   }
 ];
 
+// Helper function to calculate habit streak
+async function calculateHabitStreak(supabaseAdmin: any, habitId: string, userId: string) {
+  const { data: logs } = await supabaseAdmin
+    .from("habit_logs")
+    .select("completed_at")
+    .eq("habit_id", habitId)
+    .eq("user_id", userId)
+    .order("completed_at", { ascending: false });
+
+  if (!logs || logs.length === 0) {
+    return { current_streak: 0, best_streak: 0 };
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let currentStreak = 0;
+  let bestStreak = 0;
+  let tempStreak = 0;
+  let lastDate: Date | null = null;
+
+  for (const log of logs) {
+    const logDate = new Date(log.completed_at);
+    logDate.setHours(0, 0, 0, 0);
+
+    if (!lastDate) {
+      // First log
+      const diffFromToday = Math.floor((today.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (diffFromToday <= 1) {
+        tempStreak = 1;
+        currentStreak = 1;
+      }
+      lastDate = logDate;
+      continue;
+    }
+
+    const diff = Math.floor((lastDate.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diff === 1) {
+      tempStreak++;
+      if (currentStreak > 0) currentStreak++;
+    } else {
+      bestStreak = Math.max(bestStreak, tempStreak);
+      tempStreak = 1;
+      currentStreak = 0;
+    }
+    
+    lastDate = logDate;
+  }
+
+  bestStreak = Math.max(bestStreak, tempStreak);
+
+  return { current_streak: currentStreak, best_streak: bestStreak };
+}
+
 async function executeTool(supabaseAdmin: any, userId: string, toolName: string, args: any) {
   console.log(`Executing tool: ${toolName}`, args);
 
@@ -564,9 +722,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     case "list_tasks": {
       let query = supabaseAdmin.from("tasks").select("*").eq("user_id", userId);
       if (args.status) query = query.eq("status", args.status);
-      const { data, error } = await query.order("created_at", { ascending: false }).limit(10);
+      const { data, error } = await query.order("created_at", { ascending: false }).limit(20);
       if (error) throw error;
-      return { tasks: data };
+      return { tasks: data, message: `${data.length} tarefas encontradas. Use os IDs (UUIDs) acima para editar ou excluir.` };
     }
 
     case "update_task": {
@@ -587,6 +745,12 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { success: true, message: "Tarefa excluída com sucesso" };
     }
 
+    case "complete_task": {
+      const { data, error } = await supabaseAdmin.from("tasks").update({ status: "done" }).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, task: data, message: `Tarefa "${data.title}" marcada como concluída!` };
+    }
+
     // HABITS
     case "create_habit": {
       const { data, error } = await supabaseAdmin.from("habits").insert({
@@ -603,7 +767,23 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     case "list_habits": {
       const { data, error } = await supabaseAdmin.from("habits").select("*").eq("user_id", userId).order("created_at", { ascending: false });
       if (error) throw error;
-      return { habits: data };
+      
+      // Get today's logs for each habit
+      const today = new Date().toISOString().split("T")[0];
+      const { data: todayLogs } = await supabaseAdmin
+        .from("habit_logs")
+        .select("habit_id")
+        .eq("user_id", userId)
+        .eq("completed_at", today);
+      
+      const completedToday = new Set(todayLogs?.map((l: any) => l.habit_id) || []);
+      
+      const habitsWithStatus = data.map((h: any) => ({
+        ...h,
+        completed_today: completedToday.has(h.id)
+      }));
+      
+      return { habits: habitsWithStatus, message: `${data.length} hábitos encontrados. Use os IDs (UUIDs) acima para editar, excluir ou marcar como feito.` };
     }
 
     case "update_habit": {
@@ -625,6 +805,77 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { success: true, message: "Hábito excluído com sucesso" };
     }
 
+    case "log_habit_completion": {
+      const completedDate = args.completed_at || new Date().toISOString().split("T")[0];
+      
+      // Check if already logged for this day
+      const { data: existing } = await supabaseAdmin
+        .from("habit_logs")
+        .select("id")
+        .eq("habit_id", args.habit_id)
+        .eq("user_id", userId)
+        .eq("completed_at", completedDate)
+        .maybeSingle();
+        
+      if (existing) {
+        return { success: true, message: `Hábito já estava marcado como concluído em ${completedDate}` };
+      }
+      
+      const { data, error } = await supabaseAdmin.from("habit_logs").insert({
+        user_id: userId,
+        habit_id: args.habit_id,
+        completed_at: completedDate
+      }).select().single();
+      
+      if (error) throw error;
+      
+      // Update streak
+      const streakData = await calculateHabitStreak(supabaseAdmin, args.habit_id, userId);
+      await supabaseAdmin.from("habits").update(streakData).eq("id", args.habit_id);
+      
+      // Get habit name
+      const { data: habit } = await supabaseAdmin.from("habits").select("title").eq("id", args.habit_id).single();
+      
+      return { success: true, log: data, message: `Hábito "${habit?.title}" marcado como feito em ${completedDate}! 💪` };
+    }
+
+    case "remove_habit_completion": {
+      const completedDate = args.completed_at || new Date().toISOString().split("T")[0];
+      
+      const { error } = await supabaseAdmin
+        .from("habit_logs")
+        .delete()
+        .eq("habit_id", args.habit_id)
+        .eq("user_id", userId)
+        .eq("completed_at", completedDate);
+        
+      if (error) throw error;
+      
+      // Update streak
+      const streakData = await calculateHabitStreak(supabaseAdmin, args.habit_id, userId);
+      await supabaseAdmin.from("habits").update(streakData).eq("id", args.habit_id);
+      
+      return { success: true, message: `Conclusão do hábito removida para ${completedDate}` };
+    }
+
+    case "list_habit_logs": {
+      const days = args.days || 7;
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+      
+      const { data, error } = await supabaseAdmin
+        .from("habit_logs")
+        .select("*")
+        .eq("habit_id", args.habit_id)
+        .eq("user_id", userId)
+        .gte("completed_at", startDate.toISOString().split("T")[0])
+        .order("completed_at", { ascending: false });
+        
+      if (error) throw error;
+      
+      return { logs: data, message: `${data.length} conclusões nos últimos ${days} dias` };
+    }
+
     // REMINDERS
     case "create_reminder": {
       const { data, error } = await supabaseAdmin.from("reminders").insert({
@@ -641,9 +892,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     case "list_reminders": {
       let query = supabaseAdmin.from("reminders").select("*").eq("user_id", userId);
       if (!args.include_completed) query = query.eq("is_completed", false);
-      const { data, error } = await query.order("remind_at", { ascending: true }).limit(10);
+      const { data, error } = await query.order("remind_at", { ascending: true }).limit(20);
       if (error) throw error;
-      return { reminders: data };
+      return { reminders: data, message: `${data.length} lembretes encontrados. Use os IDs (UUIDs) acima para editar, excluir ou concluir.` };
     }
 
     case "update_reminder": {
@@ -656,13 +907,21 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
 
       const { data, error } = await supabaseAdmin.from("reminders").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
-      return { success: true, reminder: data };
+      
+      const statusMsg = args.is_completed === false ? "voltou para pendente" : (args.is_completed === true ? "foi concluído" : "foi atualizado");
+      return { success: true, reminder: data, message: `Lembrete "${data.title}" ${statusMsg}!` };
     }
 
     case "delete_reminder": {
       const { error } = await supabaseAdmin.from("reminders").delete().eq("id", args.id).eq("user_id", userId);
       if (error) throw error;
       return { success: true, message: "Lembrete excluído com sucesso" };
+    }
+
+    case "complete_reminder": {
+      const { data, error } = await supabaseAdmin.from("reminders").update({ is_completed: true }).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, reminder: data, message: `Lembrete "${data.title}" marcado como concluído! ✅` };
     }
 
     // TRANSACTIONS
@@ -683,14 +942,14 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     case "update_transaction": {
       const updateData: any = {};
       if (args.title) updateData.title = args.title;
-      if (args.amount) updateData.amount = args.amount;
+      if (args.amount !== undefined) updateData.amount = args.amount;
       if (args.type) updateData.type = args.type;
       if (args.category) updateData.category = args.category;
       if (args.payment_method) updateData.payment_method = args.payment_method;
 
       const { data, error } = await supabaseAdmin.from("transactions").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
-      return { success: true, transaction: data };
+      return { success: true, transaction: data, message: `Transação "${data.title}" atualizada!` };
     }
 
     case "delete_transaction": {
@@ -702,9 +961,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     case "list_transactions": {
       let query = supabaseAdmin.from("transactions").select("*").eq("user_id", userId);
       if (args.type) query = query.eq("type", args.type);
-      const { data, error } = await query.order("transaction_date", { ascending: false }).limit(args.limit || 10);
+      const { data, error } = await query.order("transaction_date", { ascending: false }).limit(args.limit || 20);
       if (error) throw error;
-      return { transactions: data };
+      return { transactions: data, message: `${data.length} transações encontradas. Use os IDs (UUIDs) acima para editar ou excluir.` };
     }
 
     case "get_finance_summary": {
@@ -740,7 +999,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
 
       const { data, error } = await supabaseAdmin.from("accounts").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
-      return { success: true, account: data };
+      return { success: true, account: data, message: `Conta "${data.name}" atualizada!` };
     }
 
     case "delete_account": {
@@ -753,7 +1012,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       const { data, error } = await supabaseAdmin.from("accounts").select("*").eq("user_id", userId).order("created_at", { ascending: true });
       if (error) throw error;
       const totalBalance = data.reduce((sum: number, a: any) => sum + Number(a.balance), 0);
-      return { accounts: data, totalBalance };
+      return { accounts: data, totalBalance, message: `${data.length} contas encontradas. Use os IDs (UUIDs) acima para editar ou excluir.` };
     }
 
     // NOTES
@@ -768,9 +1027,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     case "list_notes": {
-      const { data, error } = await supabaseAdmin.from("notes").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(10);
+      const { data, error } = await supabaseAdmin.from("notes").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20);
       if (error) throw error;
-      return { notes: data };
+      return { notes: data, message: `${data.length} notas encontradas. Use os IDs (UUIDs) acima para editar ou excluir.` };
     }
 
     case "update_note": {
@@ -805,7 +1064,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     case "list_projects": {
       const { data, error } = await supabaseAdmin.from("projects").select("*").eq("user_id", userId).order("created_at", { ascending: false });
       if (error) throw error;
-      return { projects: data };
+      return { projects: data, message: `${data.length} projetos encontrados. Use os IDs (UUIDs) acima para editar, excluir ou adicionar subtarefas.` };
     }
 
     case "update_project": {
@@ -816,7 +1075,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
 
       const { data, error } = await supabaseAdmin.from("projects").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
-      return { success: true, project: data };
+      return { success: true, project: data, message: `Projeto "${data.title}" atualizado!` };
     }
 
     case "delete_project": {
@@ -835,6 +1094,22 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       }).select().single();
       if (error) throw error;
       return { success: true, task: data };
+    }
+
+    case "list_project_tasks": {
+      const { data, error } = await supabaseAdmin.from("project_tasks").select("*").eq("project_id", args.project_id).eq("user_id", userId).order("created_at", { ascending: true });
+      if (error) throw error;
+      return { tasks: data, message: `${data.length} subtarefas encontradas. Use os IDs (UUIDs) acima para editar ou excluir.` };
+    }
+
+    case "update_project_task": {
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title;
+      if (args.completed !== undefined) updateData.completed = args.completed;
+
+      const { data, error } = await supabaseAdmin.from("project_tasks").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, task: data, message: args.completed ? `Subtarefa "${data.title}" concluída! ✅` : `Subtarefa "${data.title}" atualizada!` };
     }
 
     case "delete_project_task": {
@@ -856,9 +1131,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     case "list_journal_entries": {
-      const { data, error } = await supabaseAdmin.from("journal_entries").select("*").eq("user_id", userId).order("entry_date", { ascending: false }).limit(10);
+      const { data, error } = await supabaseAdmin.from("journal_entries").select("*").eq("user_id", userId).order("entry_date", { ascending: false }).limit(20);
       if (error) throw error;
-      return { entries: data };
+      return { entries: data, message: `${data.length} entradas encontradas. Use os IDs (UUIDs) acima para editar ou excluir.` };
     }
 
     case "update_journal_entry": {
@@ -904,7 +1179,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     default:
-      return { error: "Tool não reconhecida" };
+      return { error: `Tool "${toolName}" não reconhecida` };
   }
 }
 
@@ -955,8 +1230,7 @@ ${userContext ? `MEMÓRIA PESSOAL DO(A) ${userName.toUpperCase()}:
 ${userContext}
 
 Use este contexto para personalizar TODAS as suas respostas. Referencie informações específicas quando relevante.
-` : ""}
-SUA MISSÃO:
+` : ""}SUA MISSÃO:
 1. Identificar lacunas críticas específicas que estejam impedindo o avanço do ${userName}
 2. Projetar planos de ação altamente personalizados
 3. Empurrar ativamente além da zona de conforto com verdades duras
@@ -975,20 +1249,44 @@ FORMATO DE RESPOSTA:
 7. Termine com um desafio ou tarefa direta
 8. SEMPRE finalize com uma pergunta específica e estimulante para promover crescimento contínuo
 
+⚠️ REGRA CRÍTICA DE IDs (MUITO IMPORTANTE):
+- Todos os IDs no sistema são UUIDs no formato: "8ab82e89-4601-420e-b3f0-9494b9480b27"
+- NUNCA JAMAIS invente IDs como "1", "2", "3" ou qualquer número simples
+- SEMPRE que precisar editar, excluir, concluir ou atualizar QUALQUER item:
+  1. PRIMEIRO chame a função de listagem correspondente (list_tasks, list_habits, list_reminders, list_transactions, list_accounts, list_notes, list_projects, list_journal_entries)
+  2. Identifique o item correto pelo título/descrição no resultado retornado
+  3. Use o UUID REAL retornado na listagem
+- Se o usuário mencionar um item pelo nome, SEMPRE liste primeiro para obter o UUID correto
+- Se não encontrar o item, informe ao usuário que não foi encontrado
+
 FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
-- Tarefas: criar, listar, editar, excluir
-- Hábitos: criar, listar, editar, excluir
-- Lembretes: criar, listar, editar (incluindo voltar para pendente), excluir
+- Tarefas: criar, listar, editar, excluir, concluir (complete_task)
+- Hábitos: criar, listar, editar, excluir, marcar como feito (log_habit_completion), desmarcar (remove_habit_completion), ver histórico (list_habit_logs)
+- Lembretes: criar, listar, editar (incluindo voltar para pendente com is_completed: false), excluir, concluir (complete_reminder)
 - Transações: criar, listar, editar, excluir (com forma de pagamento: PIX, Débito ou Crédito)
 - Contas bancárias: criar, listar, editar, excluir
 - Notas: criar, listar, editar, excluir
 - Projetos: criar, listar, editar, excluir
-- Subtarefas de projetos: criar, excluir
+- Subtarefas de projetos: criar, listar (list_project_tasks), editar (update_project_task), excluir
 - Diário: criar, listar, editar, excluir
 - Contexto pessoal: atualizar
 - Reset completo: excluir todos os dados
 
-Quando ${userName} pedir para criar, editar, excluir ou consultar qualquer item, use as ferramentas apropriadas. Confirme sempre a ação executada com detalhes.
+EXEMPLOS DE USO CORRETO:
+- Usuário: "marca o hábito de flexões como feito"
+  → Primeiro: chame list_habits
+  → Encontre o hábito "Flexões" e pegue seu UUID (ex: "abc123...")
+  → Depois: chame log_habit_completion com habit_id: "abc123..."
+
+- Usuário: "conclui a tarefa da reunião"
+  → Primeiro: chame list_tasks
+  → Encontre a tarefa sobre reunião e pegue seu UUID
+  → Depois: chame complete_task com o UUID
+
+- Usuário: "exclui a despesa do almoço"
+  → Primeiro: chame list_transactions
+  → Encontre a transação do almoço e pegue seu UUID
+  → Depois: chame delete_transaction com o UUID
 
 GUIE O USUÁRIO CORRETAMENTE:
 - Se o usuário fornecer informações incompletas, pergunte o que falta antes de executar
