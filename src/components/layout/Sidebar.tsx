@@ -56,7 +56,7 @@ const NavContent = ({
       <div className="p-6 border-b border-border flex items-center gap-3 bg-sidebar-border">
         <img src={axiomLogo} alt="Axiom" className="w-8 h-8 object-contain" />
         <div>
-          <h1 className="text-xl font-bold text-primary">Axiom</h1>
+          <h1 className="text-xl font-bold text-secondary-foreground">Axiom</h1>
           <p className="text-xs text-primary-foreground">Consultor Estratégico Pessoal</p>
         </div>
       </div>
