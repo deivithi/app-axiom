@@ -74,7 +74,7 @@ export default function Auth() {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-wide text-primary">AXIOM</h1>
-            <p className="text-sm text-muted-foreground">Seu Consultor Estratégico Pessoal</p>
+            <p className="text-sm text-primary-foreground">Seu Consultor Estratégico Pessoal</p>
           </div>
         </CardHeader>
         <CardContent>
