@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import axiomLogo from '@/assets/axiom-logo.png';
 
 const navItems = [
   { icon: MessageSquare, label: 'Chat IA', path: '/chat' },
@@ -26,9 +27,7 @@ const NavContent = ({ onClose }: { onClose?: () => void }) => {
     <div className="flex flex-col h-full bg-sidebar">
       {/* Header centralizado estilo Néctar */}
       <div className="p-6 text-center border-b border-border/30">
-        <div className="w-14 h-14 mx-auto mb-3 rounded-full border-2 border-primary flex items-center justify-center">
-          <span className="font-orbitron text-2xl font-bold text-primary">A</span>
-        </div>
+        <img src={axiomLogo} alt="Axiom Logo" className="w-14 h-14 mx-auto mb-3" />
         <h1 className="font-orbitron text-xl font-semibold tracking-wider text-foreground">
           Axiom
         </h1>
