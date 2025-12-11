@@ -1,10 +1,11 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { MessageSquare, CheckSquare, Target, FolderKanban, Bell, Wallet, BookOpen, Brain, Settings, LogOut, Menu, User, Sun, RefreshCw } from 'lucide-react';
+import { MessageSquare, CheckSquare, Target, FolderKanban, Bell, Wallet, BookOpen, Brain, Settings, LogOut, Menu, User, Sun, Moon, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useTheme } from 'next-themes';
 import axiomLogo from '@/assets/axiom-logo.png';
 
 const navItems = [
@@ -21,7 +22,27 @@ const navItems = [
 
 const NavContent = ({ onClose }: { onClose?: () => void }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { signOut } = useAuth();
+  const { theme, setTheme } = useTheme();
+
+  const handleUserClick = () => {
+    navigate('/settings');
+    onClose?.();
+  };
+
+  const handleThemeToggle = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  const handleBellClick = () => {
+    navigate('/reminders');
+    onClose?.();
+  };
+
+  const handleRefresh = () => {
+    window.location.reload();
+  };
 
   return (
     <div className="flex flex-col h-full bg-sidebar">
@@ -63,16 +84,40 @@ const NavContent = ({ onClose }: { onClose?: () => void }) => {
 
       {/* Bottom bar com ícones utilitários */}
       <div className="p-4 border-t border-border/30 flex justify-around items-center">
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="text-muted-foreground hover:text-foreground"
+          onClick={handleUserClick}
+          title="Configurações"
+        >
           <User className="h-5 w-5" />
         </Button>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-          <Sun className="h-5 w-5" />
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="text-muted-foreground hover:text-foreground"
+          onClick={handleThemeToggle}
+          title="Alternar tema"
+        >
+          {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
         </Button>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="text-muted-foreground hover:text-foreground"
+          onClick={handleBellClick}
+          title="Lembretes"
+        >
           <Bell className="h-5 w-5" />
         </Button>
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="text-muted-foreground hover:text-foreground"
+          onClick={handleRefresh}
+          title="Atualizar"
+        >
           <RefreshCw className="h-5 w-5" />
         </Button>
         <Button 
@@ -80,6 +125,7 @@ const NavContent = ({ onClose }: { onClose?: () => void }) => {
           size="icon" 
           className="text-muted-foreground hover:text-destructive"
           onClick={signOut}
+          title="Sair"
         >
           <LogOut className="h-5 w-5" />
         </Button>
