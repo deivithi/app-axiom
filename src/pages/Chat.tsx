@@ -304,9 +304,9 @@ export default function Chat() {
     <AppLayout>
       <div className="flex flex-col h-screen">
         <header className="p-4 border-b border-border">
-          <h1 className="text-xl font-semibold">Chat com Jarvis</h1>
+          <h1 className="text-xl font-semibold">Chat com Axiom</h1>
           <p className="text-sm text-muted-foreground">
-            Seu assistente pessoal - pode criar tarefas, lembretes, registrar finanças e mais
+            Seu consultor estratégico pessoal - pode criar tarefas, lembretes, registrar finanças e mais
           </p>
         </header>
 
@@ -318,7 +318,7 @@ export default function Chat() {
               </div>
             ) : messages.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
-                <p className="text-lg font-medium">Olá! Sou o Jarvis</p>
+                <p className="text-lg font-medium">Olá! Sou o Axiom</p>
                 <p className="text-sm mt-2">Como posso te ajudar hoje?</p>
                 <div className="mt-6 text-left max-w-md mx-auto bg-card rounded-lg p-4 space-y-2">
                   <p className="text-xs font-medium text-foreground">Experimente:</p>

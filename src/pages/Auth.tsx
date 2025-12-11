@@ -4,11 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import axiomLogo from '@/assets/axiom-logo.png';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -57,7 +58,7 @@ export default function Auth() {
     } else {
       toast({
         title: 'Conta criada com sucesso!',
-        description: 'Bem-vindo ao Jarvis Henrique LifeOS',
+        description: 'Bem-vindo ao Axiom',
       });
       navigate('/chat');
     }
@@ -71,9 +72,18 @@ export default function Auth() {
         <ThemeToggle />
       </div>
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl text-primary">Jarvis Henrique</CardTitle>
-          <CardDescription>LifeOS - Seu assistente pessoal</CardDescription>
+        <CardHeader className="text-center space-y-4">
+          <div className="flex justify-center">
+            <img 
+              src={axiomLogo} 
+              alt="Axiom Logo" 
+              className="w-24 h-24 object-contain"
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-wide text-primary">AXIOM</h1>
+            <p className="text-sm text-muted-foreground">Personal AI Governance</p>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
