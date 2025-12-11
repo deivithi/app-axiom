@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
@@ -426,28 +427,51 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+    if (!OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY is not configured');
     }
 
-    // Get user ID from auth header
+    // Get user ID and profile from auth header
     const authHeader = req.headers.get('Authorization');
     let userId = null;
+    let userName = 'usuário';
     
     if (authHeader && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
       const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const token = authHeader.replace('Bearer ', '');
       const { data: { user } } = await supabaseAdmin.auth.getUser(token);
       userId = user?.id;
+      
+      // Get user profile name
+      if (userId) {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .single();
+        
+        if (profile?.full_name) {
+          userName = profile.full_name;
+        } else if (user?.email) {
+          // Fallback to email name part
+          userName = user.email.split('@')[0];
+        }
+      }
     }
 
-    console.log('Sending request to Lovable AI Gateway with', messages.length, 'messages');
+    console.log('User name:', userName);
+    console.log('Sending request to OpenAI with', messages.length, 'messages');
 
-    const systemPrompt = `Você é Jarvis, um assistente pessoal inteligente e prestativo do Henrique.
+    const systemPrompt = `Você é Jarvis, um assistente pessoal inteligente e prestativo do(a) ${userName}.
+
+INFORMAÇÕES DO USUÁRIO:
+- Nome: ${userName}
+- Sempre se refira ao usuário pelo nome quando apropriado
+- Seja pessoal e amigável, como um assistente dedicado
 
 VOCÊ TEM FERRAMENTAS DISPONÍVEIS para executar ações no sistema:
 - Criar tarefas, hábitos, lembretes, projetos
@@ -462,6 +486,7 @@ REGRAS IMPORTANTES:
 3. Quando o usuário quiser saber suas tarefas, USE list_tasks
 4. SEMPRE confirme a ação executada com detalhes
 5. Seja proativo e ofereça ajuda adicional
+6. Use o nome do usuário (${userName}) de forma natural na conversa
 
 FORMATOS DE DATA:
 - Para due_date e transaction_date: use formato YYYY-MM-DD
@@ -469,30 +494,32 @@ FORMATOS DE DATA:
 - "Amanhã" = data de amanhã
 - "Hoje" = data de hoje
 
+Data atual: ${new Date().toISOString().split('T')[0]}
+
 Responda sempre em português brasileiro.
 Seja amigável, direto e ofereça sugestões práticas.`;
 
     // First call: get AI response (possibly with tool calls)
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
         ],
-        tools: userId ? tools : undefined, // Only include tools if user is authenticated
+        tools: userId ? tools : undefined,
         tool_choice: userId ? 'auto' : undefined,
       }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
+      console.error('OpenAI API error:', response.status, errorText);
       
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns segundos.' }), {
@@ -501,9 +528,9 @@ Seja amigável, direto e ofereça sugestões práticas.`;
         });
       }
       
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: 'Créditos insuficientes. Adicione mais créditos ao seu workspace.' }), {
-          status: 402,
+      if (response.status === 401) {
+        return new Response(JSON.stringify({ error: 'Chave da API OpenAI inválida.' }), {
+          status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -515,7 +542,7 @@ Seja amigável, direto e ofereça sugestões práticas.`;
     }
 
     const aiResponse = await response.json();
-    console.log('AI Response:', JSON.stringify(aiResponse, null, 2));
+    console.log('OpenAI Response:', JSON.stringify(aiResponse, null, 2));
 
     const assistantMessage = aiResponse.choices?.[0]?.message;
     const toolCalls = assistantMessage?.tool_calls;
@@ -548,14 +575,14 @@ Seja amigável, direto e ofereça sugestões práticas.`;
         ...toolResults
       ];
       
-      const finalResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      const finalResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          model: 'gpt-4o-mini',
           messages: messagesWithTools,
           stream: true,
         }),
@@ -578,15 +605,14 @@ Seja amigável, direto e ofereça sugestões práticas.`;
     }
     
     // No tool calls, return streaming response directly
-    // Re-fetch with streaming
-    const streamResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    const streamResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
           ...messages,
