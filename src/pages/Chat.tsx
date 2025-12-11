@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -14,6 +14,13 @@ interface Message {
   content: string;
   is_ai: boolean;
   created_at: string;
+}
+
+interface ExecutedAction {
+  success: boolean;
+  action: string;
+  message: string;
+  data?: any;
 }
 
 export default function Chat() {
@@ -49,6 +56,30 @@ export default function Chat() {
     setLoadingMessages(false);
   };
 
+  const showActionToast = (actions: ExecutedAction[]) => {
+    actions.forEach((action) => {
+      if (action.success) {
+        const actionLabels: Record<string, string> = {
+          create_task: '✅ Tarefa criada',
+          create_habit: '🎯 Hábito criado',
+          create_reminder: '⏰ Lembrete criado',
+          create_transaction: '💰 Transação registrada',
+          create_note: '📝 Nota criada',
+          create_project: '📁 Projeto criado',
+          create_journal_entry: '📖 Diário atualizado',
+          list_tasks: '📋 Tarefas listadas',
+          list_reminders: '🔔 Lembretes listados',
+          get_finance_summary: '📊 Resumo financeiro',
+        };
+
+        toast({
+          title: actionLabels[action.action] || 'Ação executada',
+          description: action.message,
+        });
+      }
+    });
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
@@ -80,13 +111,17 @@ export default function Chat() {
     aiMessages.push({ role: 'user', content: userMessage });
 
     try {
+      // Get session for auth
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
           body: JSON.stringify({ messages: aiMessages }),
         }
@@ -95,6 +130,19 @@ export default function Chat() {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Erro ao processar mensagem');
+      }
+
+      // Check for executed actions in header
+      const executedActionsHeader = response.headers.get('X-Executed-Actions');
+      if (executedActionsHeader) {
+        try {
+          const executedActions: ExecutedAction[] = JSON.parse(executedActionsHeader);
+          if (executedActions.length > 0) {
+            showActionToast(executedActions);
+          }
+        } catch (e) {
+          console.error('Error parsing executed actions:', e);
+        }
       }
 
       const reader = response.body?.getReader();
@@ -177,7 +225,9 @@ export default function Chat() {
       <div className="flex flex-col h-screen">
         <header className="p-4 border-b border-border">
           <h1 className="text-xl font-semibold">Chat com Jarvis</h1>
-          <p className="text-sm text-muted-foreground">Seu assistente pessoal de IA</p>
+          <p className="text-sm text-muted-foreground">
+            Seu assistente pessoal - pode criar tarefas, lembretes, registrar finanças e mais
+          </p>
         </header>
 
         <ScrollArea className="flex-1 p-4">
@@ -189,7 +239,17 @@ export default function Chat() {
             ) : messages.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <p className="text-lg font-medium">Olá! Sou o Jarvis</p>
-                <p className="text-sm">Como posso te ajudar hoje?</p>
+                <p className="text-sm mt-2">Como posso te ajudar hoje?</p>
+                <div className="mt-6 text-left max-w-md mx-auto bg-card rounded-lg p-4 space-y-2">
+                  <p className="text-xs font-medium text-foreground">Experimente:</p>
+                  <ul className="text-xs space-y-1">
+                    <li>• "Cria uma tarefa para estudar React amanhã"</li>
+                    <li>• "Adiciona um lembrete para ligar pro banco às 14h"</li>
+                    <li>• "Registra uma despesa de R$ 50 em alimentação"</li>
+                    <li>• "Quanto gastei esse mês?"</li>
+                    <li>• "Quais são minhas tarefas pendentes?"</li>
+                  </ul>
+                </div>
               </div>
             ) : (
               messages.map((msg) => (
@@ -225,7 +285,7 @@ export default function Chat() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Digite sua mensagem..."
+              placeholder="Digite sua mensagem... (ex: cria uma tarefa para...)"
               className="pr-12 min-h-[48px] max-h-32 resize-none"
               rows={1}
             />
