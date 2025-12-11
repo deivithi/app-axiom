@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Trash2, Bell, Check, Clock } from 'lucide-react';
+import { Plus, Loader2, Trash2, Bell, Check, Clock, Pencil, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -46,6 +46,8 @@ export default function Reminders() {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [newReminder, setNewReminder] = useState({
     title: '',
     description: '',
@@ -105,14 +107,45 @@ export default function Reminders() {
     }
   };
 
+  const updateReminder = async () => {
+    if (!editingReminder) return;
+
+    const { error } = await supabase
+      .from('reminders')
+      .update({
+        title: editingReminder.title,
+        description: editingReminder.description,
+        remind_at: editingReminder.remind_at,
+        is_recurring: editingReminder.is_recurring,
+        recurrence_type: editingReminder.is_recurring ? editingReminder.recurrence_type : null,
+        category: editingReminder.category,
+      })
+      .eq('id', editingReminder.id);
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao atualizar lembrete', variant: 'destructive' });
+    } else {
+      toast({ title: 'Sucesso', description: 'Lembrete atualizado!' });
+      setEditDialogOpen(false);
+      setEditingReminder(null);
+      loadReminders();
+    }
+  };
+
   const toggleCompleted = async (id: string, completed: boolean) => {
     await supabase.from('reminders').update({ is_completed: completed }).eq('id', id);
+    toast({ title: completed ? 'Concluído!' : 'Voltou para pendente' });
     loadReminders();
   };
 
   const deleteReminder = async (id: string) => {
     await supabase.from('reminders').delete().eq('id', id);
     loadReminders();
+  };
+
+  const openEditDialog = (reminder: Reminder) => {
+    setEditingReminder({ ...reminder });
+    setEditDialogOpen(true);
   };
 
   const pendingReminders = reminders.filter((r) => !r.is_completed);
@@ -216,6 +249,90 @@ export default function Reminders() {
           </Dialog>
         </div>
 
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Lembrete</DialogTitle>
+            </DialogHeader>
+            {editingReminder && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Título</Label>
+                  <Input
+                    value={editingReminder.title}
+                    onChange={(e) => setEditingReminder({ ...editingReminder, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Descrição</Label>
+                  <Textarea
+                    value={editingReminder.description || ''}
+                    onChange={(e) => setEditingReminder({ ...editingReminder, description: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Data e hora</Label>
+                  <Input
+                    type="datetime-local"
+                    value={editingReminder.remind_at ? editingReminder.remind_at.slice(0, 16) : ''}
+                    onChange={(e) => setEditingReminder({ ...editingReminder, remind_at: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Categoria</Label>
+                  <Select
+                    value={editingReminder.category}
+                    onValueChange={(v: Reminder['category']) => setEditingReminder({ ...editingReminder, category: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="personal">Pessoal</SelectItem>
+                      <SelectItem value="work">Trabalho</SelectItem>
+                      <SelectItem value="health">Saúde</SelectItem>
+                      <SelectItem value="other">Outro</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Lembrete recorrente</Label>
+                  <Switch
+                    checked={editingReminder.is_recurring}
+                    onCheckedChange={(checked) =>
+                      setEditingReminder({ ...editingReminder, is_recurring: checked })
+                    }
+                  />
+                </div>
+                {editingReminder.is_recurring && (
+                  <div>
+                    <Label>Repetir</Label>
+                    <Select
+                      value={editingReminder.recurrence_type || 'daily'}
+                      onValueChange={(v: 'daily' | 'weekly' | 'monthly') =>
+                        setEditingReminder({ ...editingReminder, recurrence_type: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="daily">Diariamente</SelectItem>
+                        <SelectItem value="weekly">Semanalmente</SelectItem>
+                        <SelectItem value="monthly">Mensalmente</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <Button onClick={updateReminder} className="w-full">
+                  Salvar Alterações
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -265,14 +382,23 @@ export default function Reminders() {
                               </div>
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive"
-                            onClick={() => deleteReminder(reminder.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDialog(reminder)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              onClick={() => deleteReminder(reminder.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </CardContent>
                       </Card>
                     );
@@ -296,14 +422,31 @@ export default function Reminders() {
                           </div>
                           <span className="line-through">{reminder.title}</span>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive"
-                          onClick={() => deleteReminder(reminder.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => toggleCompleted(reminder.id, false)}
+                            title="Voltar para pendente"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(reminder)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive"
+                            onClick={() => deleteReminder(reminder.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

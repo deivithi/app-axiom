@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, GripVertical, Trash2 } from 'lucide-react';
+import { Plus, Loader2, GripVertical, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Task {
@@ -39,6 +39,8 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [newTask, setNewTask] = useState<{ title: string; description: string; priority: Task['priority'] }>({ title: '', description: '', priority: 'medium' });
   const { user } = useAuth();
   const { toast } = useToast();
@@ -82,6 +84,29 @@ export default function Tasks() {
     }
   };
 
+  const updateTask = async () => {
+    if (!editingTask) return;
+
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        title: editingTask.title,
+        description: editingTask.description,
+        priority: editingTask.priority,
+        status: editingTask.status,
+      })
+      .eq('id', editingTask.id);
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao atualizar tarefa', variant: 'destructive' });
+    } else {
+      toast({ title: 'Sucesso', description: 'Tarefa atualizada!' });
+      setEditDialogOpen(false);
+      setEditingTask(null);
+      loadTasks();
+    }
+  };
+
   const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
     const { error } = await supabase
       .from('tasks')
@@ -105,6 +130,11 @@ export default function Tasks() {
     } else {
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
     }
+  };
+
+  const openEditDialog = (task: Task) => {
+    setEditingTask({ ...task });
+    setEditDialogOpen(true);
   };
 
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
@@ -181,6 +211,68 @@ export default function Tasks() {
           </Dialog>
         </div>
 
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Tarefa</DialogTitle>
+            </DialogHeader>
+            {editingTask && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Título</Label>
+                  <Input
+                    value={editingTask.title}
+                    onChange={(e) => setEditingTask({ ...editingTask, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Descrição</Label>
+                  <Textarea
+                    value={editingTask.description || ''}
+                    onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Prioridade</Label>
+                  <Select
+                    value={editingTask.priority}
+                    onValueChange={(v) => setEditingTask({ ...editingTask, priority: v as Task['priority'] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Baixa</SelectItem>
+                      <SelectItem value="medium">Média</SelectItem>
+                      <SelectItem value="high">Alta</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select
+                    value={editingTask.status}
+                    onValueChange={(v) => setEditingTask({ ...editingTask, status: v as Task['status'] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todo">A Fazer</SelectItem>
+                      <SelectItem value="doing">Fazendo</SelectItem>
+                      <SelectItem value="done">Concluído</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button onClick={updateTask} className="w-full">
+                  Salvar Alterações
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -227,14 +319,24 @@ export default function Tasks() {
                               </Badge>
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 h-8 w-8 text-destructive"
-                            onClick={() => deleteTask(task.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => openEditDialog(task)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => deleteTask(task.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
