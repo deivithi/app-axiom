@@ -56,16 +56,16 @@ All colors MUST be HSL.
   }
 
   .dark {
-    /* ===== BASE LAYERS ===== */
-    --background: 240 10% 3.9%;
+    /* ===== BASE LAYERS (Azul Suave) ===== */
+    --background: 222 35% 5%;
     --foreground: 0 0% 98%;
 
     /* ===== CARDS (Elevação +1) ===== */
-    --card: 240 10% 7%;
+    --card: 222 30% 8%;
     --card-foreground: 0 0% 98%;
 
     /* ===== POPOVERS (Elevação +2) ===== */
-    --popover: 240 10% 10%;
+    --popover: 222 25% 11%;
     --popover-foreground: 0 0% 98%;
 
     /* ===== PRIMARY (Branding Violet) ===== */
@@ -94,13 +94,13 @@ All colors MUST be HSL.
     --ring: 263 70% 50%;
 
     /* ===== SIDEBAR ===== */
-    --sidebar-background: 240 10% 5%;
+    --sidebar-background: 222 35% 6%;
     --sidebar-foreground: 0 0% 95%;
     --sidebar-primary: 263 70% 50%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 263 40% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 6% 15%;
+    --sidebar-border: 222 20% 15%;
     --sidebar-ring: 263 70% 50%;
   }
 }
