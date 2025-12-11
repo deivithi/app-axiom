@@ -114,6 +114,27 @@ All colors MUST be HSL.
       0 8px 32px rgba(0, 0, 0, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
+
+  /* ===== STARRY BACKGROUND ===== */
+  .stars {
+    background-image: 
+      radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.4), transparent),
+      radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.6), transparent),
+      radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.5), transparent),
+      radial-gradient(2px 2px at 160px 120px, rgba(255,255,255,0.4), transparent),
+      radial-gradient(1px 1px at 200px 180px, rgba(255,255,255,0.3), transparent),
+      radial-gradient(2px 2px at 300px 250px, rgba(255,255,255,0.5), transparent),
+      radial-gradient(1px 1px at 350px 100px, rgba(255,255,255,0.4), transparent),
+      radial-gradient(2px 2px at 400px 200px, rgba(255,255,255,0.3), transparent);
+    background-repeat: repeat;
+    background-size: 450px 350px;
+    animation: twinkle 4s ease-in-out infinite;
+  }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
 }
 
 @layer base {
