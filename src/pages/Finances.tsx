@@ -220,18 +220,18 @@ export default function Finances() {
     loadTransactions();
   };
 
-  const payTransaction = async (id: string) => {
+  const payTransaction = async (id: string, type: string) => {
     const { error } = await supabase
       .from("transactions")
       .update({ is_paid: true })
       .eq("id", id);
 
     if (error) {
-      toast.error("Erro ao pagar transação");
+      toast.error(type === "income" ? "Erro ao marcar receita" : "Erro ao pagar transação");
       return;
     }
 
-    toast.success("Transação marcada como paga! ✅");
+    toast.success(type === "income" ? "Receita marcada como recebida! 💰" : "Transação marcada como paga! ✅");
     loadTransactions();
   };
 
@@ -711,7 +711,9 @@ export default function Finances() {
                     className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
                       transaction.is_paid 
                         ? "bg-muted/20 border-border/30" 
-                        : "bg-yellow-500/5 border-yellow-500/20"
+                        : transaction.type === "income"
+                          ? "bg-cyan-500/5 border-cyan-500/20"
+                          : "bg-yellow-500/5 border-yellow-500/20"
                     }`}
                   >
                     <div className="flex-1">
@@ -735,26 +737,27 @@ export default function Finances() {
                     
                     <div className="flex items-center gap-2">
                       {/* Status Badge */}
-                      {transaction.type === "expense" && (
-                        transaction.is_paid ? (
-                          <Badge 
-                            variant="outline" 
-                            className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 cursor-pointer hover:bg-emerald-500/20"
-                            onClick={() => unpayTransaction(transaction.id)}
-                            title="Clique para desfazer"
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            Pago
-                          </Badge>
-                        ) : (
-                          <Badge 
-                            variant="outline" 
-                            className="bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
-                          >
-                            <Clock className="h-3 w-3 mr-1" />
-                            Pendente
-                          </Badge>
-                        )
+                      {transaction.is_paid ? (
+                        <Badge 
+                          variant="outline" 
+                          className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 cursor-pointer hover:bg-emerald-500/20"
+                          onClick={() => unpayTransaction(transaction.id)}
+                          title="Clique para desfazer"
+                        >
+                          <Check className="h-3 w-3 mr-1" />
+                          {transaction.type === "income" ? "Recebido" : "Pago"}
+                        </Badge>
+                      ) : (
+                        <Badge 
+                          variant="outline" 
+                          className={transaction.type === "income" 
+                            ? "bg-cyan-500/10 text-cyan-500 border-cyan-500/30"
+                            : "bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
+                          }
+                        >
+                          <Clock className="h-3 w-3 mr-1" />
+                          Pendente
+                        </Badge>
                       )}
                       
                       {/* Amount */}
@@ -769,14 +772,14 @@ export default function Finances() {
                       </span>
                       
                       {/* Pay Button */}
-                      {transaction.type === "expense" && !transaction.is_paid && (
+                      {!transaction.is_paid && (
                         <Button
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                          onClick={() => payTransaction(transaction.id)}
+                          onClick={() => payTransaction(transaction.id, transaction.type)}
                         >
                           <Check className="h-4 w-4 mr-1" />
-                          Pagar
+                          {transaction.type === "income" ? "Receber" : "Pagar"}
                         </Button>
                       )}
                       
