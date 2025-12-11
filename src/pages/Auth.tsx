@@ -69,12 +69,9 @@ export default function Auth() {
         <ThemeToggle />
       </div>
       <Card className="w-full max-w-md relative z-10">
-        <CardHeader className="text-center space-y-4">
-          <img src={axiomLogo} alt="Axiom Logo" className="w-16 h-16 mx-auto" />
-          <div>
-            <h1 className="font-orbitron text-2xl font-bold tracking-wider text-primary">Axiom</h1>
-            <p className="text-sm text-muted-foreground">Seu assistente pessoal</p>
-          </div>
+        <CardHeader className="text-center space-y-2">
+          <img src={axiomLogo} alt="Axiom Logo" className="w-32 h-auto mx-auto object-contain" />
+          <p className="text-sm text-muted-foreground">Seu assistente pessoal</p>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">

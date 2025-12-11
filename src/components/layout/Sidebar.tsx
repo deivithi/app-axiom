@@ -25,13 +25,10 @@ const NavContent = ({ onClose }: { onClose?: () => void }) => {
 
   return (
     <div className="flex flex-col h-full bg-sidebar">
-      {/* Header centralizado estilo Néctar */}
-      <div className="p-6 text-center border-b border-border/30">
-        <img src={axiomLogo} alt="Axiom Logo" className="w-14 h-14 mx-auto mb-3" />
-        <h1 className="font-orbitron text-xl font-semibold tracking-wider text-foreground">
-          Axiom
-        </h1>
-        <p className="text-xs text-muted-foreground mt-1">Seu assistente pessoal</p>
+      {/* Header com logo oficial */}
+      <div className="p-4 text-center border-b border-border/30">
+        <img src={axiomLogo} alt="Axiom Logo" className="w-28 h-auto mx-auto mb-2 object-contain" />
+        <p className="text-xs text-muted-foreground">Seu assistente pessoal</p>
       </div>
       
       {/* Navigation com ícones circulares */}
