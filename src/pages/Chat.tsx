@@ -6,8 +6,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Send, Loader2, Mic, MicOff } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { UserMessage } from '@/components/chat/UserMessage';
+import { AxiomMessage } from '@/components/chat/AxiomMessage';
+import { AxiomTyping } from '@/components/chat/AxiomTyping';
 
 interface Message {
   id: string;
@@ -333,28 +335,22 @@ export default function Chat() {
               </div>
             ) : (
               messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    'max-w-[85%] rounded-2xl px-4 py-3',
-                    msg.is_ai
-                      ? 'bg-card mr-auto'
-                      : 'bg-primary text-primary-foreground ml-auto'
-                  )}
-                >
-                  <p className="whitespace-pre-wrap">{msg.content}</p>
-                </div>
+                msg.is_ai ? (
+                  <AxiomMessage 
+                    key={msg.id} 
+                    content={msg.content} 
+                    timestamp={msg.created_at} 
+                  />
+                ) : (
+                  <UserMessage 
+                    key={msg.id} 
+                    content={msg.content} 
+                    timestamp={msg.created_at} 
+                  />
+                )
               ))
             )}
-            {loading && (
-              <div className="bg-card max-w-[85%] rounded-2xl px-4 py-3 mr-auto">
-                <div className="flex gap-1">
-                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" />
-                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:0.1s]" />
-                  <span className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce [animation-delay:0.2s]" />
-                </div>
-              </div>
-            )}
+            {loading && <AxiomTyping />}
             <div ref={scrollRef} />
           </div>
         </ScrollArea>
