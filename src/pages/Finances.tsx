@@ -1,93 +1,127 @@
-import { useState, useEffect } from 'react';
-import { AppLayout } from '@/components/layout/AppLayout';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, TrendingUp, TrendingDown, Wallet, Trash2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { format, startOfMonth, endOfMonth } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { useState, useEffect } from "react";
+import { AppLayout } from "@/components/layout/AppLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface Transaction {
   id: string;
   title: string;
   amount: number;
-  type: 'income' | 'expense';
+  type: "income" | "expense";
   category: string;
   transaction_date: string;
   is_fixed: boolean;
   is_installment: boolean;
-  total_installments: number | null;
-  current_installment: number | null;
+  current_installment?: number;
+  total_installments?: number;
 }
 
-const categories = {
-  income: ['Salário', 'Freelance', 'Investimentos', 'Outros'],
-  expense: ['Alimentação', 'Transporte', 'Moradia', 'Lazer', 'Saúde', 'Educação', 'Outros'],
-};
+interface Account {
+  id: string;
+  name: string;
+  balance: number;
+  color: string;
+  icon: string;
+}
 
-const COLORS = ['hsl(var(--primary))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+const EXPENSE_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Compras", "Outros"];
+const INCOME_CATEGORIES = ["Salário", "Freelance", "Investimentos", "Vendas", "Outros"];
+const COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#6366F1", "#84CC16"];
+const ACCOUNT_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"];
+const ACCOUNT_ICONS = ["💳", "🏦", "💰", "💵", "🪙", "💎"];
 
 export default function Finances() {
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [newTransaction, setNewTransaction] = useState<{
-    title: string;
-    amount: string;
-    type: Transaction['type'];
-    category: string;
-    is_fixed: boolean;
-    is_installment: boolean;
-    total_installments: string;
-  }>({
-    title: '',
-    amount: '',
-    type: 'expense',
-    category: '',
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  
+  const [newTransaction, setNewTransaction] = useState({
+    title: "",
+    amount: "",
+    type: "expense" as "income" | "expense",
+    category: "",
     is_fixed: false,
     is_installment: false,
-    total_installments: '',
+    total_installments: ""
   });
-  const { user } = useAuth();
-  const { toast } = useToast();
+
+  const [newAccount, setNewAccount] = useState({
+    name: "",
+    balance: "",
+    color: ACCOUNT_COLORS[0],
+    icon: ACCOUNT_ICONS[0]
+  });
 
   useEffect(() => {
-    if (user) loadTransactions();
-  }, [user, currentMonth]);
-
-  const loadTransactions = async () => {
-    const start = startOfMonth(currentMonth);
-    const end = endOfMonth(currentMonth);
-
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .gte('transaction_date', format(start, 'yyyy-MM-dd'))
-      .lte('transaction_date', format(end, 'yyyy-MM-dd'))
-      .order('transaction_date', { ascending: false });
-
-    if (error) {
-      toast({ title: 'Erro', description: 'Erro ao carregar transações', variant: 'destructive' });
-    } else {
-      setTransactions((data || []) as Transaction[]);
+    if (user) {
+      loadData();
     }
+  }, [user, selectedMonth]);
+
+  const loadData = async () => {
+    setLoading(true);
+    await Promise.all([loadTransactions(), loadAccounts()]);
     setLoading(false);
   };
 
-  const createTransaction = async () => {
-    if (!newTransaction.title.trim() || !newTransaction.amount || !newTransaction.category) return;
+  const loadTransactions = async () => {
+    const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
+    const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
 
-    const { error } = await supabase.from('transactions').insert({
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("user_id", user?.id)
+      .gte("transaction_date", monthStart)
+      .lte("transaction_date", monthEnd)
+      .order("transaction_date", { ascending: false });
+
+    if (error) {
+      toast.error("Erro ao carregar transações");
+      return;
+    }
+    setTransactions((data || []) as Transaction[]);
+  };
+
+  const loadAccounts = async () => {
+    const { data, error } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("user_id", user?.id)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      toast.error("Erro ao carregar contas");
+      return;
+    }
+    setAccounts((data || []) as Account[]);
+  };
+
+  const createTransaction = async () => {
+    if (!newTransaction.title || !newTransaction.amount || !newTransaction.category) {
+      toast.error("Preencha todos os campos obrigatórios");
+      return;
+    }
+
+    const { error } = await supabase.from("transactions").insert({
       user_id: user?.id,
       title: newTransaction.title,
       amount: parseFloat(newTransaction.amount),
@@ -95,296 +129,550 @@ export default function Finances() {
       category: newTransaction.category,
       is_fixed: newTransaction.is_fixed,
       is_installment: newTransaction.is_installment,
-      total_installments: newTransaction.is_installment ? parseInt(newTransaction.total_installments) : null,
       current_installment: newTransaction.is_installment ? 1 : null,
+      total_installments: newTransaction.is_installment ? parseInt(newTransaction.total_installments) : null,
+      transaction_date: format(selectedMonth, "yyyy-MM-dd")
     });
 
     if (error) {
-      toast({ title: 'Erro', description: 'Erro ao criar transação', variant: 'destructive' });
-    } else {
-      toast({ title: 'Sucesso', description: 'Transação registrada!' });
-      setNewTransaction({
-        title: '',
-        amount: '',
-        type: 'expense',
-        category: '',
-        is_fixed: false,
-        is_installment: false,
-        total_installments: '',
-      });
-      setDialogOpen(false);
-      loadTransactions();
+      toast.error("Erro ao criar transação");
+      return;
     }
-  };
 
-  const deleteTransaction = async (id: string) => {
-    await supabase.from('transactions').delete().eq('id', id);
+    toast.success("Transação criada com sucesso!");
+    setIsDialogOpen(false);
+    setNewTransaction({
+      title: "",
+      amount: "",
+      type: "expense",
+      category: "",
+      is_fixed: false,
+      is_installment: false,
+      total_installments: ""
+    });
     loadTransactions();
   };
 
-  const income = transactions
-    .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+  const updateTransaction = async () => {
+    if (!editingTransaction) return;
 
-  const expenses = transactions
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+    const { error } = await supabase
+      .from("transactions")
+      .update({
+        title: editingTransaction.title,
+        amount: editingTransaction.amount,
+        type: editingTransaction.type,
+        category: editingTransaction.category,
+        is_fixed: editingTransaction.is_fixed,
+        is_installment: editingTransaction.is_installment,
+        current_installment: editingTransaction.is_installment ? editingTransaction.current_installment : null,
+        total_installments: editingTransaction.is_installment ? editingTransaction.total_installments : null
+      })
+      .eq("id", editingTransaction.id);
 
-  const balance = income - expenses;
+    if (error) {
+      toast.error("Erro ao atualizar transação");
+      return;
+    }
 
-  const expensesByCategory = transactions
-    .filter((t) => t.type === 'expense')
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
-      return acc;
-    }, {} as Record<string, number>);
+    toast.success("Transação atualizada!");
+    setIsEditDialogOpen(false);
+    setEditingTransaction(null);
+    loadTransactions();
+  };
 
-  const chartData = Object.entries(expensesByCategory).map(([name, value]) => ({
-    name,
-    value,
-  }));
+  const deleteTransaction = async (id: string) => {
+    const { error } = await supabase.from("transactions").delete().eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao excluir transação");
+      return;
+    }
+
+    toast.success("Transação excluída!");
+    loadTransactions();
+  };
+
+  const createAccount = async () => {
+    if (!newAccount.name || !newAccount.balance) {
+      toast.error("Preencha nome e saldo");
+      return;
+    }
+
+    const { error } = await supabase.from("accounts").insert({
+      user_id: user?.id,
+      name: newAccount.name,
+      balance: parseFloat(newAccount.balance),
+      color: newAccount.color,
+      icon: newAccount.icon
+    });
+
+    if (error) {
+      toast.error("Erro ao criar conta");
+      return;
+    }
+
+    toast.success("Conta criada!");
+    setIsAccountDialogOpen(false);
+    setNewAccount({ name: "", balance: "", color: ACCOUNT_COLORS[0], icon: ACCOUNT_ICONS[0] });
+    loadAccounts();
+  };
+
+  const totalIncome = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0);
+  const totalExpenses = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
+  const balance = totalIncome - totalExpenses;
+  const totalAccountBalance = accounts.reduce((sum, a) => sum + Number(a.balance), 0);
+
+  const expensesByCategory = EXPENSE_CATEGORIES.map(cat => ({
+    name: cat,
+    value: transactions.filter(t => t.type === "expense" && t.category === cat).reduce((sum, t) => sum + Number(t.amount), 0)
+  })).filter(item => item.value > 0);
+
+  const comparisonData = [
+    { name: "Receitas", value: totalIncome, fill: "#10B981" },
+    { name: "Despesas", value: totalExpenses, fill: "#EF4444" }
+  ];
+
+  const navigateMonth = (direction: "prev" | "next") => {
+    setSelectedMonth(prev => direction === "prev" ? subMonths(prev, 1) : addMonths(prev, 1));
+  };
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Finanças</h1>
-            <p className="text-muted-foreground">
-              {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-            </p>
+      <div className="p-4 md:p-6 space-y-6">
+        {/* Header com filtro de mês */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <h1 className="text-2xl font-bold text-foreground">Finanças</h1>
+          
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigateMonth("prev")}>
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-lg font-medium min-w-[160px] text-center capitalize">
+              {format(selectedMonth, "MMMM yyyy", { locale: ptBR })}
+            </span>
+            <Button variant="ghost" size="icon" onClick={() => navigateMonth("next")}>
+              <ChevronRight className="h-5 w-5" />
+            </Button>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Transação
-              </Button>
+              <Button><Plus className="h-4 w-4 mr-2" /> Nova Transação</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Nova Transação</DialogTitle>
               </DialogHeader>
               <div className="space-y-4">
-                <div>
-                  <Label>Tipo</Label>
-                  <Select
-                    value={newTransaction.type}
-                    onValueChange={(v) =>
-                      setNewTransaction({ ...newTransaction, type: v as Transaction['type'], category: '' })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="income">Receita</SelectItem>
-                      <SelectItem value="expense">Despesa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Descrição</Label>
-                  <Input
-                    value={newTransaction.title}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, title: e.target.value })}
+                <div className="space-y-2">
+                  <Label>Título</Label>
+                  <Input 
+                    value={newTransaction.title} 
+                    onChange={e => setNewTransaction(prev => ({ ...prev, title: e.target.value }))}
                     placeholder="Ex: Supermercado"
                   />
                 </div>
-                <div>
+                <div className="space-y-2">
                   <Label>Valor (R$)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
+                  <Input 
+                    type="number" 
                     value={newTransaction.amount}
-                    onChange={(e) => setNewTransaction({ ...newTransaction, amount: e.target.value })}
+                    onChange={e => setNewTransaction(prev => ({ ...prev, amount: e.target.value }))}
                     placeholder="0,00"
                   />
                 </div>
-                <div>
-                  <Label>Categoria</Label>
-                  <Select
-                    value={newTransaction.category}
-                    onValueChange={(v) => setNewTransaction({ ...newTransaction, category: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select value={newTransaction.type} onValueChange={(v: "income" | "expense") => setNewTransaction(prev => ({ ...prev, type: v, category: "" }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {categories[newTransaction.type].map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
-                        </SelectItem>
+                      <SelectItem value="expense">Despesa</SelectItem>
+                      <SelectItem value="income">Receita</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Categoria</Label>
+                  <Select value={newTransaction.category} onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label>Despesa fixa</Label>
-                  <Switch
-                    checked={newTransaction.is_fixed}
-                    onCheckedChange={(checked) =>
-                      setNewTransaction({ ...newTransaction, is_fixed: checked, is_installment: false })
-                    }
-                  />
+                  <Label>Despesa Fixa</Label>
+                  <Switch checked={newTransaction.is_fixed} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_fixed: v }))} />
                 </div>
                 <div className="flex items-center justify-between">
                   <Label>Parcelado</Label>
-                  <Switch
-                    checked={newTransaction.is_installment}
-                    onCheckedChange={(checked) =>
-                      setNewTransaction({ ...newTransaction, is_installment: checked, is_fixed: false })
-                    }
-                  />
+                  <Switch checked={newTransaction.is_installment} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_installment: v }))} />
                 </div>
                 {newTransaction.is_installment && (
-                  <div>
-                    <Label>Número de parcelas</Label>
-                    <Input
-                      type="number"
+                  <div className="space-y-2">
+                    <Label>Número de Parcelas</Label>
+                    <Input 
+                      type="number" 
                       value={newTransaction.total_installments}
-                      onChange={(e) =>
-                        setNewTransaction({ ...newTransaction, total_installments: e.target.value })
-                      }
+                      onChange={e => setNewTransaction(prev => ({ ...prev, total_installments: e.target.value }))}
                       placeholder="12"
                     />
                   </div>
                 )}
-                <Button onClick={createTransaction} className="w-full">
-                  Registrar
-                </Button>
               </div>
+              <DialogFooter>
+                <Button onClick={createTransaction}>Salvar</Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-emerald-500" />
-                    Receitas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
+        {/* Cards de Resumo com Emojis */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Card className="bg-emerald-500/10 border-emerald-500/30">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">💰</span>
+                <div>
+                  <p className="text-sm text-emerald-400 font-medium">Receitas</p>
                   <p className="text-2xl font-bold text-emerald-500">
-                    R$ {income.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    R$ {totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <TrendingDown className="h-4 w-4 text-destructive" />
-                    Despesas
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-2xl font-bold text-destructive">
-                    R$ {expenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Wallet className="h-4 w-4" />
-                    Saldo
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className={cn('text-2xl font-bold', balance >= 0 ? 'text-emerald-500' : 'text-destructive')}>
-                    R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {chartData.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Despesas por Categoria</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={250}>
-                      <PieChart>
-                        <Pie
-                          data={chartData}
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+          <Card className="bg-red-500/10 border-red-500/30">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">💸</span>
+                <div>
+                  <p className="text-sm text-red-400 font-medium">Despesas</p>
+                  <p className="text-2xl font-bold text-red-500">
+                    R$ {totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className={`${balance >= 0 ? "bg-violet-500/10 border-violet-500/30" : "bg-orange-500/10 border-orange-500/30"}`}>
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">🎯</span>
+                <div>
+                  <p className={`text-sm font-medium ${balance >= 0 ? "text-violet-400" : "text-orange-400"}`}>Saldo</p>
+                  <p className={`text-2xl font-bold ${balance >= 0 ? "text-violet-500" : "text-orange-500"}`}>
+                    R$ {balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Contas Bancárias */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5" /> Minhas Contas
+            </CardTitle>
+            <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline"><Plus className="h-4 w-4 mr-1" /> Nova Conta</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nova Conta</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Nome da Conta</Label>
+                    <Input 
+                      value={newAccount.name}
+                      onChange={e => setNewAccount(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Ex: Nubank"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Saldo Atual (R$)</Label>
+                    <Input 
+                      type="number"
+                      value={newAccount.balance}
+                      onChange={e => setNewAccount(prev => ({ ...prev, balance: e.target.value }))}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Ícone</Label>
+                    <div className="flex gap-2">
+                      {ACCOUNT_ICONS.map(icon => (
+                        <button
+                          key={icon}
+                          onClick={() => setNewAccount(prev => ({ ...prev, icon }))}
+                          className={`text-2xl p-2 rounded-lg ${newAccount.icon === icon ? "bg-primary/20 ring-2 ring-primary" : "bg-muted"}`}
                         >
-                          {chartData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: number) => `R$ ${value.toFixed(2)}`} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              )}
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Últimas Transações</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {transactions.length === 0 ? (
-                    <p className="text-center text-muted-foreground py-4">
-                      Nenhuma transação neste mês
-                    </p>
-                  ) : (
-                    transactions.slice(0, 10).map((t) => (
-                      <div
-                        key={t.id}
-                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium">{t.title}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {t.category}
-                            {t.is_fixed && ' • Fixa'}
-                            {t.is_installment && ` • ${t.current_installment}/${t.total_installments}`}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              'font-semibold',
-                              t.type === 'income' ? 'text-emerald-500' : 'text-destructive'
-                            )}
-                          >
-                            {t.type === 'income' ? '+' : '-'} R${' '}
-                            {Number(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => deleteTransaction(t.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                          {icon}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Cor</Label>
+                    <div className="flex gap-2">
+                      {ACCOUNT_COLORS.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => setNewAccount(prev => ({ ...prev, color }))}
+                          className={`w-8 h-8 rounded-full ${newAccount.color === color ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={createAccount}>Criar Conta</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            {accounts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">Nenhuma conta cadastrada</p>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {accounts.map(account => (
+                    <div
+                      key={account.id}
+                      className="p-4 rounded-xl border"
+                      style={{ borderColor: account.color + "50", backgroundColor: account.color + "10" }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">{account.icon}</span>
+                        <span className="font-medium truncate">{account.name}</span>
                       </div>
-                    ))
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </>
-        )}
+                      <p className="text-lg font-bold" style={{ color: account.color }}>
+                        R$ {Number(account.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
+                  <div className="flex items-center gap-2">
+                    <PiggyBank className="h-5 w-5 text-primary" />
+                    <span className="font-medium">Saldo Total</span>
+                  </div>
+                  <span className="text-xl font-bold text-primary">
+                    R$ {totalAccountBalance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Gráficos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Gráfico de Pizza - Despesas por Categoria */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Despesas por Categoria</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {expensesByCategory.length > 0 ? (
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={expensesByCategory}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={3}
+                      dataKey="value"
+                    >
+                      {expensesByCategory.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                      contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-muted-foreground text-center py-16">Sem despesas neste mês</p>
+              )}
+              {expensesByCategory.length > 0 && (
+                <div className="flex flex-wrap justify-center gap-3 mt-4">
+                  {expensesByCategory.map((cat, i) => (
+                    <div key={cat.name} className="flex items-center gap-1.5">
+                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                      <span className="text-xs text-muted-foreground">{cat.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Gráfico de Barras - Receitas x Despesas */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Receitas x Despesas</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={comparisonData} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis type="number" tickFormatter={v => `R$ ${(v / 1000).toFixed(0)}k`} />
+                  <YAxis type="category" dataKey="name" width={80} />
+                  <Tooltip 
+                    formatter={(value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                    contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }}
+                  />
+                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                    {comparisonData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Últimas Transações */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Últimas Transações</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {transactions.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">Nenhuma transação neste mês</p>
+            ) : (
+              <div className="space-y-3">
+                {transactions.slice(0, 10).map(transaction => (
+                  <div key={transaction.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                    <div className="flex-1">
+                      <p className="font-medium">{transaction.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {transaction.category}
+                        {transaction.is_installment && ` • ${transaction.current_installment}/${transaction.total_installments}`}
+                        {transaction.is_fixed && " • Fixa"}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className={`font-bold ${transaction.type === "income" ? "text-emerald-500" : "text-red-500"}`}>
+                        {transaction.type === "income" ? "+" : "-"}R$ {Number(transaction.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setEditingTransaction(transaction);
+                          setIsEditDialogOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteTransaction(transaction.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Dialog de Edição */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Transação</DialogTitle>
+            </DialogHeader>
+            {editingTransaction && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Título</Label>
+                  <Input 
+                    value={editingTransaction.title}
+                    onChange={e => setEditingTransaction(prev => prev ? { ...prev, title: e.target.value } : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Valor (R$)</Label>
+                  <Input 
+                    type="number"
+                    value={editingTransaction.amount}
+                    onChange={e => setEditingTransaction(prev => prev ? { ...prev, amount: parseFloat(e.target.value) || 0 } : null)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Tipo</Label>
+                  <Select 
+                    value={editingTransaction.type} 
+                    onValueChange={(v: "income" | "expense") => setEditingTransaction(prev => prev ? { ...prev, type: v } : null)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="expense">Despesa</SelectItem>
+                      <SelectItem value="income">Receita</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Categoria</Label>
+                  <Select 
+                    value={editingTransaction.category} 
+                    onValueChange={v => setEditingTransaction(prev => prev ? { ...prev, category: v } : null)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {(editingTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Despesa Fixa</Label>
+                  <Switch 
+                    checked={editingTransaction.is_fixed} 
+                    onCheckedChange={v => setEditingTransaction(prev => prev ? { ...prev, is_fixed: v } : null)} 
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={updateTransaction}>Salvar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   );

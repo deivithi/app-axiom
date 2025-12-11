@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounts: {
+        Row: {
+          balance: number
+          color: string
+          created_at: string
+          icon: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          color?: string
+          created_at?: string
+          icon?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       habit_logs: {
         Row: {
           completed_at: string
