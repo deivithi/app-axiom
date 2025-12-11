@@ -70,6 +70,16 @@ export default function Chat() {
           list_tasks: '📋 Tarefas listadas',
           list_reminders: '🔔 Lembretes listados',
           get_finance_summary: '📊 Resumo financeiro',
+          update_transaction: '✏️ Transação atualizada',
+          delete_transaction: '🗑️ Transação excluída',
+          create_account: '🏦 Conta criada',
+          update_account: '🏦 Conta atualizada',
+          list_accounts: '🏦 Contas listadas',
+          list_transactions: '💰 Transações listadas',
+          list_habits: '🎯 Hábitos listados',
+          list_notes: '📝 Notas listadas',
+          list_projects: '📁 Projetos listados',
+          list_journal_entries: '📖 Entradas listadas',
         };
 
         toast({
@@ -132,18 +142,7 @@ export default function Chat() {
         throw new Error(errorData.error || 'Erro ao processar mensagem');
       }
 
-      // Check for executed actions in header
-      const executedActionsHeader = response.headers.get('X-Executed-Actions');
-      if (executedActionsHeader) {
-        try {
-          const executedActions: ExecutedAction[] = JSON.parse(executedActionsHeader);
-          if (executedActions.length > 0) {
-            showActionToast(executedActions);
-          }
-        } catch (e) {
-          console.error('Error parsing executed actions:', e);
-        }
-      }
+      // Actions will be captured from stream
 
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
@@ -178,7 +177,10 @@ export default function Chat() {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
+            
+            // Accept edge function format OR OpenAI standard format
+            const content = parsed.content || parsed.choices?.[0]?.delta?.content;
+            
             if (content) {
               aiContent += content;
               setMessages((prev) =>
@@ -186,6 +188,13 @@ export default function Chat() {
                   m.id === tempAiId ? { ...m, content: aiContent } : m
                 )
               );
+            }
+            
+            // Capture executed actions from stream
+            if (parsed.actions && Array.isArray(parsed.actions)) {
+              parsed.actions.forEach((actionName: string) => {
+                showActionToast([{ success: true, action: actionName, message: 'Ação executada com sucesso' }]);
+              });
             }
           } catch {
             // Incomplete JSON, continue
