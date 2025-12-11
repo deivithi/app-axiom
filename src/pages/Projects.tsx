@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Loader2, Trash2, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Project {
@@ -48,6 +48,8 @@ export default function Projects() {
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
   const [newProject, setNewProject] = useState({ title: '', description: '' });
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -99,6 +101,27 @@ export default function Projects() {
     }
   };
 
+  const updateProject = async () => {
+    if (!editingProject) return;
+
+    const { error } = await supabase
+      .from('projects')
+      .update({
+        title: editingProject.title,
+        description: editingProject.description,
+      })
+      .eq('id', editingProject.id);
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao atualizar projeto', variant: 'destructive' });
+    } else {
+      toast({ title: 'Sucesso', description: 'Projeto atualizado!' });
+      setEditDialogOpen(false);
+      setEditingProject(null);
+      loadProjects();
+    }
+  };
+
   const updateProjectStatus = async (projectId: string, status: Project['status']) => {
     await supabase.from('projects').update({ status }).eq('id', projectId);
     loadProjects();
@@ -107,6 +130,11 @@ export default function Projects() {
   const deleteProject = async (projectId: string) => {
     await supabase.from('projects').delete().eq('id', projectId);
     loadProjects();
+  };
+
+  const openEditDialog = (project: Project) => {
+    setEditingProject({ ...project });
+    setEditDialogOpen(true);
   };
 
   const addProjectTask = async (projectId: string) => {
@@ -125,6 +153,12 @@ export default function Projects() {
 
   const toggleProjectTask = async (taskId: string, completed: boolean, projectId: string) => {
     await supabase.from('project_tasks').update({ completed }).eq('id', taskId);
+    loadProjectTasks();
+    updateProjectProgress(projectId);
+  };
+
+  const deleteProjectTask = async (taskId: string, projectId: string) => {
+    await supabase.from('project_tasks').delete().eq('id', taskId);
     loadProjectTasks();
     updateProjectProgress(projectId);
   };
@@ -186,6 +220,36 @@ export default function Projects() {
           </Dialog>
         </div>
 
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Projeto</DialogTitle>
+            </DialogHeader>
+            {editingProject && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Nome</Label>
+                  <Input
+                    value={editingProject.title}
+                    onChange={(e) => setEditingProject({ ...editingProject, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Descrição</Label>
+                  <Textarea
+                    value={editingProject.description || ''}
+                    onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                  />
+                </div>
+                <Button onClick={updateProject} className="w-full">
+                  Salvar Alterações
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -232,6 +296,13 @@ export default function Projects() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          onClick={() => openEditDialog(project)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="text-destructive"
                           onClick={() => deleteProject(project.id)}
                         >
@@ -257,16 +328,24 @@ export default function Projects() {
                     {isExpanded && (
                       <div className="mt-4 space-y-2">
                         {tasks.map((task) => (
-                          <div key={task.id} className="flex items-center gap-2">
+                          <div key={task.id} className="flex items-center gap-2 group">
                             <Checkbox
                               checked={task.completed}
                               onCheckedChange={(checked) =>
                                 toggleProjectTask(task.id, checked as boolean, project.id)
                               }
                             />
-                            <span className={cn(task.completed && 'line-through text-muted-foreground')}>
+                            <span className={cn('flex-1', task.completed && 'line-through text-muted-foreground')}>
                               {task.title}
                             </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 text-destructive"
+                              onClick={() => deleteProjectTask(task.id, project.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
                           </div>
                         ))}
                         <div className="flex gap-2 mt-3">

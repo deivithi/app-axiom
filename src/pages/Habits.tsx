@@ -9,9 +9,9 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Loader2, Flame, Check, Trash2 } from 'lucide-react';
+import { Plus, Loader2, Flame, Check, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface Habit {
@@ -34,6 +34,8 @@ export default function Habits() {
   const [logs, setLogs] = useState<HabitLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<Habit | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [newHabit, setNewHabit] = useState<{ title: string; frequency: Habit['frequency']; color: string }>({ title: '', frequency: 'daily', color: '#8B5CF6' });
   const { user } = useAuth();
@@ -93,6 +95,28 @@ export default function Habits() {
     }
   };
 
+  const updateHabit = async () => {
+    if (!editingHabit) return;
+
+    const { error } = await supabase
+      .from('habits')
+      .update({
+        title: editingHabit.title,
+        frequency: editingHabit.frequency,
+        color: editingHabit.color,
+      })
+      .eq('id', editingHabit.id);
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao atualizar hábito', variant: 'destructive' });
+    } else {
+      toast({ title: 'Sucesso', description: 'Hábito atualizado!' });
+      setEditDialogOpen(false);
+      setEditingHabit(null);
+      loadHabits();
+    }
+  };
+
   const toggleHabitDay = async (habitId: string, date: Date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     const existingLog = logs.find(
@@ -114,6 +138,11 @@ export default function Habits() {
   const deleteHabit = async (habitId: string) => {
     await supabase.from('habits').delete().eq('id', habitId);
     loadHabits();
+  };
+
+  const openEditDialog = (habit: Habit) => {
+    setEditingHabit({ ...habit });
+    setEditDialogOpen(true);
   };
 
   const days = eachDayOfInterval({
@@ -189,6 +218,53 @@ export default function Habits() {
           </Dialog>
         </div>
 
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Hábito</DialogTitle>
+            </DialogHeader>
+            {editingHabit && (
+              <div className="space-y-4">
+                <div>
+                  <Label>Nome do hábito</Label>
+                  <Input
+                    value={editingHabit.title}
+                    onChange={(e) => setEditingHabit({ ...editingHabit, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>Frequência</Label>
+                  <Select
+                    value={editingHabit.frequency}
+                    onValueChange={(v) => setEditingHabit({ ...editingHabit, frequency: v as Habit['frequency'] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Diário</SelectItem>
+                      <SelectItem value="weekly">Semanal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Cor</Label>
+                  <Input
+                    type="color"
+                    value={editingHabit.color}
+                    onChange={(e) => setEditingHabit({ ...editingHabit, color: e.target.value })}
+                    className="h-10 cursor-pointer"
+                  />
+                </div>
+                <Button onClick={updateHabit} className="w-full">
+                  Salvar Alterações
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         {loading ? (
           <div className="flex justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -216,6 +292,13 @@ export default function Habits() {
                         <Flame className="h-4 w-4" />
                         <span className="text-sm font-medium">{habit.current_streak}</span>
                       </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(habit)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="icon"

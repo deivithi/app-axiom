@@ -8,6 +8,7 @@ const corsHeaders = {
 };
 
 const tools = [
+  // TASKS
   {
     type: "function",
     function: {
@@ -33,11 +34,44 @@ const tools = [
       parameters: {
         type: "object",
         properties: {
-          status: { type: "string", enum: ["todo", "in_progress", "done"], description: "Filtrar por status" }
+          status: { type: "string", enum: ["todo", "doing", "done"], description: "Filtrar por status" }
         }
       }
     }
   },
+  {
+    type: "function",
+    function: {
+      name: "update_task",
+      description: "Atualiza uma tarefa existente",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID da tarefa" },
+          title: { type: "string", description: "Novo título" },
+          description: { type: "string", description: "Nova descrição" },
+          priority: { type: "string", enum: ["low", "medium", "high"], description: "Nova prioridade" },
+          status: { type: "string", enum: ["todo", "doing", "done"], description: "Novo status" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_task",
+      description: "Exclui uma tarefa",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID da tarefa a excluir" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  // HABITS
   {
     type: "function",
     function: {
@@ -48,7 +82,8 @@ const tools = [
         properties: {
           title: { type: "string", description: "Nome do hábito" },
           description: { type: "string", description: "Descrição do hábito" },
-          frequency: { type: "string", enum: ["daily", "weekly"], description: "Frequência" }
+          frequency: { type: "string", enum: ["daily", "weekly"], description: "Frequência" },
+          color: { type: "string", description: "Cor do hábito em hex (ex: #8B5CF6)" }
         },
         required: ["title"]
       }
@@ -65,6 +100,38 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "update_habit",
+      description: "Atualiza um hábito existente",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID do hábito" },
+          title: { type: "string", description: "Novo nome" },
+          frequency: { type: "string", enum: ["daily", "weekly"], description: "Nova frequência" },
+          color: { type: "string", description: "Nova cor em hex" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_habit",
+      description: "Exclui um hábito",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID do hábito a excluir" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  // REMINDERS
+  {
+    type: "function",
+    function: {
       name: "create_reminder",
       description: "Cria um novo lembrete para o usuário",
       parameters: {
@@ -73,7 +140,7 @@ const tools = [
           title: { type: "string", description: "Título do lembrete" },
           description: { type: "string", description: "Descrição" },
           remind_at: { type: "string", description: "Data e hora do lembrete (ISO 8601)" },
-          category: { type: "string", description: "Categoria do lembrete" }
+          category: { type: "string", enum: ["personal", "work", "health", "other"], description: "Categoria do lembrete" }
         },
         required: ["title", "remind_at"]
       }
@@ -84,9 +151,48 @@ const tools = [
     function: {
       name: "list_reminders",
       description: "Lista os lembretes do usuário",
-      parameters: { type: "object", properties: {} }
+      parameters: {
+        type: "object",
+        properties: {
+          include_completed: { type: "boolean", description: "Incluir lembretes concluídos" }
+        }
+      }
     }
   },
+  {
+    type: "function",
+    function: {
+      name: "update_reminder",
+      description: "Atualiza um lembrete existente",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID do lembrete" },
+          title: { type: "string", description: "Novo título" },
+          description: { type: "string", description: "Nova descrição" },
+          remind_at: { type: "string", description: "Nova data/hora" },
+          category: { type: "string", enum: ["personal", "work", "health", "other"], description: "Nova categoria" },
+          is_completed: { type: "boolean", description: "Marcar como concluído ou pendente" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_reminder",
+      description: "Exclui um lembrete",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID do lembrete a excluir" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  // TRANSACTIONS
   {
     type: "function",
     function: {
@@ -161,6 +267,7 @@ const tools = [
       parameters: { type: "object", properties: {} }
     }
   },
+  // ACCOUNTS
   {
     type: "function",
     function: {
@@ -196,11 +303,26 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "delete_account",
+      description: "Exclui uma conta bancária",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID da conta a excluir" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "list_accounts",
       description: "Lista as contas bancárias do usuário",
       parameters: { type: "object", properties: {} }
     }
   },
+  // NOTES
   {
     type: "function",
     function: {
@@ -224,6 +346,38 @@ const tools = [
       parameters: { type: "object", properties: {} }
     }
   },
+  {
+    type: "function",
+    function: {
+      name: "update_note",
+      description: "Atualiza uma nota existente",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID da nota" },
+          title: { type: "string", description: "Novo título" },
+          content: { type: "string", description: "Novo conteúdo" },
+          is_pinned: { type: "boolean", description: "Fixar/desafixar nota" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_note",
+      description: "Exclui uma nota",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID da nota a excluir" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  // PROJECTS
   {
     type: "function",
     function: {
@@ -251,6 +405,67 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "update_project",
+      description: "Atualiza um projeto existente",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID do projeto" },
+          title: { type: "string", description: "Novo nome" },
+          description: { type: "string", description: "Nova descrição" },
+          status: { type: "string", enum: ["active", "paused", "completed"], description: "Novo status" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_project",
+      description: "Exclui um projeto e todas suas subtarefas",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID do projeto a excluir" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_project_task",
+      description: "Cria uma subtarefa em um projeto",
+      parameters: {
+        type: "object",
+        properties: {
+          project_id: { type: "string", description: "ID do projeto" },
+          title: { type: "string", description: "Título da subtarefa" }
+        },
+        required: ["project_id", "title"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_project_task",
+      description: "Exclui uma subtarefa de um projeto",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID da subtarefa a excluir" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  // JOURNAL
+  {
+    type: "function",
+    function: {
       name: "create_journal_entry",
       description: "Cria uma entrada no diário",
       parameters: {
@@ -272,6 +487,38 @@ const tools = [
       parameters: { type: "object", properties: {} }
     }
   },
+  {
+    type: "function",
+    function: {
+      name: "update_journal_entry",
+      description: "Atualiza uma entrada do diário",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID da entrada" },
+          content: { type: "string", description: "Novo conteúdo" },
+          mood: { type: "string", description: "Novo humor" },
+          tags: { type: "array", items: { type: "string" }, description: "Novas tags" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_journal_entry",
+      description: "Exclui uma entrada do diário",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "ID da entrada a excluir" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  // USER
   {
     type: "function",
     function: {
@@ -300,6 +547,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
   console.log(`Executing tool: ${toolName}`, args);
 
   switch (toolName) {
+    // TASKS
     case "create_task": {
       const { data, error } = await supabaseAdmin.from("tasks").insert({
         user_id: userId,
@@ -321,12 +569,32 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { tasks: data };
     }
 
+    case "update_task": {
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title;
+      if (args.description !== undefined) updateData.description = args.description;
+      if (args.priority) updateData.priority = args.priority;
+      if (args.status) updateData.status = args.status;
+
+      const { data, error } = await supabaseAdmin.from("tasks").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, task: data };
+    }
+
+    case "delete_task": {
+      const { error } = await supabaseAdmin.from("tasks").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Tarefa excluída com sucesso" };
+    }
+
+    // HABITS
     case "create_habit": {
       const { data, error } = await supabaseAdmin.from("habits").insert({
         user_id: userId,
         title: args.title,
         description: args.description || null,
-        frequency: args.frequency || "daily"
+        frequency: args.frequency || "daily",
+        color: args.color || "#8B5CF6"
       }).select().single();
       if (error) throw error;
       return { success: true, habit: data };
@@ -338,6 +606,26 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { habits: data };
     }
 
+    case "update_habit": {
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title;
+      if (args.frequency) updateData.frequency = args.frequency;
+      if (args.color) updateData.color = args.color;
+
+      const { data, error } = await supabaseAdmin.from("habits").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, habit: data };
+    }
+
+    case "delete_habit": {
+      // First delete habit logs
+      await supabaseAdmin.from("habit_logs").delete().eq("habit_id", args.id);
+      const { error } = await supabaseAdmin.from("habits").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Hábito excluído com sucesso" };
+    }
+
+    // REMINDERS
     case "create_reminder": {
       const { data, error } = await supabaseAdmin.from("reminders").insert({
         user_id: userId,
@@ -351,11 +639,33 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     case "list_reminders": {
-      const { data, error } = await supabaseAdmin.from("reminders").select("*").eq("user_id", userId).eq("is_completed", false).order("remind_at", { ascending: true }).limit(10);
+      let query = supabaseAdmin.from("reminders").select("*").eq("user_id", userId);
+      if (!args.include_completed) query = query.eq("is_completed", false);
+      const { data, error } = await query.order("remind_at", { ascending: true }).limit(10);
       if (error) throw error;
       return { reminders: data };
     }
 
+    case "update_reminder": {
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title;
+      if (args.description !== undefined) updateData.description = args.description;
+      if (args.remind_at) updateData.remind_at = args.remind_at;
+      if (args.category) updateData.category = args.category;
+      if (args.is_completed !== undefined) updateData.is_completed = args.is_completed;
+
+      const { data, error } = await supabaseAdmin.from("reminders").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, reminder: data };
+    }
+
+    case "delete_reminder": {
+      const { error } = await supabaseAdmin.from("reminders").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Lembrete excluído com sucesso" };
+    }
+
+    // TRANSACTIONS
     case "create_transaction": {
       const { data, error } = await supabaseAdmin.from("transactions").insert({
         user_id: userId,
@@ -411,6 +721,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { income, expenses, balance: income - expenses, transactionCount: data.length };
     }
 
+    // ACCOUNTS
     case "create_account": {
       const { data, error } = await supabaseAdmin.from("accounts").insert({
         user_id: userId,
@@ -432,6 +743,12 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { success: true, account: data };
     }
 
+    case "delete_account": {
+      const { error } = await supabaseAdmin.from("accounts").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Conta excluída com sucesso" };
+    }
+
     case "list_accounts": {
       const { data, error } = await supabaseAdmin.from("accounts").select("*").eq("user_id", userId).order("created_at", { ascending: true });
       if (error) throw error;
@@ -439,6 +756,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { accounts: data, totalBalance };
     }
 
+    // NOTES
     case "create_note": {
       const { data, error } = await supabaseAdmin.from("notes").insert({
         user_id: userId,
@@ -455,6 +773,24 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { notes: data };
     }
 
+    case "update_note": {
+      const updateData: any = {};
+      if (args.title !== undefined) updateData.title = args.title;
+      if (args.content) updateData.content = args.content;
+      if (args.is_pinned !== undefined) updateData.is_pinned = args.is_pinned;
+
+      const { data, error } = await supabaseAdmin.from("notes").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, note: data };
+    }
+
+    case "delete_note": {
+      const { error } = await supabaseAdmin.from("notes").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Nota excluída com sucesso" };
+    }
+
+    // PROJECTS
     case "create_project": {
       const { data, error } = await supabaseAdmin.from("projects").insert({
         user_id: userId,
@@ -472,6 +808,42 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { projects: data };
     }
 
+    case "update_project": {
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title;
+      if (args.description !== undefined) updateData.description = args.description;
+      if (args.status) updateData.status = args.status;
+
+      const { data, error } = await supabaseAdmin.from("projects").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, project: data };
+    }
+
+    case "delete_project": {
+      // First delete project tasks
+      await supabaseAdmin.from("project_tasks").delete().eq("project_id", args.id);
+      const { error } = await supabaseAdmin.from("projects").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Projeto excluído com sucesso" };
+    }
+
+    case "create_project_task": {
+      const { data, error } = await supabaseAdmin.from("project_tasks").insert({
+        user_id: userId,
+        project_id: args.project_id,
+        title: args.title
+      }).select().single();
+      if (error) throw error;
+      return { success: true, task: data };
+    }
+
+    case "delete_project_task": {
+      const { error } = await supabaseAdmin.from("project_tasks").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Subtarefa excluída com sucesso" };
+    }
+
+    // JOURNAL
     case "create_journal_entry": {
       const { data, error } = await supabaseAdmin.from("journal_entries").insert({
         user_id: userId,
@@ -489,6 +861,24 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       return { entries: data };
     }
 
+    case "update_journal_entry": {
+      const updateData: any = {};
+      if (args.content) updateData.content = args.content;
+      if (args.mood !== undefined) updateData.mood = args.mood;
+      if (args.tags !== undefined) updateData.tags = args.tags;
+
+      const { data, error } = await supabaseAdmin.from("journal_entries").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, entry: data };
+    }
+
+    case "delete_journal_entry": {
+      const { error } = await supabaseAdmin.from("journal_entries").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Entrada do diário excluída com sucesso" };
+    }
+
+    // USER
     case "update_user_context": {
       const { error } = await supabaseAdmin.from("profiles").update({ user_context: args.context }).eq("id", userId);
       if (error) throw error;
@@ -585,17 +975,18 @@ FORMATO DE RESPOSTA:
 7. Termine com um desafio ou tarefa direta
 8. SEMPRE finalize com uma pergunta específica e estimulante para promover crescimento contínuo
 
-FERRAMENTAS DISPONÍVEIS:
-- Gerenciar tarefas (criar, listar)
-- Gerenciar hábitos (criar, listar)
-- Gerenciar lembretes (criar, listar)
-- Gerenciar finanças (criar, editar, excluir transações com forma de pagamento: PIX, Débito ou Crédito)
-- Gerenciar contas bancárias (criar, atualizar saldo, listar)
-- Gerenciar notas (criar, listar)
-- Gerenciar projetos (criar, listar)
-- Gerenciar diário (criar entradas, listar)
-- Atualizar contexto pessoal do usuário
-- Excluir todos os dados (reset completo)
+FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
+- Tarefas: criar, listar, editar, excluir
+- Hábitos: criar, listar, editar, excluir
+- Lembretes: criar, listar, editar (incluindo voltar para pendente), excluir
+- Transações: criar, listar, editar, excluir (com forma de pagamento: PIX, Débito ou Crédito)
+- Contas bancárias: criar, listar, editar, excluir
+- Notas: criar, listar, editar, excluir
+- Projetos: criar, listar, editar, excluir
+- Subtarefas de projetos: criar, excluir
+- Diário: criar, listar, editar, excluir
+- Contexto pessoal: atualizar
+- Reset completo: excluir todos os dados
 
 Quando ${userName} pedir para criar, editar, excluir ou consultar qualquer item, use as ferramentas apropriadas. Confirme sempre a ação executada com detalhes.
 
@@ -604,6 +995,7 @@ GUIE O USUÁRIO CORRETAMENTE:
 - Para transações, sempre confirme: valor, tipo (receita/despesa), categoria e forma de pagamento
 - Se o usuário quiser resetar tudo, confirme DUAS vezes antes de executar delete_all_user_data
 - Quando criar algo, confirme o que foi criado com os detalhes
+- Para voltar um lembrete para pendente, use update_reminder com is_completed: false
 
 Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja genérico - seja específico e direcionado.`;
 
