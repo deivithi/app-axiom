@@ -53,7 +53,7 @@ const NavContent = ({
     signOut
   } = useAuth();
   return <div className="flex flex-col h-full">
-      <div className="p-6 border-b border-border flex items-center gap-3">
+      <div className="p-6 border-b border-border flex items-center gap-3 bg-sidebar-border">
         <img src={axiomLogo} alt="Axiom" className="w-8 h-8 object-contain" />
         <div>
           <h1 className="text-xl font-bold text-primary">Axiom</h1>
@@ -61,7 +61,7 @@ const NavContent = ({
         </div>
       </div>
       
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 bg-sidebar-border">
         {navItems.map(item => {
         const isActive = location.pathname === item.path;
         return <Link key={item.path} to={item.path} onClick={onClose} className={cn('flex items-center gap-3 px-4 py-3 rounded-lg transition-colors', isActive ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground')}>
@@ -71,7 +71,7 @@ const NavContent = ({
       })}
       </nav>
 
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border bg-sidebar-border">
         <Button variant="ghost" className="w-full justify-start text-muted-foreground hover:text-destructive" onClick={signOut}>
           <LogOut className="h-5 w-5 mr-3" />
           Sair
