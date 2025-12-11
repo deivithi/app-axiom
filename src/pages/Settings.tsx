@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Save, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Save, Trash2, AlertTriangle, Upload, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -17,6 +17,8 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [userContext, setUserContext] = useState("");
   const [fullName, setFullName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -31,15 +33,78 @@ export default function Settings() {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("full_name, user_context")
+      .select("full_name, user_context, avatar_url")
       .eq("id", user?.id)
       .maybeSingle();
 
     if (!error && data) {
       setFullName(data.full_name || "");
       setUserContext(data.user_context || "");
+      setAvatarUrl(data.avatar_url || null);
     }
     setLoading(false);
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingAvatar(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${user.id}/avatar.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      const urlWithTimestamp = `${publicUrl}?t=${Date.now()}`;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: urlWithTimestamp })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(urlWithTimestamp);
+      toast.success("Foto atualizada! 📸");
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error("Erro ao fazer upload da foto");
+    }
+
+    setUploadingAvatar(false);
+  };
+
+  const removeAvatar = async () => {
+    if (!user) return;
+
+    try {
+      const { error: deleteError } = await supabase.storage
+        .from('avatars')
+        .remove([`${user.id}/avatar.png`, `${user.id}/avatar.jpg`, `${user.id}/avatar.jpeg`, `${user.id}/avatar.webp`]);
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: null })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(null);
+      toast.success("Foto removida");
+    } catch (error) {
+      console.error('Remove error:', error);
+      toast.error("Erro ao remover foto");
+    }
   };
 
   const saveContext = async () => {
@@ -110,6 +175,69 @@ export default function Settings() {
     <AppLayout>
       <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold text-foreground">⚙️ Configurações</h1>
+
+        {/* Foto de Perfil */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              📸 Foto de Perfil
+            </CardTitle>
+            <CardDescription>
+              Sua foto aparecerá como avatar no chat
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <div className="relative">
+                {avatarUrl ? (
+                  <img 
+                    src={avatarUrl} 
+                    alt="Avatar"
+                    className="w-24 h-24 rounded-full object-cover border-2 border-primary"
+                  />
+                ) : (
+                  <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center">
+                    <User className="w-10 h-10 text-muted-foreground" />
+                  </div>
+                )}
+                {uploadingAvatar && (
+                  <div className="absolute inset-0 bg-background/80 rounded-full flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="avatar-upload" className="cursor-pointer">
+                  <Button variant="outline" asChild disabled={uploadingAvatar}>
+                    <span>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Escolher foto
+                    </span>
+                  </Button>
+                </Label>
+                <input 
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                  disabled={uploadingAvatar}
+                />
+                {avatarUrl && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={removeAvatar}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Remover foto
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Dados da Conta */}
         <Card>

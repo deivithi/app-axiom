@@ -32,6 +32,7 @@ export default function Chat() {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -41,6 +42,7 @@ export default function Chat() {
   useEffect(() => {
     if (user) {
       loadMessages();
+      loadUserAvatar();
     }
   }, [user]);
 
@@ -60,6 +62,18 @@ export default function Chat() {
       setMessages(data || []);
     }
     setLoadingMessages(false);
+  };
+
+  const loadUserAvatar = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', user?.id)
+      .single();
+
+    if (data?.avatar_url) {
+      setUserAvatar(data.avatar_url);
+    }
   };
 
   const showActionToast = (actions: ExecutedAction[]) => {
@@ -345,7 +359,8 @@ export default function Chat() {
                   <UserMessage 
                     key={msg.id} 
                     content={msg.content} 
-                    timestamp={msg.created_at} 
+                    timestamp={msg.created_at}
+                    avatarUrl={userAvatar}
                   />
                 )
               ))
