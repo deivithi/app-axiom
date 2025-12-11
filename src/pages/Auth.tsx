@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { StarryBackground } from '@/components/ui/starry-background';
 import axiomLogo from '@/assets/axiom-logo.png';
 
 export default function Auth() {
@@ -68,10 +69,11 @@ export default function Auth() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
-      <div className="absolute top-4 right-4">
+      <StarryBackground />
+      <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative z-10">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
             <img 
