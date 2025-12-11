@@ -499,7 +499,7 @@ serve(async (req) => {
     const { data: profile } = await supabaseAdmin.from("profiles").select("full_name").eq("id", user.id).maybeSingle();
     const userName = profile?.full_name || user.email?.split("@")[0] || "Usuário";
 
-    const systemPrompt = `Você é Jarvis, Consultor Estratégico Pessoal do(a) ${userName}.
+    const systemPrompt = `Você é Axiom, Consultor Estratégico Pessoal do(a) ${userName}.
 
 CONTEXTO:
 - Você possui um QI de 180.

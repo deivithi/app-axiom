@@ -17,6 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import axiomLogo from '@/assets/axiom-logo.png';
 
 const navItems = [
   { icon: MessageSquare, label: 'Chat IA', path: '/chat' },
@@ -35,9 +36,12 @@ const NavContent = ({ onClose }: { onClose?: () => void }) => {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-6 border-b border-border">
-        <h1 className="text-xl font-bold text-primary">Jarvis Henrique</h1>
-        <p className="text-xs text-muted-foreground">LifeOS</p>
+      <div className="p-6 border-b border-border flex items-center gap-3">
+        <img src={axiomLogo} alt="Axiom" className="w-8 h-8 object-contain" />
+        <div>
+          <h1 className="text-xl font-bold text-primary">Axiom</h1>
+          <p className="text-xs text-muted-foreground">Personal AI Governance</p>
+        </div>
       </div>
       
       <nav className="flex-1 p-4 space-y-1">
