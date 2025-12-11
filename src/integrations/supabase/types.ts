@@ -381,7 +381,10 @@ export type Database = {
           id: string
           is_fixed: boolean
           is_installment: boolean
+          is_paid: boolean
+          parent_transaction_id: string | null
           payment_method: string | null
+          reference_month: string | null
           title: string
           total_installments: number | null
           transaction_date: string
@@ -396,7 +399,10 @@ export type Database = {
           id?: string
           is_fixed?: boolean
           is_installment?: boolean
+          is_paid?: boolean
+          parent_transaction_id?: string | null
           payment_method?: string | null
+          reference_month?: string | null
           title: string
           total_installments?: number | null
           transaction_date?: string
@@ -411,14 +417,25 @@ export type Database = {
           id?: string
           is_fixed?: boolean
           is_installment?: boolean
+          is_paid?: boolean
+          parent_transaction_id?: string | null
           payment_method?: string | null
+          reference_month?: string | null
           title?: string
           total_installments?: number | null
           transaction_date?: string
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transactions_parent_transaction_id_fkey"
+            columns: ["parent_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

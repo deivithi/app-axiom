@@ -8,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank } from "lucide-react";
+import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank, Check, Clock, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { format, startOfMonth, endOfMonth, subMonths, addMonths } from "date-fns";
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, isAfter, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
 
 interface Transaction {
   id: string;
@@ -27,6 +28,9 @@ interface Transaction {
   current_installment?: number;
   total_installments?: number;
   payment_method?: string;
+  is_paid: boolean;
+  parent_transaction_id?: string;
+  reference_month?: string;
 }
 
 const PAYMENT_METHODS = ["PIX", "Débito", "Crédito"];
@@ -39,9 +43,9 @@ interface Account {
   icon: string;
 }
 
-const EXPENSE_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Compras", "Outros"];
+const EXPENSE_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Compras", "Assinaturas", "Outros"];
 const INCOME_CATEGORIES = ["Salário", "Freelance", "Investimentos", "Vendas", "Outros"];
-const COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#6366F1", "#84CC16"];
+const COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#6366F1", "#84CC16", "#14B8A6"];
 const ACCOUNT_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"];
 const ACCOUNT_ICONS = ["💳", "🏦", "💰", "💵", "🪙", "💎"];
 
@@ -82,8 +86,61 @@ export default function Finances() {
 
   const loadData = async () => {
     setLoading(true);
+    await generateRecurringTransactions();
     await Promise.all([loadTransactions(), loadAccounts()]);
     setLoading(false);
+  };
+
+  const generateRecurringTransactions = async () => {
+    const referenceMonth = format(selectedMonth, "yyyy-MM");
+    
+    // Get original fixed transactions (those without parent_transaction_id)
+    const { data: fixedTransactions, error: fetchError } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("user_id", user?.id)
+      .eq("is_fixed", true)
+      .is("parent_transaction_id", null);
+
+    if (fetchError || !fixedTransactions) return;
+
+    for (const original of fixedTransactions) {
+      const originalDate = new Date(original.transaction_date);
+      
+      // Only create for months after or equal to the original transaction month
+      if (isAfter(startOfMonth(selectedMonth), startOfMonth(originalDate)) || 
+          isSameMonth(selectedMonth, originalDate)) {
+        
+        // Check if instance already exists for this month
+        const { data: existing } = await supabase
+          .from("transactions")
+          .select("id")
+          .eq("parent_transaction_id", original.id)
+          .eq("reference_month", referenceMonth)
+          .maybeSingle();
+
+        // Also check if the original IS the transaction for this month
+        const originalMonth = format(originalDate, "yyyy-MM");
+        
+        if (!existing && originalMonth !== referenceMonth) {
+          // Create recurring instance for this month
+          await supabase.from("transactions").insert({
+            user_id: user?.id,
+            title: original.title,
+            amount: original.amount,
+            type: original.type,
+            category: original.category,
+            is_fixed: true,
+            is_paid: false,
+            is_installment: false,
+            payment_method: original.payment_method,
+            parent_transaction_id: original.id,
+            reference_month: referenceMonth,
+            transaction_date: format(startOfMonth(selectedMonth), "yyyy-MM-dd")
+          });
+        }
+      }
+    }
   };
 
   const loadTransactions = async () => {
@@ -125,6 +182,8 @@ export default function Finances() {
       return;
     }
 
+    const referenceMonth = format(selectedMonth, "yyyy-MM");
+
     const { error } = await supabase.from("transactions").insert({
       user_id: user?.id,
       title: newTransaction.title,
@@ -136,7 +195,9 @@ export default function Finances() {
       current_installment: newTransaction.is_installment ? 1 : null,
       total_installments: newTransaction.is_installment ? parseInt(newTransaction.total_installments) : null,
       transaction_date: format(selectedMonth, "yyyy-MM-dd"),
-      payment_method: newTransaction.payment_method
+      payment_method: newTransaction.payment_method,
+      is_paid: false,
+      reference_month: newTransaction.is_fixed ? referenceMonth : null
     });
 
     if (error) {
@@ -156,6 +217,36 @@ export default function Finances() {
       total_installments: "",
       payment_method: "PIX"
     });
+    loadTransactions();
+  };
+
+  const payTransaction = async (id: string) => {
+    const { error } = await supabase
+      .from("transactions")
+      .update({ is_paid: true })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao pagar transação");
+      return;
+    }
+
+    toast.success("Transação marcada como paga! ✅");
+    loadTransactions();
+  };
+
+  const unpayTransaction = async (id: string) => {
+    const { error } = await supabase
+      .from("transactions")
+      .update({ is_paid: false })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Erro ao desfazer pagamento");
+      return;
+    }
+
+    toast.success("Pagamento desfeito");
     loadTransactions();
   };
 
@@ -189,6 +280,14 @@ export default function Finances() {
   };
 
   const deleteTransaction = async (id: string) => {
+    // Also delete all recurring instances if deleting an original fixed transaction
+    const transaction = transactions.find(t => t.id === id);
+    
+    if (transaction?.is_fixed && !transaction.parent_transaction_id) {
+      // This is an original fixed transaction - delete all its instances too
+      await supabase.from("transactions").delete().eq("parent_transaction_id", id);
+    }
+
     const { error } = await supabase.from("transactions").delete().eq("id", id);
 
     if (error) {
@@ -229,6 +328,11 @@ export default function Finances() {
   const totalExpenses = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
   const balance = totalIncome - totalExpenses;
   const totalAccountBalance = accounts.reduce((sum, a) => sum + Number(a.balance), 0);
+  
+  // Calculate pending amounts
+  const pendingExpenses = transactions
+    .filter(t => t.type === "expense" && !t.is_paid)
+    .reduce((sum, t) => sum + Number(t.amount), 0);
 
   const expensesByCategory = EXPENSE_CATEGORIES.map(cat => ({
     name: cat,
@@ -332,7 +436,7 @@ export default function Finances() {
                   </Select>
                 </div>
                 <div className="flex items-center justify-between">
-                  <Label>Despesa Fixa</Label>
+                  <Label>Despesa Fixa (recorrente)</Label>
                   <Switch checked={newTransaction.is_fixed} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_fixed: v }))} />
                 </div>
                 <div className="flex items-center justify-between">
@@ -359,7 +463,7 @@ export default function Finances() {
         </div>
 
         {/* Cards de Resumo com Emojis */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card className="bg-emerald-500/10 border-emerald-500/30">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -382,6 +486,20 @@ export default function Finances() {
                   <p className="text-sm text-red-400 font-medium">Despesas</p>
                   <p className="text-2xl font-bold text-red-500">
                     R$ {totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-yellow-500/10 border-yellow-500/30">
+            <CardContent className="pt-6">
+              <div className="flex items-center gap-3">
+                <span className="text-4xl">⏳</span>
+                <div>
+                  <p className="text-sm text-yellow-400 font-medium">Pendente</p>
+                  <p className="text-2xl font-bold text-yellow-500">
+                    R$ {pendingExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </p>
                 </div>
               </div>
@@ -580,28 +698,89 @@ export default function Finances() {
         {/* Últimas Transações */}
         <Card>
           <CardHeader>
-            <CardTitle>Últimas Transações</CardTitle>
+            <CardTitle>Transações do Mês</CardTitle>
           </CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
               <p className="text-muted-foreground text-center py-8">Nenhuma transação neste mês</p>
             ) : (
               <div className="space-y-3">
-                {transactions.slice(0, 10).map(transaction => (
-                  <div key={transaction.id} className="flex items-center justify-between p-4 bg-muted/30 rounded-xl">
+                {transactions.map(transaction => (
+                  <div 
+                    key={transaction.id} 
+                    className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                      transaction.is_paid 
+                        ? "bg-muted/20 border-border/30" 
+                        : "bg-yellow-500/5 border-yellow-500/20"
+                    }`}
+                  >
                     <div className="flex-1">
-                      <p className="font-medium">{transaction.title}</p>
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className={`font-medium ${transaction.is_paid ? "text-muted-foreground" : ""}`}>
+                          {transaction.title}
+                        </p>
+                        {transaction.is_fixed && (
+                          <Badge variant="outline" className="text-xs">
+                            <RefreshCw className="h-3 w-3 mr-1" />
+                            Fixa
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-sm text-muted-foreground">
                         {transaction.category}
                         {transaction.payment_method && ` • ${transaction.payment_method}`}
                         {transaction.is_installment && ` • ${transaction.current_installment}/${transaction.total_installments}`}
-                        {transaction.is_fixed && " • Fixa"}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`font-bold ${transaction.type === "income" ? "text-emerald-500" : "text-red-500"}`}>
+                    
+                    <div className="flex items-center gap-2">
+                      {/* Status Badge */}
+                      {transaction.type === "expense" && (
+                        transaction.is_paid ? (
+                          <Badge 
+                            variant="outline" 
+                            className="bg-emerald-500/10 text-emerald-500 border-emerald-500/30 cursor-pointer hover:bg-emerald-500/20"
+                            onClick={() => unpayTransaction(transaction.id)}
+                            title="Clique para desfazer"
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            Pago
+                          </Badge>
+                        ) : (
+                          <Badge 
+                            variant="outline" 
+                            className="bg-yellow-500/10 text-yellow-500 border-yellow-500/30"
+                          >
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pendente
+                          </Badge>
+                        )
+                      )}
+                      
+                      {/* Amount */}
+                      <span className={`font-bold min-w-[100px] text-right ${
+                        transaction.type === "income" 
+                          ? "text-emerald-500" 
+                          : transaction.is_paid 
+                            ? "text-muted-foreground line-through" 
+                            : "text-red-500"
+                      }`}>
                         {transaction.type === "income" ? "+" : "-"}R$ {Number(transaction.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                       </span>
+                      
+                      {/* Pay Button */}
+                      {transaction.type === "expense" && !transaction.is_paid && (
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                          onClick={() => payTransaction(transaction.id)}
+                        >
+                          <Check className="h-4 w-4 mr-1" />
+                          Pagar
+                        </Button>
+                      )}
+                      
+                      {/* Edit Button */}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -612,6 +791,8 @@ export default function Finances() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                      
+                      {/* Delete Button */}
                       <Button
                         variant="ghost"
                         size="icon"

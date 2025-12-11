@@ -270,7 +270,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_transaction",
-      description: "Cria uma nova transação financeira (receita ou despesa)",
+      description: "Cria uma nova transação financeira (receita ou despesa). Se is_fixed=true, será uma despesa recorrente que aparecerá em todos os meses futuros.",
       parameters: {
         type: "object",
         properties: {
@@ -278,7 +278,7 @@ const tools = [
           amount: { type: "number", description: "Valor da transação" },
           type: { type: "string", enum: ["income", "expense"], description: "Tipo: receita ou despesa" },
           category: { type: "string", description: "Categoria da transação" },
-          is_fixed: { type: "boolean", description: "Se é uma despesa fixa" },
+          is_fixed: { type: "boolean", description: "Se é uma despesa fixa/recorrente (aparece todos os meses)" },
           payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento" }
         },
         required: ["title", "amount", "type", "category"]
@@ -298,7 +298,8 @@ const tools = [
           amount: { type: "number", description: "Novo valor" },
           type: { type: "string", enum: ["income", "expense"], description: "Novo tipo" },
           category: { type: "string", description: "Nova categoria" },
-          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Nova forma de pagamento" }
+          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Nova forma de pagamento" },
+          is_paid: { type: "boolean", description: "Status de pagamento (true=pago, false=pendente)" }
         },
         required: ["id"]
       }
@@ -322,11 +323,12 @@ const tools = [
     type: "function",
     function: {
       name: "list_transactions",
-      description: "Lista as transações do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar ou excluir transações.",
+      description: "Lista as transações do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar, excluir ou pagar transações.",
       parameters: {
         type: "object",
         properties: {
           type: { type: "string", enum: ["income", "expense"], description: "Filtrar por tipo" },
+          is_paid: { type: "boolean", description: "Filtrar por status de pagamento (true=pagas, false=pendentes)" },
           limit: { type: "number", description: "Número máximo de transações" }
         }
       }
@@ -335,8 +337,30 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "pay_transaction",
+      description: "Marca uma transação como paga. IMPORTANTE: O ID deve ser um UUID real obtido de list_transactions.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID da transação (obtenha de list_transactions primeiro)" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_pending_transactions",
+      description: "Lista todas as transações pendentes (não pagas) do mês atual. Útil para ver quais contas ainda precisam ser pagas.",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "get_finance_summary",
-      description: "Obtém um resumo financeiro do mês atual",
+      description: "Obtém um resumo financeiro do mês atual incluindo total de receitas, despesas, saldo e valor pendente.",
       parameters: { type: "object", properties: {} }
     }
   },
@@ -926,6 +950,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
 
     // TRANSACTIONS
     case "create_transaction": {
+      const today = new Date();
+      const referenceMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      
       const { data, error } = await supabaseAdmin.from("transactions").insert({
         user_id: userId,
         title: args.title,
@@ -933,10 +960,14 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         type: args.type,
         category: args.category,
         is_fixed: args.is_fixed || false,
-        payment_method: args.payment_method || "PIX"
+        payment_method: args.payment_method || "PIX",
+        is_paid: false,
+        reference_month: args.is_fixed ? referenceMonth : null
       }).select().single();
       if (error) throw error;
-      return { success: true, transaction: data };
+      
+      const fixedMsg = args.is_fixed ? " (recorrente - aparecerá em todos os meses futuros)" : "";
+      return { success: true, transaction: data, message: `Transação "${args.title}" criada com sucesso!${fixedMsg} 💰` };
     }
 
     case "update_transaction": {
@@ -946,24 +977,84 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       if (args.type) updateData.type = args.type;
       if (args.category) updateData.category = args.category;
       if (args.payment_method) updateData.payment_method = args.payment_method;
+      if (args.is_paid !== undefined) updateData.is_paid = args.is_paid;
 
       const { data, error } = await supabaseAdmin.from("transactions").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
-      return { success: true, transaction: data, message: `Transação "${data.title}" atualizada!` };
+      
+      const paidMsg = args.is_paid === true ? " e marcada como paga ✅" : (args.is_paid === false ? " e marcada como pendente" : "");
+      return { success: true, transaction: data, message: `Transação "${data.title}" atualizada${paidMsg}!` };
     }
 
     case "delete_transaction": {
+      // Check if it's an original fixed transaction and delete its instances
+      const { data: transaction } = await supabaseAdmin
+        .from("transactions")
+        .select("is_fixed, parent_transaction_id, title")
+        .eq("id", args.id)
+        .eq("user_id", userId)
+        .single();
+      
+      if (transaction?.is_fixed && !transaction.parent_transaction_id) {
+        // Delete all recurring instances
+        await supabaseAdmin.from("transactions").delete().eq("parent_transaction_id", args.id);
+      }
+      
       const { error } = await supabaseAdmin.from("transactions").delete().eq("id", args.id).eq("user_id", userId);
       if (error) throw error;
-      return { success: true, message: "Transação excluída com sucesso" };
+      return { success: true, message: `Transação "${transaction?.title || ''}" excluída com sucesso` };
     }
 
     case "list_transactions": {
       let query = supabaseAdmin.from("transactions").select("*").eq("user_id", userId);
       if (args.type) query = query.eq("type", args.type);
+      if (args.is_paid !== undefined) query = query.eq("is_paid", args.is_paid);
       const { data, error } = await query.order("transaction_date", { ascending: false }).limit(args.limit || 20);
       if (error) throw error;
-      return { transactions: data, message: `${data.length} transações encontradas. Use os IDs (UUIDs) acima para editar ou excluir.` };
+      
+      const pendingCount = data.filter((t: any) => !t.is_paid && t.type === "expense").length;
+      const pendingMsg = pendingCount > 0 ? ` (${pendingCount} pendentes)` : "";
+      return { transactions: data, message: `${data.length} transações encontradas${pendingMsg}. Use os IDs (UUIDs) para editar, excluir ou pagar.` };
+    }
+
+    case "pay_transaction": {
+      const { data, error } = await supabaseAdmin
+        .from("transactions")
+        .update({ is_paid: true })
+        .eq("id", args.id)
+        .eq("user_id", userId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return { success: true, transaction: data, message: `Transação "${data.title}" marcada como paga! ✅💰` };
+    }
+
+    case "list_pending_transactions": {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("type", "expense")
+        .eq("is_paid", false)
+        .gte("transaction_date", startOfMonth.toISOString().split("T")[0])
+        .order("amount", { ascending: false });
+      
+      if (error) throw error;
+      
+      const total = data.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      return { 
+        transactions: data, 
+        total_pending: total,
+        count: data.length,
+        message: data.length > 0 
+          ? `📋 ${data.length} transações pendentes totalizando R$ ${total.toFixed(2)}. Use os IDs para pagar: ${data.map((t: any) => `"${t.title}" (${t.id})`).join(", ")}`
+          : "🎉 Nenhuma transação pendente! Todas as contas estão em dia."
+      };
     }
 
     case "get_finance_summary": {
@@ -976,8 +1067,18 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
 
       const income = data.filter((t: any) => t.type === "income").reduce((sum: number, t: any) => sum + Number(t.amount), 0);
       const expenses = data.filter((t: any) => t.type === "expense").reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      const pending = data.filter((t: any) => t.type === "expense" && !t.is_paid).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      const paid = data.filter((t: any) => t.type === "expense" && t.is_paid).reduce((sum: number, t: any) => sum + Number(t.amount), 0);
 
-      return { income, expenses, balance: income - expenses, transactionCount: data.length };
+      return { 
+        income, 
+        expenses, 
+        balance: income - expenses, 
+        pending,
+        paid,
+        transactionCount: data.length,
+        message: `💰 Receitas: R$ ${income.toFixed(2)} | 💸 Despesas: R$ ${expenses.toFixed(2)} | ⏳ Pendente: R$ ${pending.toFixed(2)} | 🎯 Saldo: R$ ${(income - expenses).toFixed(2)}`
+      };
     }
 
     // ACCOUNTS
