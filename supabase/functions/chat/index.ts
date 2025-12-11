@@ -635,12 +635,21 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
                         messages: [
                           { role: "system", content: systemPrompt },
                           ...messages,
-                          { role: "assistant", content: null, tool_calls: toolCalls },
+                          { 
+                            role: "assistant", 
+                            tool_calls: toolCalls.map(tc => ({
+                              id: tc.id,
+                              type: "function",
+                              function: { name: tc.function.name, arguments: tc.function.arguments }
+                            }))
+                          },
                           ...toolResults
                         ],
                         stream: true
                       })
                     });
+
+                    console.log("Follow-up API called, reading response...");
 
                     const followUpReader = followUpResponse.body?.getReader();
                     while (true) {
@@ -661,12 +670,16 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
                             if (fuContent) {
                               controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: fuContent })}\n\n`));
                             }
-                          } catch {}
+                          } catch (parseError) {
+                            console.error("Follow-up parse error:", parseError, "Data:", fuData);
+                          }
                         }
                       }
                     }
                   }
-                } catch {}
+                } catch (toolError) {
+                  console.error("Tool processing error:", toolError);
+                }
               }
             }
           }

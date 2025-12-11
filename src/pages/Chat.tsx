@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Send, Loader2, CheckCircle2 } from 'lucide-react';
+import { Send, Loader2, Mic, MicOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -28,7 +28,11 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -90,6 +94,84 @@ export default function Chat() {
     });
   };
 
+  const transcribeAudio = async (audioBlob: Blob) => {
+    setIsTranscribing(true);
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'audio.webm');
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.text) {
+        setInput(result.text);
+        toast({
+          title: '✅ Transcrição concluída',
+          description: 'Revise e envie sua mensagem',
+        });
+      } else {
+        throw new Error(result.error || 'Falha na transcrição');
+      }
+    } catch (error) {
+      console.error('Transcription error:', error);
+      toast({
+        title: 'Erro na transcrição',
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
+  const toggleRecording = async () => {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        audioChunksRef.current = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            audioChunksRef.current.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach((track) => track.stop());
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+          await transcribeAudio(audioBlob);
+        };
+
+        mediaRecorder.start();
+        mediaRecorderRef.current = mediaRecorder;
+        setIsRecording(true);
+
+        toast({
+          title: '🎤 Gravando...',
+          description: 'Fale sua mensagem e clique novamente para enviar',
+        });
+      } catch (error) {
+        console.error('Microphone error:', error);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível acessar o microfone',
+          variant: 'destructive',
+        });
+      }
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
 
@@ -97,7 +179,6 @@ export default function Chat() {
     setInput('');
     setLoading(true);
 
-    // Add user message to UI immediately
     const tempUserMsg: Message = {
       id: crypto.randomUUID(),
       content: userMessage,
@@ -106,14 +187,12 @@ export default function Chat() {
     };
     setMessages((prev) => [...prev, tempUserMsg]);
 
-    // Save user message to DB
     await supabase.from('messages').insert({
       user_id: user?.id,
       content: userMessage,
       is_ai: false,
     });
 
-    // Prepare messages for AI
     const aiMessages = messages.slice(-10).map((m) => ({
       role: m.is_ai ? 'assistant' : 'user',
       content: m.content,
@@ -121,7 +200,6 @@ export default function Chat() {
     aiMessages.push({ role: 'user', content: userMessage });
 
     try {
-      // Get session for auth
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
@@ -142,25 +220,22 @@ export default function Chat() {
         throw new Error(errorData.error || 'Erro ao processar mensagem');
       }
 
-      // Actions will be captured from stream
-
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let aiContent = '';
       const tempAiId = crypto.randomUUID();
 
-      // Add empty AI message
       setMessages((prev) => [
         ...prev,
         { id: tempAiId, content: '', is_ai: true, created_at: new Date().toISOString() },
       ]);
 
       let textBuffer = '';
-      
+
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         textBuffer += decoder.decode(value, { stream: true });
 
         let newlineIndex: number;
@@ -177,10 +252,8 @@ export default function Chat() {
 
           try {
             const parsed = JSON.parse(jsonStr);
-            
-            // Accept edge function format OR OpenAI standard format
             const content = parsed.content || parsed.choices?.[0]?.delta?.content;
-            
+
             if (content) {
               aiContent += content;
               setMessages((prev) =>
@@ -189,8 +262,7 @@ export default function Chat() {
                 )
               );
             }
-            
-            // Capture executed actions from stream
+
             if (parsed.actions && Array.isArray(parsed.actions)) {
               parsed.actions.forEach((actionName: string) => {
                 showActionToast([{ success: true, action: actionName, message: 'Ação executada com sucesso' }]);
@@ -202,7 +274,6 @@ export default function Chat() {
         }
       }
 
-      // Save AI response to DB
       if (aiContent) {
         await supabase.from('messages').insert({
           user_id: user?.id,
@@ -289,23 +360,55 @@ export default function Chat() {
         </ScrollArea>
 
         <div className="p-4 border-t border-border">
-          <div className="max-w-3xl mx-auto relative">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Digite sua mensagem... (ex: cria uma tarefa para...)"
-              className="pr-12 min-h-[48px] max-h-32 resize-none"
-              rows={1}
-            />
-            <Button
-              size="icon"
-              className="absolute right-2 bottom-2"
-              onClick={sendMessage}
-              disabled={loading || !input.trim()}
-            >
-              <Send className="h-4 w-4" />
-            </Button>
+          <div className="max-w-3xl mx-auto">
+            {isRecording && (
+              <div className="flex items-center gap-2 text-destructive text-sm mb-3">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                </span>
+                Gravando... Clique no microfone para parar
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Digite ou fale sua mensagem..."
+                className="min-h-[48px] max-h-32 resize-none flex-1"
+                rows={1}
+                disabled={loading || isRecording || isTranscribing}
+              />
+              <div className="flex flex-col gap-2">
+                <Button
+                  size="icon"
+                  variant={isRecording ? 'destructive' : 'outline'}
+                  onClick={toggleRecording}
+                  disabled={loading || isTranscribing}
+                  className={isRecording ? 'animate-pulse' : ''}
+                >
+                  {isTranscribing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isRecording ? (
+                    <MicOff className="h-4 w-4" />
+                  ) : (
+                    <Mic className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  size="icon"
+                  onClick={sendMessage}
+                  disabled={loading || !input.trim() || isRecording}
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
