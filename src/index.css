@@ -68,8 +68,8 @@ All colors MUST be HSL.
     --popover: 222 25% 11%;
     --popover-foreground: 0 0% 98%;
 
-    /* ===== PRIMARY (Branding Violet) ===== */
-    --primary: 263 70% 50%;
+    /* ===== PRIMARY (Cyan/Teal - estilo Néctar) ===== */
+    --primary: 174 84% 40%;
     --primary-foreground: 0 0% 100%;
 
     /* ===== SECONDARY ===== */
@@ -81,7 +81,7 @@ All colors MUST be HSL.
     --muted-foreground: 240 5% 65%;
 
     /* ===== ACCENT (Hover/Focus) ===== */
-    --accent: 263 40% 18%;
+    --accent: 174 40% 15%;
     --accent-foreground: 0 0% 98%;
 
     /* ===== DESTRUCTIVE ===== */
@@ -91,17 +91,17 @@ All colors MUST be HSL.
     /* ===== BORDERS & INPUTS ===== */
     --border: 240 6% 18%;
     --input: 240 6% 12%;
-    --ring: 263 70% 50%;
+    --ring: 174 84% 40%;
 
     /* ===== SIDEBAR ===== */
     --sidebar-background: 222 35% 6%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 263 70% 50%;
+    --sidebar-primary: 174 84% 40%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 263 40% 15%;
+    --sidebar-accent: 174 40% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 222 20% 15%;
-    --sidebar-ring: 263 70% 50%;
+    --sidebar-ring: 174 84% 40%;
   }
 }
 
