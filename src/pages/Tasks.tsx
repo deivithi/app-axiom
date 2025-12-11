@@ -39,7 +39,7 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', description: '', priority: 'medium' as const });
+  const [newTask, setNewTask] = useState<{ title: string; description: string; priority: Task['priority'] }>({ title: '', description: '', priority: 'medium' });
   const { user } = useAuth();
   const { toast } = useToast();
 

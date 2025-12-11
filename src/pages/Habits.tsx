@@ -35,7 +35,7 @@ export default function Habits() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [newHabit, setNewHabit] = useState({ title: '', frequency: 'daily' as const, color: '#8B5CF6' });
+  const [newHabit, setNewHabit] = useState<{ title: string; frequency: Habit['frequency']; color: string }>({ title: '', frequency: 'daily', color: '#8B5CF6' });
   const { user } = useAuth();
   const { toast } = useToast();
 

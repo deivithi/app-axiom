@@ -41,10 +41,18 @@ export default function Finances() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [newTransaction, setNewTransaction] = useState({
+  const [newTransaction, setNewTransaction] = useState<{
+    title: string;
+    amount: string;
+    type: Transaction['type'];
+    category: string;
+    is_fixed: boolean;
+    is_installment: boolean;
+    total_installments: string;
+  }>({
     title: '',
     amount: '',
-    type: 'expense' as const,
+    type: 'expense',
     category: '',
     is_fixed: false,
     is_installment: false,
@@ -163,7 +171,7 @@ export default function Finances() {
                   <Select
                     value={newTransaction.type}
                     onValueChange={(v) =>
-                      setNewTransaction({ ...newTransaction, type: v, category: '' })
+                      setNewTransaction({ ...newTransaction, type: v as Transaction['type'], category: '' })
                     }
                   >
                     <SelectTrigger>
