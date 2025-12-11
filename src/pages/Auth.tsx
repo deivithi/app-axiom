@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { StarryBackground } from '@/components/ui/starry-background';
+import axiomLogo from '@/assets/axiom-logo.png';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -69,9 +70,7 @@ export default function Auth() {
       </div>
       <Card className="w-full max-w-md relative z-10">
         <CardHeader className="text-center space-y-4">
-          <div className="w-16 h-16 mx-auto rounded-full border-2 border-primary flex items-center justify-center">
-            <span className="font-orbitron text-3xl font-bold text-primary">A</span>
-          </div>
+          <img src={axiomLogo} alt="Axiom Logo" className="w-16 h-16 mx-auto" />
           <div>
             <h1 className="font-orbitron text-2xl font-bold tracking-wider text-primary">Axiom</h1>
             <p className="text-sm text-muted-foreground">Seu assistente pessoal</p>
