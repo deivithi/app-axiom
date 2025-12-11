@@ -26,7 +26,10 @@ interface Transaction {
   is_installment: boolean;
   current_installment?: number;
   total_installments?: number;
+  payment_method?: string;
 }
+
+const PAYMENT_METHODS = ["PIX", "Débito", "Crédito"];
 
 interface Account {
   id: string;
@@ -60,7 +63,8 @@ export default function Finances() {
     category: "",
     is_fixed: false,
     is_installment: false,
-    total_installments: ""
+    total_installments: "",
+    payment_method: "PIX"
   });
 
   const [newAccount, setNewAccount] = useState({
@@ -131,7 +135,8 @@ export default function Finances() {
       is_installment: newTransaction.is_installment,
       current_installment: newTransaction.is_installment ? 1 : null,
       total_installments: newTransaction.is_installment ? parseInt(newTransaction.total_installments) : null,
-      transaction_date: format(selectedMonth, "yyyy-MM-dd")
+      transaction_date: format(selectedMonth, "yyyy-MM-dd"),
+      payment_method: newTransaction.payment_method
     });
 
     if (error) {
@@ -148,7 +153,8 @@ export default function Finances() {
       category: "",
       is_fixed: false,
       is_installment: false,
-      total_installments: ""
+      total_installments: "",
+      payment_method: "PIX"
     });
     loadTransactions();
   };
@@ -166,7 +172,8 @@ export default function Finances() {
         is_fixed: editingTransaction.is_fixed,
         is_installment: editingTransaction.is_installment,
         current_installment: editingTransaction.is_installment ? editingTransaction.current_installment : null,
-        total_installments: editingTransaction.is_installment ? editingTransaction.total_installments : null
+        total_installments: editingTransaction.is_installment ? editingTransaction.total_installments : null,
+        payment_method: editingTransaction.payment_method
       })
       .eq("id", editingTransaction.id);
 
@@ -309,6 +316,17 @@ export default function Finances() {
                     <SelectContent>
                       {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Forma de Pagamento</Label>
+                  <Select value={newTransaction.payment_method} onValueChange={v => setNewTransaction(prev => ({ ...prev, payment_method: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map(pm => (
+                        <SelectItem key={pm} value={pm}>{pm}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -575,6 +593,7 @@ export default function Finances() {
                       <p className="font-medium">{transaction.title}</p>
                       <p className="text-sm text-muted-foreground">
                         {transaction.category}
+                        {transaction.payment_method && ` • ${transaction.payment_method}`}
                         {transaction.is_installment && ` • ${transaction.current_installment}/${transaction.total_installments}`}
                         {transaction.is_fixed && " • Fixa"}
                       </p>
@@ -654,6 +673,20 @@ export default function Finances() {
                     <SelectContent>
                       {(editingTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
                         <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Forma de Pagamento</Label>
+                  <Select 
+                    value={editingTransaction.payment_method || "PIX"} 
+                    onValueChange={v => setEditingTransaction(prev => prev ? { ...prev, payment_method: v } : null)}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map(pm => (
+                        <SelectItem key={pm} value={pm}>{pm}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
