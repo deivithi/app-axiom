@@ -1,0 +1,272 @@
+import { useState, useEffect } from 'react';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import { Plus, Loader2, Flame, Check, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+interface Habit {
+  id: string;
+  title: string;
+  frequency: 'daily' | 'weekly';
+  current_streak: number;
+  best_streak: number;
+  color: string;
+}
+
+interface HabitLog {
+  id: string;
+  habit_id: string;
+  completed_at: string;
+}
+
+export default function Habits() {
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [logs, setLogs] = useState<HabitLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [newHabit, setNewHabit] = useState({ title: '', frequency: 'daily' as const, color: '#8B5CF6' });
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (user) {
+      loadHabits();
+      loadLogs();
+    }
+  }, [user, currentMonth]);
+
+  const loadHabits = async () => {
+    const { data, error } = await supabase
+      .from('habits')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao carregar hábitos', variant: 'destructive' });
+    } else {
+      setHabits((data || []) as Habit[]);
+    }
+    setLoading(false);
+  };
+
+  const loadLogs = async () => {
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+
+    const { data } = await supabase
+      .from('habit_logs')
+      .select('*')
+      .gte('completed_at', format(start, 'yyyy-MM-dd'))
+      .lte('completed_at', format(end, 'yyyy-MM-dd'));
+
+    setLogs(data || []);
+  };
+
+  const createHabit = async () => {
+    if (!newHabit.title.trim()) return;
+
+    const { error } = await supabase.from('habits').insert({
+      user_id: user?.id,
+      title: newHabit.title,
+      frequency: newHabit.frequency,
+      color: newHabit.color,
+    });
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao criar hábito', variant: 'destructive' });
+    } else {
+      toast({ title: 'Sucesso', description: 'Hábito criado!' });
+      setNewHabit({ title: '', frequency: 'daily', color: '#8B5CF6' });
+      setDialogOpen(false);
+      loadHabits();
+    }
+  };
+
+  const toggleHabitDay = async (habitId: string, date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const existingLog = logs.find(
+      (l) => l.habit_id === habitId && l.completed_at === dateStr
+    );
+
+    if (existingLog) {
+      await supabase.from('habit_logs').delete().eq('id', existingLog.id);
+    } else {
+      await supabase.from('habit_logs').insert({
+        habit_id: habitId,
+        user_id: user?.id,
+        completed_at: dateStr,
+      });
+    }
+    loadLogs();
+  };
+
+  const deleteHabit = async (habitId: string) => {
+    await supabase.from('habits').delete().eq('id', habitId);
+    loadHabits();
+  };
+
+  const days = eachDayOfInterval({
+    start: startOfMonth(currentMonth),
+    end: endOfMonth(currentMonth),
+  });
+
+  const isCompleted = (habitId: string, date: Date) => {
+    return logs.some(
+      (l) => l.habit_id === habitId && l.completed_at === format(date, 'yyyy-MM-dd')
+    );
+  };
+
+  return (
+    <AppLayout>
+      <div className="p-4 md:p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">Hábitos</h1>
+            <p className="text-muted-foreground">
+              {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+            </p>
+          </div>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Novo Hábito
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Novo Hábito</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label>Nome do hábito</Label>
+                  <Input
+                    value={newHabit.title}
+                    onChange={(e) => setNewHabit({ ...newHabit, title: e.target.value })}
+                    placeholder="Ex: Meditar 10 minutos"
+                  />
+                </div>
+                <div>
+                  <Label>Frequência</Label>
+                  <Select
+                    value={newHabit.frequency}
+                    onValueChange={(v) => setNewHabit({ ...newHabit, frequency: v as Habit['frequency'] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Diário</SelectItem>
+                      <SelectItem value="weekly">Semanal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Cor</Label>
+                  <Input
+                    type="color"
+                    value={newHabit.color}
+                    onChange={(e) => setNewHabit({ ...newHabit, color: e.target.value })}
+                    className="h-10 cursor-pointer"
+                  />
+                </div>
+                <Button onClick={createHabit} className="w-full">
+                  Criar Hábito
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : habits.length === 0 ? (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground">Nenhum hábito cadastrado</p>
+            <p className="text-sm text-muted-foreground">Crie seu primeiro hábito para começar</p>
+          </Card>
+        ) : (
+          <div className="space-y-6">
+            {habits.map((habit) => (
+              <Card key={habit.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: habit.color }}
+                      />
+                      <CardTitle className="text-lg">{habit.title}</CardTitle>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-1 text-amber-500">
+                        <Flame className="h-4 w-4" />
+                        <span className="text-sm font-medium">{habit.current_streak}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive"
+                        onClick={() => deleteHabit(habit.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-7 gap-1">
+                    {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
+                      <div key={i} className="text-center text-xs text-muted-foreground py-1">
+                        {day}
+                      </div>
+                    ))}
+                    {Array.from({ length: days[0].getDay() }).map((_, i) => (
+                      <div key={`empty-${i}`} />
+                    ))}
+                    {days.map((day) => {
+                      const completed = isCompleted(habit.id, day);
+                      return (
+                        <button
+                          key={day.toISOString()}
+                          onClick={() => toggleHabitDay(habit.id, day)}
+                          className={cn(
+                            'aspect-square rounded-lg flex items-center justify-center text-xs transition-all',
+                            isToday(day) && 'ring-2 ring-primary',
+                            completed
+                              ? 'text-primary-foreground'
+                              : 'bg-muted hover:bg-muted/80'
+                          )}
+                          style={completed ? { backgroundColor: habit.color } : undefined}
+                        >
+                          {completed ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            day.getDate()
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </AppLayout>
+  );
+}
