@@ -689,6 +689,29 @@ const tools = [
       description: "Exclui todos os dados do usuário e começa do zero. Use apenas quando o usuário pedir explicitamente para resetar tudo.",
       parameters: { type: "object", properties: {} }
     }
+  },
+  // AVATAR
+  {
+    type: "function",
+    function: {
+      name: "update_avatar_url",
+      description: "Atualiza a URL do avatar/foto de perfil do usuário. Use quando o usuário quiser mudar a foto de perfil informando uma URL de imagem.",
+      parameters: {
+        type: "object",
+        properties: {
+          avatar_url: { type: "string", description: "URL da imagem para usar como avatar" }
+        },
+        required: ["avatar_url"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "remove_avatar",
+      description: "Remove a foto de perfil do usuário, voltando para o ícone padrão.",
+      parameters: { type: "object", properties: {} }
+    }
   }
 ];
 
@@ -1479,9 +1502,22 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       await supabaseAdmin.from("notes").delete().eq("user_id", userId);
       await supabaseAdmin.from("journal_entries").delete().eq("user_id", userId);
       await supabaseAdmin.from("messages").delete().eq("user_id", userId);
-      await supabaseAdmin.from("profiles").update({ user_context: null }).eq("id", userId);
+      await supabaseAdmin.from("profiles").update({ user_context: null, avatar_url: null }).eq("id", userId);
       
       return { success: true, message: "Todos os dados foram excluídos. Começando do zero!" };
+    }
+
+    // AVATAR
+    case "update_avatar_url": {
+      const { error } = await supabaseAdmin.from("profiles").update({ avatar_url: args.avatar_url }).eq("id", userId);
+      if (error) throw error;
+      return { success: true, message: "Avatar atualizado! 📸 Sua nova foto de perfil já está aparecendo no chat." };
+    }
+
+    case "remove_avatar": {
+      const { error } = await supabaseAdmin.from("profiles").update({ avatar_url: null }).eq("id", userId);
+      if (error) throw error;
+      return { success: true, message: "Avatar removido! Você pode adicionar uma nova foto quando quiser." };
     }
 
     default:
@@ -1575,8 +1611,10 @@ FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
 - Projetos: criar, listar, editar, excluir
 - Subtarefas de projetos: criar, listar (list_project_tasks), editar (update_project_task), excluir
 - Diário: criar, listar, editar, excluir
-- Contexto pessoal: atualizar
-- Reset completo: excluir todos os dados
+- Contexto pessoal: atualizar (update_user_context)
+- Nome do usuário: atualizar (update_user_name)
+- Avatar/foto de perfil: atualizar URL (update_avatar_url), remover (remove_avatar)
+- Reset completo: excluir todos os dados (delete_all_user_data)
 
 💳 REGRAS PARA PARCELAS (MUITO IMPORTANTE):
 Quando o usuário mencionar "parcelado", "em X vezes", "Xx" (ex: 10x, 3x, 12x):
