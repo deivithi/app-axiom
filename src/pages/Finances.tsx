@@ -291,6 +291,9 @@ export default function Finances() {
   const updateTransaction = async () => {
     if (!editingTransaction) return;
 
+    // Buscar transação original para comparar mudanças
+    const originalTransaction = transactions.find(t => t.id === editingTransaction.id);
+
     const { error } = await supabase
       .from("transactions")
       .update({
@@ -302,7 +305,8 @@ export default function Finances() {
         is_installment: editingTransaction.is_installment,
         current_installment: editingTransaction.is_installment ? editingTransaction.current_installment : null,
         total_installments: editingTransaction.is_installment ? editingTransaction.total_installments : null,
-        payment_method: editingTransaction.payment_method
+        payment_method: editingTransaction.payment_method,
+        account_id: editingTransaction.account_id || null
       })
       .eq("id", editingTransaction.id);
 
@@ -311,10 +315,55 @@ export default function Finances() {
       return;
     }
 
+    // Sincronizar saldos se transação estava paga
+    if (originalTransaction?.is_paid) {
+      const oldAccountId = originalTransaction.account_id;
+      const newAccountId = editingTransaction.account_id;
+
+      // Mudou de conta?
+      if (oldAccountId !== newAccountId) {
+        // Reverter na conta antiga
+        if (oldAccountId) {
+          const oldAccount = accounts.find(a => a.id === oldAccountId);
+          if (oldAccount) {
+            const revertedBalance = originalTransaction.type === "income"
+              ? oldAccount.balance - originalTransaction.amount
+              : oldAccount.balance + originalTransaction.amount;
+            await supabase.from("accounts").update({ balance: revertedBalance }).eq("id", oldAccountId);
+          }
+        }
+        // Aplicar na conta nova
+        if (newAccountId) {
+          const newAccount = accounts.find(a => a.id === newAccountId);
+          if (newAccount) {
+            const newBalance = editingTransaction.type === "income"
+              ? newAccount.balance + editingTransaction.amount
+              : newAccount.balance - editingTransaction.amount;
+            await supabase.from("accounts").update({ balance: newBalance }).eq("id", newAccountId);
+          }
+        }
+      }
+      // Mesma conta mas mudou valor/tipo?
+      else if (newAccountId && (originalTransaction.amount !== editingTransaction.amount || originalTransaction.type !== editingTransaction.type)) {
+        const account = accounts.find(a => a.id === newAccountId);
+        if (account) {
+          // Reverter valor antigo
+          let balance = originalTransaction.type === "income"
+            ? account.balance - originalTransaction.amount
+            : account.balance + originalTransaction.amount;
+          // Aplicar novo valor
+          balance = editingTransaction.type === "income"
+            ? balance + editingTransaction.amount
+            : balance - editingTransaction.amount;
+          await supabase.from("accounts").update({ balance }).eq("id", newAccountId);
+        }
+      }
+    }
+
     toast.success("Transação atualizada!");
     setIsEditDialogOpen(false);
     setEditingTransaction(null);
-    loadTransactions();
+    loadData();
   };
 
   const deleteTransaction = async (id: string) => {
@@ -833,6 +882,7 @@ export default function Finances() {
                       <p className="text-sm text-muted-foreground">
                         {transaction.category}
                         {transaction.payment_method && ` • ${transaction.payment_method}`}
+                        {transaction.account_id && ` • ${accounts.find(a => a.id === transaction.account_id)?.icon} ${accounts.find(a => a.id === transaction.account_id)?.name}`}
                         {transaction.is_installment && ` • ${transaction.current_installment}/${transaction.total_installments}`}
                       </p>
                     </div>
@@ -973,6 +1023,23 @@ export default function Finances() {
                     <SelectContent>
                       {PAYMENT_METHODS.map(pm => (
                         <SelectItem key={pm} value={pm}>{pm}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Conta Vinculada</Label>
+                  <Select 
+                    value={editingTransaction.account_id || "none"} 
+                    onValueChange={v => setEditingTransaction(prev => 
+                      prev ? { ...prev, account_id: v === "none" ? undefined : v } : null
+                    )}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecionar conta" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      {accounts.map(acc => (
+                        <SelectItem key={acc.id} value={acc.id}>{acc.icon} {acc.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
