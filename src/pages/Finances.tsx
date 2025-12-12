@@ -237,13 +237,18 @@ export default function Finances() {
       return;
     }
 
-    // Sincronizar saldo da conta se vinculada
+    // Sincronizar saldo da conta se vinculada - BUSCAR DO BANCO
     if (transaction?.account_id) {
-      const account = accounts.find(a => a.id === transaction.account_id);
-      if (account) {
+      const { data: currentAccount } = await supabase
+        .from("accounts")
+        .select("balance")
+        .eq("id", transaction.account_id)
+        .single();
+      
+      if (currentAccount) {
         const newBalance = type === "income" 
-          ? account.balance + transaction.amount  // Receita: +saldo
-          : account.balance - transaction.amount; // Despesa: -saldo
+          ? currentAccount.balance + transaction.amount  // Receita: +saldo
+          : currentAccount.balance - transaction.amount; // Despesa: -saldo
         
         await supabase
           .from("accounts")
@@ -269,13 +274,18 @@ export default function Finances() {
       return;
     }
 
-    // Reverter saldo da conta se vinculada
+    // Reverter saldo da conta se vinculada - BUSCAR DO BANCO
     if (transaction?.account_id) {
-      const account = accounts.find(a => a.id === transaction.account_id);
-      if (account) {
+      const { data: currentAccount } = await supabase
+        .from("accounts")
+        .select("balance")
+        .eq("id", transaction.account_id)
+        .single();
+      
+      if (currentAccount) {
         const newBalance = transaction.type === "income"
-          ? account.balance - transaction.amount  // Receita: -saldo (reverte)
-          : account.balance + transaction.amount; // Despesa: +saldo (reverte)
+          ? currentAccount.balance - transaction.amount  // Receita: -saldo (reverte)
+          : currentAccount.balance + transaction.amount; // Despesa: +saldo (reverte)
         
         await supabase
           .from("accounts")
@@ -315,16 +325,21 @@ export default function Finances() {
       return;
     }
 
-    // Sincronizar saldos se transação estava paga
+    // Sincronizar saldos se transação estava paga - BUSCAR DO BANCO
     if (originalTransaction?.is_paid) {
       const oldAccountId = originalTransaction.account_id;
       const newAccountId = editingTransaction.account_id;
 
       // Mudou de conta?
       if (oldAccountId !== newAccountId) {
-        // Reverter na conta antiga
+        // Reverter na conta antiga - BUSCAR DO BANCO
         if (oldAccountId) {
-          const oldAccount = accounts.find(a => a.id === oldAccountId);
+          const { data: oldAccount } = await supabase
+            .from("accounts")
+            .select("balance")
+            .eq("id", oldAccountId)
+            .single();
+          
           if (oldAccount) {
             const revertedBalance = originalTransaction.type === "income"
               ? oldAccount.balance - originalTransaction.amount
@@ -332,9 +347,14 @@ export default function Finances() {
             await supabase.from("accounts").update({ balance: revertedBalance }).eq("id", oldAccountId);
           }
         }
-        // Aplicar na conta nova
+        // Aplicar na conta nova - BUSCAR DO BANCO
         if (newAccountId) {
-          const newAccount = accounts.find(a => a.id === newAccountId);
+          const { data: newAccount } = await supabase
+            .from("accounts")
+            .select("balance")
+            .eq("id", newAccountId)
+            .single();
+          
           if (newAccount) {
             const newBalance = editingTransaction.type === "income"
               ? newAccount.balance + editingTransaction.amount
@@ -343,9 +363,14 @@ export default function Finances() {
           }
         }
       }
-      // Mesma conta mas mudou valor/tipo?
+      // Mesma conta mas mudou valor/tipo? - BUSCAR DO BANCO
       else if (newAccountId && (originalTransaction.amount !== editingTransaction.amount || originalTransaction.type !== editingTransaction.type)) {
-        const account = accounts.find(a => a.id === newAccountId);
+        const { data: account } = await supabase
+          .from("accounts")
+          .select("balance")
+          .eq("id", newAccountId)
+          .single();
+        
         if (account) {
           // Reverter valor antigo
           let balance = originalTransaction.type === "income"
@@ -370,13 +395,18 @@ export default function Finances() {
     // Also delete all recurring instances if deleting an original fixed transaction
     const transaction = transactions.find(t => t.id === id);
     
-    // Se estava paga e tinha conta vinculada, reverter saldo
+    // Se estava paga e tinha conta vinculada, reverter saldo - BUSCAR DO BANCO
     if (transaction?.is_paid && transaction?.account_id) {
-      const account = accounts.find(a => a.id === transaction.account_id);
-      if (account) {
+      const { data: currentAccount } = await supabase
+        .from("accounts")
+        .select("balance")
+        .eq("id", transaction.account_id)
+        .single();
+      
+      if (currentAccount) {
         const newBalance = transaction.type === "income"
-          ? account.balance - transaction.amount
-          : account.balance + transaction.amount;
+          ? currentAccount.balance - transaction.amount
+          : currentAccount.balance + transaction.amount;
         
         await supabase
           .from("accounts")
@@ -399,6 +429,29 @@ export default function Finances() {
 
     toast.success("Transação excluída!");
     loadData();
+  };
+
+  // Recalcular saldo da conta baseado em TODAS as transações pagas vinculadas
+  const recalculateAccountBalance = async (accountId: string) => {
+    const { data: paidTransactions, error } = await supabase
+      .from("transactions")
+      .select("amount, type")
+      .eq("account_id", accountId)
+      .eq("is_paid", true)
+      .eq("user_id", user?.id);
+    
+    if (error) {
+      toast.error("Erro ao recalcular saldo");
+      return;
+    }
+
+    const newBalance = (paidTransactions || []).reduce((acc, t) => {
+      return t.type === "income" ? acc + Number(t.amount) : acc - Number(t.amount);
+    }, 0);
+    
+    await supabase.from("accounts").update({ balance: newBalance }).eq("id", accountId);
+    toast.success("Saldo recalculado! ✅");
+    loadAccounts();
   };
 
   const createAccount = async () => {
@@ -720,9 +773,20 @@ export default function Finances() {
                       className="p-4 rounded-xl border"
                       style={{ borderColor: account.color + "50", backgroundColor: account.color + "10" }}
                     >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-2xl">{account.icon}</span>
-                        <span className="font-medium truncate">{account.name}</span>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-2xl">{account.icon}</span>
+                          <span className="font-medium truncate">{account.name}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 opacity-60 hover:opacity-100"
+                          onClick={() => recalculateAccountBalance(account.id)}
+                          title="Recalcular saldo"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
                       </div>
                       <p className="text-lg font-bold" style={{ color: account.color }}>
                         R$ {Number(account.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
