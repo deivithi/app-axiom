@@ -270,16 +270,18 @@ const tools = [
     type: "function",
     function: {
       name: "create_transaction",
-      description: "Cria uma nova transação financeira (receita ou despesa). Se is_fixed=true, será uma despesa recorrente que aparecerá em todos os meses futuros.",
+      description: "Cria uma nova transação financeira (receita ou despesa). Suporta: transações simples, fixas (recorrentes todo mês com is_fixed=true), ou parceladas (ex: 10x com is_installment=true e total_installments=10). Para parcelas, o amount é o valor DE CADA PARCELA.",
       parameters: {
         type: "object",
         properties: {
           title: { type: "string", description: "Título/descrição da transação" },
-          amount: { type: "number", description: "Valor da transação" },
+          amount: { type: "number", description: "Valor da transação. Para parcelas, é o valor de CADA parcela (não o total)" },
           type: { type: "string", enum: ["income", "expense"], description: "Tipo: receita ou despesa" },
           category: { type: "string", description: "Categoria da transação" },
           is_fixed: { type: "boolean", description: "Se é uma despesa fixa/recorrente (aparece todos os meses)" },
-          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento" }
+          is_installment: { type: "boolean", description: "Se é uma compra parcelada (ex: 10x, 12x). Use junto com total_installments" },
+          total_installments: { type: "number", description: "Número total de parcelas (ex: 10 para 10x, 12 para 12x). Obrigatório quando is_installment=true" },
+          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento. Para parcelas, geralmente é Crédito" }
         },
         required: ["title", "amount", "type", "category"]
       }
@@ -953,6 +955,56 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       const today = new Date();
       const referenceMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
       
+      // PARCELAS: Criar todas as parcelas de uma vez
+      if (args.is_installment && args.total_installments && args.total_installments > 1) {
+        const installments = [];
+        for (let i = 1; i <= args.total_installments; i++) {
+          const installmentDate = new Date(today);
+          installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
+          
+          const instMonth = `${installmentDate.getFullYear()}-${String(installmentDate.getMonth() + 1).padStart(2, '0')}`;
+          
+          installments.push({
+            user_id: userId,
+            title: args.title,
+            amount: args.amount,
+            type: args.type,
+            category: args.category,
+            is_fixed: false,
+            is_installment: true,
+            current_installment: i,
+            total_installments: args.total_installments,
+            payment_method: args.payment_method || "Crédito",
+            is_paid: false,
+            transaction_date: installmentDate.toISOString().split("T")[0],
+            reference_month: instMonth
+          });
+        }
+        
+        const { data, error } = await supabaseAdmin
+          .from("transactions")
+          .insert(installments)
+          .select();
+        
+        if (error) throw error;
+        
+        const lastDate = new Date(today);
+        lastDate.setMonth(lastDate.getMonth() + args.total_installments - 1);
+        const firstMonth = today.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        const lastMonth = lastDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        const totalValue = args.amount * args.total_installments;
+        
+        return { 
+          success: true, 
+          transactions: data,
+          installments_created: args.total_installments,
+          amount_per_installment: args.amount,
+          total_value: totalValue,
+          message: `🛒 Compra parcelada criada! "${args.title}" em ${args.total_installments}x de R$ ${args.amount.toFixed(2)} (total: R$ ${totalValue.toFixed(2)}). Parcelas lançadas de ${firstMonth} até ${lastMonth}.`
+        };
+      }
+      
+      // Transação simples ou fixa
       const { data, error } = await supabaseAdmin.from("transactions").insert({
         user_id: userId,
         title: args.title,
@@ -960,6 +1012,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         type: args.type,
         category: args.category,
         is_fixed: args.is_fixed || false,
+        is_installment: false,
         payment_method: args.payment_method || "PIX",
         is_paid: false,
         reference_month: args.is_fixed ? referenceMonth : null
@@ -1452,7 +1505,7 @@ FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
 - Tarefas: criar, listar, editar, excluir, concluir (complete_task)
 - Hábitos: criar, listar, editar, excluir, marcar como feito (log_habit_completion), desmarcar (remove_habit_completion), ver histórico (list_habit_logs)
 - Lembretes: criar, listar, editar (incluindo voltar para pendente com is_completed: false), excluir, concluir (complete_reminder)
-- Transações: criar, listar, editar, excluir (com forma de pagamento: PIX, Débito ou Crédito)
+- Transações: criar (simples, fixas ou PARCELADAS), listar, editar, excluir, pagar (pay_transaction)
 - Contas bancárias: criar, listar, editar, excluir
 - Notas: criar, listar, editar, excluir
 - Projetos: criar, listar, editar, excluir
@@ -1460,6 +1513,28 @@ FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
 - Diário: criar, listar, editar, excluir
 - Contexto pessoal: atualizar
 - Reset completo: excluir todos os dados
+
+💳 REGRAS PARA PARCELAS (MUITO IMPORTANTE):
+Quando o usuário mencionar "parcelado", "em X vezes", "Xx" (ex: 10x, 3x, 12x):
+- Use is_installment: true
+- Use total_installments: [número de parcelas]
+- O AMOUNT é o valor DE CADA PARCELA, não o valor total
+- O payment_method geralmente é "Crédito" para parcelas
+
+EXEMPLOS DE PARCELAS:
+- "Comprei uma TV de 500 reais em 10x"
+  → amount: 500, is_installment: true, total_installments: 10
+  → Sistema cria 10 transações de R$500 cada (total R$5000)
+
+- "Parcelei o celular em 12 vezes de 150"
+  → amount: 150, is_installment: true, total_installments: 12
+  → Sistema cria 12 transações de R$150 cada
+
+- "Gastei 800 em 4x no cartão"
+  → amount: 200 (800/4), is_installment: true, total_installments: 4
+  → Sistema cria 4 transações de R$200 cada
+
+ATENÇÃO: Se o usuário disser "gastei X em Yx", divida X por Y para obter o valor da parcela!
 
 EXEMPLOS DE USO CORRETO:
 - Usuário: "marca o hábito de flexões como feito"
