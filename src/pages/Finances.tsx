@@ -153,7 +153,7 @@ export default function Finances() {
       .eq("user_id", user?.id)
       .gte("transaction_date", monthStart)
       .lte("transaction_date", monthEnd)
-      .order("transaction_date", { ascending: false });
+      .order("transaction_date", { ascending: true });
 
     if (error) {
       toast.error("Erro ao carregar transações");
@@ -748,6 +748,9 @@ export default function Finances() {
                         <p className={`font-medium ${transaction.is_paid ? "text-muted-foreground" : ""}`}>
                           {transaction.title}
                         </p>
+                        <span className="text-sm text-muted-foreground">
+                          • {format(new Date(transaction.transaction_date), "dd/MM", { locale: ptBR })}
+                        </span>
                         {transaction.is_fixed && (
                           <Badge variant="outline" className="text-xs">
                             <RefreshCw className="h-3 w-3 mr-1" />
