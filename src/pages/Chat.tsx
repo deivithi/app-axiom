@@ -296,7 +296,7 @@ export default function Chat() {
   };
   return <AppLayout>
       <div className="flex flex-col h-screen">
-        <header className="p-4 border-b border-border">
+        <header className="p-4 pl-16 md:pl-4 border-b border-border">
           <h1 className="text-xl font-semibold text-secondary-foreground">Chat com Axiom</h1>
           <p className="text-sm text-secondary-foreground">
             Seu consultor estratégico pessoal - pode criar tarefas, lembretes, registrar finanças e mais
