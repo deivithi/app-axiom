@@ -173,7 +173,7 @@ export default function Settings() {
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6 space-y-6 max-w-3xl mx-auto">
+      <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-6 max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold text-foreground">⚙️ Configurações</h1>
 
         {/* Foto de Perfil */}

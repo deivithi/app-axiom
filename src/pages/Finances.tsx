@@ -413,7 +413,7 @@ export default function Finances() {
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6 space-y-6">
+      <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-6">
         {/* Header com filtro de mês */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <h1 className="text-2xl font-bold text-foreground">Finanças</h1>

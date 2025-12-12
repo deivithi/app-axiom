@@ -177,7 +177,7 @@ export default function Diary() {
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6">
+      <div className="p-4 pl-16 md:pl-6 md:p-6">
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Diário</h1>
           <p className="text-muted-foreground">Registre seus pensamentos e sentimentos</p>
