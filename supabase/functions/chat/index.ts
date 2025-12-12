@@ -199,7 +199,9 @@ const tools = [
           title: { type: "string", description: "Título do lembrete" },
           description: { type: "string", description: "Descrição" },
           remind_at: { type: "string", description: "Data e hora do lembrete (ISO 8601)" },
-          category: { type: "string", enum: ["personal", "work", "health", "other"], description: "Categoria do lembrete" }
+          category: { type: "string", enum: ["personal", "work", "health", "other"], description: "Categoria do lembrete" },
+          is_recurring: { type: "boolean", description: "Se é um lembrete recorrente" },
+          recurrence_type: { type: "string", enum: ["daily", "weekly", "monthly"], description: "Tipo de recorrência (se is_recurring for true)" }
         },
         required: ["title", "remind_at"]
       }
@@ -231,7 +233,9 @@ const tools = [
           description: { type: "string", description: "Nova descrição" },
           remind_at: { type: "string", description: "Nova data/hora" },
           category: { type: "string", enum: ["personal", "work", "health", "other"], description: "Nova categoria" },
-          is_completed: { type: "boolean", description: "true para concluir, false para voltar para pendente" }
+          is_completed: { type: "boolean", description: "true para concluir, false para voltar para pendente" },
+          is_recurring: { type: "boolean", description: "Se é recorrente" },
+          recurrence_type: { type: "string", enum: ["daily", "weekly", "monthly"], description: "Tipo de recorrência" }
         },
         required: ["id"]
       }
@@ -665,6 +669,20 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "update_user_name",
+      description: "Atualiza o nome completo do usuário",
+      parameters: {
+        type: "object",
+        properties: {
+          full_name: { type: "string", description: "Novo nome completo do usuário" }
+        },
+        required: ["full_name"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "delete_all_user_data",
       description: "Exclui todos os dados do usuário e começa do zero. Use apenas quando o usuário pedir explicitamente para resetar tudo.",
       parameters: { type: "object", properties: {} }
@@ -909,7 +927,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         title: args.title,
         description: args.description || null,
         remind_at: args.remind_at,
-        category: args.category || "personal"
+        category: args.category || "personal",
+        is_recurring: args.is_recurring || false,
+        recurrence_type: args.recurrence_type || null
       }).select().single();
       if (error) throw error;
       return { success: true, reminder: data };
@@ -930,6 +950,8 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       if (args.remind_at) updateData.remind_at = args.remind_at;
       if (args.category) updateData.category = args.category;
       if (args.is_completed !== undefined) updateData.is_completed = args.is_completed;
+      if (args.is_recurring !== undefined) updateData.is_recurring = args.is_recurring;
+      if (args.recurrence_type !== undefined) updateData.recurrence_type = args.recurrence_type;
 
       const { data, error } = await supabaseAdmin.from("reminders").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
@@ -1400,6 +1422,12 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       const { error } = await supabaseAdmin.from("profiles").update({ user_context: args.context }).eq("id", userId);
       if (error) throw error;
       return { success: true, message: "Contexto pessoal atualizado" };
+    }
+
+    case "update_user_name": {
+      const { error } = await supabaseAdmin.from("profiles").update({ full_name: args.full_name }).eq("id", userId);
+      if (error) throw error;
+      return { success: true, message: `Nome atualizado para "${args.full_name}" ✨` };
     }
 
     case "delete_all_user_data": {

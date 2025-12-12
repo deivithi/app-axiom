@@ -711,7 +711,7 @@ export default function Finances() {
                     labelStyle={{ color: "hsl(var(--foreground))" }}
                     itemStyle={{ color: "hsl(var(--foreground))" }}
                   />
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                  <Bar dataKey="value" name="Valor" radius={[0, 8, 8, 0]}>
                     {comparisonData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.fill} />
                     ))}
