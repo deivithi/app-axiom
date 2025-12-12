@@ -153,7 +153,7 @@ export default function Tasks() {
 
   return (
     <AppLayout>
-      <div className="p-4 md:p-6">
+      <div className="p-4 pl-16 md:pl-6 md:p-6">
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold">Tarefas</h1>
