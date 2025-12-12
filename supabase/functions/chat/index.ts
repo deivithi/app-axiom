@@ -274,7 +274,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_transaction",
-      description: "Cria uma nova transação financeira (receita ou despesa). Suporta: transações simples, fixas (recorrentes todo mês com is_fixed=true), ou parceladas (ex: 10x com is_installment=true e total_installments=10). Para parcelas, o amount é o valor DE CADA PARCELA.",
+      description: "Cria uma nova transação financeira (receita ou despesa). Suporta: transações simples, fixas (recorrentes todo mês com is_fixed=true), ou parceladas (ex: 10x com is_installment=true e total_installments=10). Para parcelas, o amount é o valor DE CADA PARCELA. Pode vincular a uma conta para sincronização automática de saldo.",
       parameters: {
         type: "object",
         properties: {
@@ -285,7 +285,8 @@ const tools = [
           is_fixed: { type: "boolean", description: "Se é uma despesa fixa/recorrente (aparece todos os meses)" },
           is_installment: { type: "boolean", description: "Se é uma compra parcelada (ex: 10x, 12x). Use junto com total_installments" },
           total_installments: { type: "number", description: "Número total de parcelas (ex: 10 para 10x, 12 para 12x). Obrigatório quando is_installment=true" },
-          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento. Para parcelas, geralmente é Crédito" }
+          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento. Para parcelas, geralmente é Crédito" },
+          account_id: { type: "string", description: "UUID da conta bancária vinculada (opcional). Obtenha de list_accounts. Ao pagar, o saldo será sincronizado." }
         },
         required: ["title", "amount", "type", "category"]
       }
@@ -305,7 +306,8 @@ const tools = [
           type: { type: "string", enum: ["income", "expense"], description: "Novo tipo" },
           category: { type: "string", description: "Nova categoria" },
           payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Nova forma de pagamento" },
-          is_paid: { type: "boolean", description: "Status de pagamento (true=pago, false=pendente)" }
+          is_paid: { type: "boolean", description: "Status de pagamento (true=pago, false=pendente)" },
+          account_id: { type: "string", description: "UUID da conta bancária vinculada (opcional). Obtenha de list_accounts." }
         },
         required: ["id"]
       }
@@ -1037,12 +1039,14 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         is_installment: false,
         payment_method: args.payment_method || "PIX",
         is_paid: false,
-        reference_month: args.is_fixed ? referenceMonth : null
+        reference_month: args.is_fixed ? referenceMonth : null,
+        account_id: args.account_id || null
       }).select().single();
       if (error) throw error;
       
       const fixedMsg = args.is_fixed ? " (recorrente - aparecerá em todos os meses futuros)" : "";
-      return { success: true, transaction: data, message: `Transação "${args.title}" criada com sucesso!${fixedMsg} 💰` };
+      const accountMsg = args.account_id ? " Vinculada à conta selecionada." : "";
+      return { success: true, transaction: data, message: `Transação "${args.title}" criada com sucesso!${fixedMsg}${accountMsg} 💰` };
     }
 
     case "update_transaction": {
@@ -1053,6 +1057,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       if (args.category) updateData.category = args.category;
       if (args.payment_method) updateData.payment_method = args.payment_method;
       if (args.is_paid !== undefined) updateData.is_paid = args.is_paid;
+      if (args.account_id !== undefined) updateData.account_id = args.account_id || null;
 
       const { data, error } = await supabaseAdmin.from("transactions").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
@@ -1093,6 +1098,17 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     case "pay_transaction": {
+      // Buscar transação para obter account_id e amount
+      const { data: txn, error: fetchError } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("id", args.id)
+        .eq("user_id", userId)
+        .single();
+      
+      if (fetchError || !txn) throw new Error("Transação não encontrada");
+      
+      // Marcar como paga
       const { data, error } = await supabaseAdmin
         .from("transactions")
         .update({ is_paid: true })
@@ -1102,7 +1118,27 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         .single();
       
       if (error) throw error;
-      return { success: true, transaction: data, message: `Transação "${data.title}" marcada como paga! ✅💰` };
+      
+      // Sincronizar saldo da conta se vinculada
+      if (txn.account_id) {
+        const { data: account } = await supabaseAdmin
+          .from("accounts")
+          .select("balance")
+          .eq("id", txn.account_id)
+          .eq("user_id", userId)
+          .single();
+        
+        if (account) {
+          const delta = txn.type === "income" ? Number(txn.amount) : -Number(txn.amount);
+          await supabaseAdmin
+            .from("accounts")
+            .update({ balance: Number(account.balance) + delta })
+            .eq("id", txn.account_id);
+        }
+      }
+      
+      const accountMsg = txn.account_id ? " Saldo da conta atualizado!" : "";
+      return { success: true, transaction: data, message: `Transação "${data.title}" marcada como paga! ✅💰${accountMsg}` };
     }
 
     case "list_pending_transactions": {

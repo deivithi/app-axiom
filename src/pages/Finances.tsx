@@ -31,6 +31,7 @@ interface Transaction {
   is_paid: boolean;
   parent_transaction_id?: string;
   reference_month?: string;
+  account_id?: string;
 }
 
 const PAYMENT_METHODS = ["PIX", "Débito", "Crédito"];
@@ -68,7 +69,8 @@ export default function Finances() {
     is_fixed: false,
     is_installment: false,
     total_installments: "",
-    payment_method: "PIX"
+    payment_method: "PIX",
+    account_id: ""
   });
 
   const [newAccount, setNewAccount] = useState({
@@ -197,7 +199,8 @@ export default function Finances() {
       transaction_date: format(selectedMonth, "yyyy-MM-dd"),
       payment_method: newTransaction.payment_method,
       is_paid: false,
-      reference_month: newTransaction.is_fixed ? referenceMonth : null
+      reference_month: newTransaction.is_fixed ? referenceMonth : null,
+      account_id: newTransaction.account_id || null
     });
 
     if (error) {
@@ -215,12 +218,15 @@ export default function Finances() {
       is_fixed: false,
       is_installment: false,
       total_installments: "",
-      payment_method: "PIX"
+      payment_method: "PIX",
+      account_id: ""
     });
-    loadTransactions();
+    loadData();
   };
 
   const payTransaction = async (id: string, type: string) => {
+    const transaction = transactions.find(t => t.id === id);
+    
     const { error } = await supabase
       .from("transactions")
       .update({ is_paid: true })
@@ -231,11 +237,28 @@ export default function Finances() {
       return;
     }
 
+    // Sincronizar saldo da conta se vinculada
+    if (transaction?.account_id) {
+      const account = accounts.find(a => a.id === transaction.account_id);
+      if (account) {
+        const newBalance = type === "income" 
+          ? account.balance + transaction.amount  // Receita: +saldo
+          : account.balance - transaction.amount; // Despesa: -saldo
+        
+        await supabase
+          .from("accounts")
+          .update({ balance: newBalance })
+          .eq("id", transaction.account_id);
+      }
+    }
+
     toast.success(type === "income" ? "Receita marcada como recebida! 💰" : "Transação marcada como paga! ✅");
-    loadTransactions();
+    loadData();
   };
 
   const unpayTransaction = async (id: string) => {
+    const transaction = transactions.find(t => t.id === id);
+    
     const { error } = await supabase
       .from("transactions")
       .update({ is_paid: false })
@@ -246,8 +269,23 @@ export default function Finances() {
       return;
     }
 
+    // Reverter saldo da conta se vinculada
+    if (transaction?.account_id) {
+      const account = accounts.find(a => a.id === transaction.account_id);
+      if (account) {
+        const newBalance = transaction.type === "income"
+          ? account.balance - transaction.amount  // Receita: -saldo (reverte)
+          : account.balance + transaction.amount; // Despesa: +saldo (reverte)
+        
+        await supabase
+          .from("accounts")
+          .update({ balance: newBalance })
+          .eq("id", transaction.account_id);
+      }
+    }
+
     toast.success("Pagamento desfeito");
-    loadTransactions();
+    loadData();
   };
 
   const updateTransaction = async () => {
@@ -283,6 +321,21 @@ export default function Finances() {
     // Also delete all recurring instances if deleting an original fixed transaction
     const transaction = transactions.find(t => t.id === id);
     
+    // Se estava paga e tinha conta vinculada, reverter saldo
+    if (transaction?.is_paid && transaction?.account_id) {
+      const account = accounts.find(a => a.id === transaction.account_id);
+      if (account) {
+        const newBalance = transaction.type === "income"
+          ? account.balance - transaction.amount
+          : account.balance + transaction.amount;
+        
+        await supabase
+          .from("accounts")
+          .update({ balance: newBalance })
+          .eq("id", transaction.account_id);
+      }
+    }
+    
     if (transaction?.is_fixed && !transaction.parent_transaction_id) {
       // This is an original fixed transaction - delete all its instances too
       await supabase.from("transactions").delete().eq("parent_transaction_id", id);
@@ -296,7 +349,7 @@ export default function Finances() {
     }
 
     toast.success("Transação excluída!");
-    loadTransactions();
+    loadData();
   };
 
   const createAccount = async () => {
@@ -452,6 +505,25 @@ export default function Finances() {
                       onChange={e => setNewTransaction(prev => ({ ...prev, total_installments: e.target.value }))}
                       placeholder="12"
                     />
+                  </div>
+                )}
+                {accounts.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Conta (opcional)</Label>
+                    <Select 
+                      value={newTransaction.account_id} 
+                      onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v }))}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Nenhuma</SelectItem>
+                        {accounts.map(acc => (
+                          <SelectItem key={acc.id} value={acc.id}>
+                            {acc.icon} {acc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>
