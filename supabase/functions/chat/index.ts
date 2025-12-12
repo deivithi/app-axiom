@@ -1663,7 +1663,7 @@ GUIE O USUÁRIO CORRETAMENTE:
 
 Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja genérico - seja específico e direcionado.`;
 
-    console.log(`Processing chat for user: ${userName} (${user.id})`);
+    console.log(`Processing chat for user: ${userName} (${user.id}) with model: gpt-5.2`);
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -1672,7 +1672,7 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-5.2",
         messages: [{ role: "system", content: systemPrompt }, ...messages],
         tools,
         tool_choice: "auto",
@@ -1786,7 +1786,7 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
                           "Content-Type": "application/json"
                         },
                         body: JSON.stringify({
-                          model: "gpt-4o-mini",
+                          model: "gpt-5.2",
                           messages: currentMessages,
                           tools,
                           tool_choice: "auto",
