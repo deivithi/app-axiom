@@ -607,7 +607,11 @@ const tools = [
         type: "object",
         properties: {
           content: { type: "string", description: "Conteúdo da entrada" },
-          mood: { type: "string", description: "Humor do dia" },
+          mood: { 
+            type: "string", 
+            enum: ["happy", "neutral", "sad", "excited", "anxious", "calm"],
+            description: "Humor do dia: happy (feliz), neutral (neutro), sad (triste), excited (empolgado), anxious (ansioso), calm (calmo)"
+          },
           tags: { type: "array", items: { type: "string" }, description: "Tags" }
         },
         required: ["content"]
@@ -632,7 +636,11 @@ const tools = [
         properties: {
           id: { type: "string", description: "UUID da entrada (obtenha de list_journal_entries primeiro)" },
           content: { type: "string", description: "Novo conteúdo" },
-          mood: { type: "string", description: "Novo humor" },
+          mood: { 
+            type: "string", 
+            enum: ["happy", "neutral", "sad", "excited", "anxious", "calm"],
+            description: "Novo humor: happy (feliz), neutral (neutro), sad (triste), excited (empolgado), anxious (ansioso), calm (calmo)"
+          },
           tags: { type: "array", items: { type: "string" }, description: "Novas tags" }
         },
         required: ["id"]
@@ -1398,11 +1406,16 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
 
     // JOURNAL
     case "create_journal_entry": {
+      // Validate mood against allowed values
+      const validMoods = ["happy", "neutral", "sad", "excited", "anxious", "calm"];
+      const moodValue = args.mood && validMoods.includes(args.mood) ? args.mood : null;
+      
       const { data, error } = await supabaseAdmin.from("journal_entries").insert({
         user_id: userId,
         content: args.content,
-        mood: args.mood || null,
-        tags: args.tags || null
+        mood: moodValue,
+        tags: args.tags || null,
+        entry_date: new Date().toISOString().split('T')[0]
       }).select().single();
       if (error) throw error;
       
@@ -1456,13 +1469,18 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
     case "list_journal_entries": {
       const { data, error } = await supabaseAdmin.from("journal_entries").select("*").eq("user_id", userId).order("entry_date", { ascending: false }).limit(20);
       if (error) throw error;
-      return { entries: data, message: `${data.length} entradas encontradas. Use os IDs (UUIDs) acima para editar ou excluir.` };
+      return { entries: data, message: `${data.length} entradas do diário encontradas.` };
     }
 
     case "update_journal_entry": {
+      // Validate mood against allowed values
+      const validMoods = ["happy", "neutral", "sad", "excited", "anxious", "calm"];
+      
       const updateData: any = {};
       if (args.content) updateData.content = args.content;
-      if (args.mood !== undefined) updateData.mood = args.mood;
+      if (args.mood !== undefined) {
+        updateData.mood = args.mood && validMoods.includes(args.mood) ? args.mood : null;
+      }
       if (args.tags !== undefined) updateData.tags = args.tags;
 
       const { data, error } = await supabaseAdmin.from("journal_entries").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
@@ -1591,7 +1609,7 @@ FORMATO DE RESPOSTA:
 7. Termine com um desafio ou tarefa direta
 8. SEMPRE finalize com uma pergunta específica e estimulante para promover crescimento contínuo
 
-⚠️ REGRA CRÍTICA DE IDs (MUITO IMPORTANTE):
+⚠️ REGRA CRÍTICA DE IDs (USO INTERNO - NUNCA MOSTRAR AO USUÁRIO):
 - Todos os IDs no sistema são UUIDs no formato: "8ab82e89-4601-420e-b3f0-9494b9480b27"
 - NUNCA JAMAIS invente IDs como "1", "2", "3" ou qualquer número simples
 - SEMPRE que precisar editar, excluir, concluir ou atualizar QUALQUER item:
@@ -1600,6 +1618,9 @@ FORMATO DE RESPOSTA:
   3. Use o UUID REAL retornado na listagem
 - Se o usuário mencionar um item pelo nome, SEMPRE liste primeiro para obter o UUID correto
 - Se não encontrar o item, informe ao usuário que não foi encontrado
+- ❌ NUNCA MOSTRE IDs/UUIDs AO USUÁRIO nas suas respostas - eles são para uso INTERNO apenas
+- Nas suas respostas, refira-se aos itens SEMPRE pelo NOME/TÍTULO, nunca pelo ID
+- Mantenha a conversa fluida e natural, sem mencionar termos técnicos como "UUID" ou "ID"
 
 FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
 - Tarefas: criar, listar, editar, excluir, concluir (complete_task)
