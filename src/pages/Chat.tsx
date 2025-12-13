@@ -107,10 +107,19 @@ export default function Chat() {
   const transcribeAudio = async (audioBlob: Blob) => {
     setIsTranscribing(true);
     try {
+      // Get access token for authenticated request
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Usuário não autenticado');
+      }
+      
       const formData = new FormData();
       formData.append('audio', audioBlob, 'audio.webm');
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        },
         body: formData
       });
       const result = await response.json();
