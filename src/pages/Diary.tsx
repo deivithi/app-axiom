@@ -38,6 +38,12 @@ const moodLabels = {
   calm: 'Calmo',
 };
 
+// Converte string YYYY-MM-DD para Date no timezone LOCAL (não UTC)
+const parseLocalDate = (dateString: string): Date => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
+
 export default function Diary() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -56,7 +62,7 @@ export default function Diary() {
 
   useEffect(() => {
     const entry = entries.find((e) =>
-      isSameDay(new Date(e.entry_date), selectedDate)
+      isSameDay(parseLocalDate(e.entry_date), selectedDate)
     );
     setCurrentEntry(entry || null);
     setContent(entry?.content || '');
@@ -173,7 +179,7 @@ export default function Diary() {
   };
 
   const hasEntry = (date: Date) => {
-    return entries.some((e) => isSameDay(new Date(e.entry_date), date));
+    return entries.some((e) => isSameDay(parseLocalDate(e.entry_date), date));
   };
 
   return (
