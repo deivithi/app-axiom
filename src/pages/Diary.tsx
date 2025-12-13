@@ -118,7 +118,8 @@ export default function Diary() {
     if (!content.trim()) return;
     setSaving(true);
 
-    const entryDate = format(selectedDate, 'yyyy-MM-dd');
+    // Use local date without UTC conversion to avoid timezone issues
+    const entryDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
     if (currentEntry) {
       const { error } = await supabase
