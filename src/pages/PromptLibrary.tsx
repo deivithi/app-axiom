@@ -21,6 +21,7 @@ interface Prompt {
   prompt_text: string;
   category: string;
   ai_diagnosis: string | null;
+  optimized_prompt: string | null;
   is_pinned: boolean;
   created_at: string;
   updated_at: string;
@@ -83,7 +84,10 @@ export default function PromptLibrary() {
       if (response.data?.insights) {
         await supabase
           .from('prompt_library')
-          .update({ ai_diagnosis: response.data.insights })
+          .update({ 
+            ai_diagnosis: response.data.insights,
+            optimized_prompt: response.data.optimizedPrompt || null
+          })
           .eq('id', promptId);
         
         loadPrompts();
@@ -429,6 +433,34 @@ export default function PromptLibrary() {
                           <Sparkles className="h-4 w-4 mr-2" />
                           Gerar diagnóstico com Axiom
                         </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Prompt Otimizado */}
+                  {selectedPrompt.optimized_prompt && (
+                    <Card className="bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border-emerald-500/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <Sparkles className="h-4 w-4 text-emerald-500" />
+                            <span className="text-sm font-medium text-emerald-500">Prompt Otimizado</span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => copyPrompt(selectedPrompt.optimized_prompt!)}
+                            className="text-xs"
+                          >
+                            <Copy className="h-3 w-3 mr-1" />
+                            Copiar
+                          </Button>
+                        </div>
+                        <div className="bg-muted/50 rounded-lg p-3">
+                          <pre className="whitespace-pre-wrap text-sm font-mono">
+                            {selectedPrompt.optimized_prompt}
+                          </pre>
+                        </div>
                       </CardContent>
                     </Card>
                   )}

@@ -1772,14 +1772,28 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
               body: JSON.stringify({
                 model: "google/gemini-2.5-flash",
                 messages: [
-                  { role: "system", content: `Você é Axiom, especialista em prompts. Analise em 4 partes: 🎯 PROPÓSITO, ✅ PONTOS FORTES, ⚠️ PONTOS FRACOS, 💡 DICA DE OURO. ~150 palavras.` },
+                  { role: "system", content: `Você é Axiom, especialista em prompts. Analise em 5 partes: 🎯 PROPÓSITO, ✅ PONTOS FORTES, ⚠️ PONTOS FRACOS, 💡 DICA DE OURO, ✨ PROMPT OTIMIZADO (versão melhorada completa). Separe o PROMPT OTIMIZADO com "---" antes e depois. ~150 palavras no diagnóstico.` },
                   { role: "user", content: `Analise este prompt:\n\n${data.prompt_text}` }
                 ],
               }),
             });
             if (diagResponse.ok) {
               const diagData = await diagResponse.json();
-              await supabaseAdmin.from("prompt_library").update({ ai_diagnosis: diagData.choices[0].message.content }).eq("id", data.id);
+              const fullResponse = diagData.choices[0].message.content;
+              
+              // Parse optimized prompt from response
+              let insights = fullResponse;
+              let optimizedPrompt = null;
+              const optimizedMatch = fullResponse.match(/---\s*\n*✨\s*PROMPT OTIMIZADO[:\s]*\n*([\s\S]*?)(?:\n*---|\s*$)/i);
+              if (optimizedMatch) {
+                optimizedPrompt = optimizedMatch[1].trim();
+                insights = fullResponse.replace(/\n*---\s*\n*✨\s*PROMPT OTIMIZADO[\s\S]*$/, '').trim();
+              }
+              
+              await supabaseAdmin.from("prompt_library").update({ 
+                ai_diagnosis: insights,
+                optimized_prompt: optimizedPrompt 
+              }).eq("id", data.id);
             }
           }
         } catch (e) { console.error("Error generating prompt diagnosis:", e); }
