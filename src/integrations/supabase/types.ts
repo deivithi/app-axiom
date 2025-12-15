@@ -303,6 +303,42 @@ export type Database = {
         }
         Relationships: []
       }
+      prompt_library: {
+        Row: {
+          ai_diagnosis: string | null
+          category: string
+          created_at: string
+          id: string
+          is_pinned: boolean
+          prompt_text: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_diagnosis?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean
+          prompt_text: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_diagnosis?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_pinned?: boolean
+          prompt_text?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       reminders: {
         Row: {
           category: string
@@ -338,6 +374,42 @@ export type Database = {
           recurrence_type?: string | null
           remind_at?: string
           title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      saved_sites: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          is_pinned: boolean
+          title: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_pinned?: boolean
+          title: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_pinned?: boolean
+          title?: string
+          updated_at?: string
+          url?: string
           user_id?: string
         }
         Relationships: []

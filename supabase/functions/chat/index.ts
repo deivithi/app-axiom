@@ -720,6 +720,218 @@ const tools = [
       description: "Remove a foto de perfil do usuário, voltando para o ícone padrão.",
       parameters: { type: "object", properties: {} }
     }
+  },
+  // PROMPTS LIBRARY
+  {
+    type: "function",
+    function: {
+      name: "create_prompt",
+      description: "Cria um novo prompt na biblioteca de prompts do usuário. O diagnóstico será gerado automaticamente.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título/nome do prompt" },
+          prompt_text: { type: "string", description: "O texto completo do prompt" },
+          category: { type: "string", enum: ["geral", "escrita", "código", "análise", "criativo", "negócios", "outros"], description: "Categoria do prompt" }
+        },
+        required: ["title", "prompt_text"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_prompts",
+      description: "Lista os prompts salvos na biblioteca do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar ou excluir prompts.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "Filtrar por categoria" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_prompt",
+      description: "Atualiza um prompt existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_prompts. NUNCA use IDs fictícios.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do prompt (obtenha de list_prompts primeiro)" },
+          title: { type: "string", description: "Novo título" },
+          prompt_text: { type: "string", description: "Novo texto do prompt" },
+          category: { type: "string", enum: ["geral", "escrita", "código", "análise", "criativo", "negócios", "outros"], description: "Nova categoria" },
+          is_pinned: { type: "boolean", description: "Fixar/desafixar prompt" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_prompt",
+      description: "Exclui um prompt da biblioteca. IMPORTANTE: O ID deve ser um UUID real obtido de list_prompts. NUNCA use IDs fictícios.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do prompt (obtenha de list_prompts primeiro)" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "pin_prompt",
+      description: "Fixa ou desafixa um prompt na biblioteca. IMPORTANTE: O ID deve ser um UUID real obtido de list_prompts.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do prompt (obtenha de list_prompts primeiro)" },
+          is_pinned: { type: "boolean", description: "true para fixar, false para desafixar" }
+        },
+        required: ["id", "is_pinned"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_prompts",
+      description: "Busca prompts por termo de pesquisa no título ou conteúdo.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Termo de busca" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_prompt_text",
+      description: "Obtém o texto completo de um prompt específico para uso ou compartilhamento.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do prompt (obtenha de list_prompts primeiro)" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  // SAVED SITES
+  {
+    type: "function",
+    function: {
+      name: "create_saved_site",
+      description: "Salva um novo site na biblioteca de sites para visitar depois.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Título/nome do site" },
+          url: { type: "string", description: "URL completa do site (ex: https://exemplo.com)" },
+          description: { type: "string", description: "Descrição ou motivo para salvar o site" },
+          category: { type: "string", enum: ["geral", "trabalho", "estudos", "entretenimento", "ferramentas", "referência", "outros"], description: "Categoria do site" }
+        },
+        required: ["title", "url"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_saved_sites",
+      description: "Lista os sites salvos na biblioteca do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar ou excluir sites.",
+      parameters: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "Filtrar por categoria" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_saved_site",
+      description: "Atualiza um site salvo existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_saved_sites. NUNCA use IDs fictícios.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do site (obtenha de list_saved_sites primeiro)" },
+          title: { type: "string", description: "Novo título" },
+          url: { type: "string", description: "Nova URL" },
+          description: { type: "string", description: "Nova descrição" },
+          category: { type: "string", enum: ["geral", "trabalho", "estudos", "entretenimento", "ferramentas", "referência", "outros"], description: "Nova categoria" },
+          is_pinned: { type: "boolean", description: "Fixar/desafixar site" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_saved_site",
+      description: "Exclui um site da biblioteca. IMPORTANTE: O ID deve ser um UUID real obtido de list_saved_sites. NUNCA use IDs fictícios.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do site (obtenha de list_saved_sites primeiro)" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "pin_saved_site",
+      description: "Fixa ou desafixa um site na biblioteca. IMPORTANTE: O ID deve ser um UUID real obtido de list_saved_sites.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do site (obtenha de list_saved_sites primeiro)" },
+          is_pinned: { type: "boolean", description: "true para fixar, false para desafixar" }
+        },
+        required: ["id", "is_pinned"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_saved_sites",
+      description: "Busca sites salvos por termo de pesquisa no título, URL ou descrição.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Termo de busca" }
+        },
+        required: ["query"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_site_url",
+      description: "Obtém a URL de um site salvo específico para abrir ou compartilhar.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do site (obtenha de list_saved_sites primeiro)" }
+        },
+        required: ["id"]
+      }
+    }
   }
 ];
 
@@ -1538,6 +1750,145 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       return { success: true, message: "Avatar removido! Você pode adicionar uma nova foto quando quiser." };
     }
 
+    // PROMPTS LIBRARY
+    case "create_prompt": {
+      const { data, error } = await supabaseAdmin.from("prompt_library").insert({
+        user_id: userId,
+        title: args.title,
+        prompt_text: args.prompt_text,
+        category: args.category || "geral"
+      }).select().single();
+      if (error) throw error;
+      
+      // Generate AI diagnosis
+      if (data.prompt_text.trim().length >= 10) {
+        try {
+          const { data: profile } = await supabaseAdmin.from("profiles").select("user_context, full_name").eq("id", userId).single();
+          const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+          if (LOVABLE_API_KEY) {
+            const diagResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+              method: "POST",
+              headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: "google/gemini-2.5-flash",
+                messages: [
+                  { role: "system", content: `Você é Axiom, especialista em prompts. Analise em 4 partes: 🎯 PROPÓSITO, ✅ PONTOS FORTES, ⚠️ PONTOS FRACOS, 💡 DICA DE OURO. ~150 palavras.` },
+                  { role: "user", content: `Analise este prompt:\n\n${data.prompt_text}` }
+                ],
+              }),
+            });
+            if (diagResponse.ok) {
+              const diagData = await diagResponse.json();
+              await supabaseAdmin.from("prompt_library").update({ ai_diagnosis: diagData.choices[0].message.content }).eq("id", data.id);
+            }
+          }
+        } catch (e) { console.error("Error generating prompt diagnosis:", e); }
+      }
+      return { success: true, prompt: data, message: `Prompt "${args.title}" salvo na biblioteca! ✨` };
+    }
+
+    case "list_prompts": {
+      let query = supabaseAdmin.from("prompt_library").select("*").eq("user_id", userId);
+      if (args.category) query = query.eq("category", args.category);
+      const { data, error } = await query.order("is_pinned", { ascending: false }).order("updated_at", { ascending: false }).limit(20);
+      if (error) throw error;
+      return { prompts: data, message: `${data.length} prompts encontrados.` };
+    }
+
+    case "update_prompt": {
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title;
+      if (args.prompt_text) updateData.prompt_text = args.prompt_text;
+      if (args.category) updateData.category = args.category;
+      if (args.is_pinned !== undefined) updateData.is_pinned = args.is_pinned;
+      const { data, error } = await supabaseAdmin.from("prompt_library").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, prompt: data, message: `Prompt "${data.title}" atualizado!` };
+    }
+
+    case "delete_prompt": {
+      const { error } = await supabaseAdmin.from("prompt_library").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Prompt excluído da biblioteca!" };
+    }
+
+    case "pin_prompt": {
+      const { data, error } = await supabaseAdmin.from("prompt_library").update({ is_pinned: args.is_pinned }).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, message: args.is_pinned ? `Prompt "${data.title}" fixado! 📌` : `Prompt "${data.title}" desafixado!` };
+    }
+
+    case "search_prompts": {
+      const { data, error } = await supabaseAdmin.from("prompt_library").select("*").eq("user_id", userId).or(`title.ilike.%${args.query}%,prompt_text.ilike.%${args.query}%`).limit(10);
+      if (error) throw error;
+      return { prompts: data, message: `${data.length} prompts encontrados para "${args.query}".` };
+    }
+
+    case "get_prompt_text": {
+      const { data, error } = await supabaseAdmin.from("prompt_library").select("title, prompt_text").eq("id", args.id).eq("user_id", userId).single();
+      if (error) throw error;
+      return { success: true, title: data.title, prompt_text: data.prompt_text, message: `Aqui está o prompt "${data.title}"` };
+    }
+
+    // SAVED SITES
+    case "create_saved_site": {
+      let url = args.url.trim();
+      if (!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
+      const { data, error } = await supabaseAdmin.from("saved_sites").insert({
+        user_id: userId,
+        title: args.title,
+        url,
+        description: args.description || null,
+        category: args.category || "geral"
+      }).select().single();
+      if (error) throw error;
+      return { success: true, site: data, message: `Site "${args.title}" salvo! 🌐` };
+    }
+
+    case "list_saved_sites": {
+      let query = supabaseAdmin.from("saved_sites").select("*").eq("user_id", userId);
+      if (args.category) query = query.eq("category", args.category);
+      const { data, error } = await query.order("is_pinned", { ascending: false }).order("updated_at", { ascending: false }).limit(20);
+      if (error) throw error;
+      return { sites: data, message: `${data.length} sites salvos.` };
+    }
+
+    case "update_saved_site": {
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title;
+      if (args.url) { let url = args.url.trim(); if (!url.startsWith('http')) url = 'https://' + url; updateData.url = url; }
+      if (args.description !== undefined) updateData.description = args.description;
+      if (args.category) updateData.category = args.category;
+      if (args.is_pinned !== undefined) updateData.is_pinned = args.is_pinned;
+      const { data, error } = await supabaseAdmin.from("saved_sites").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, site: data, message: `Site "${data.title}" atualizado!` };
+    }
+
+    case "delete_saved_site": {
+      const { error } = await supabaseAdmin.from("saved_sites").delete().eq("id", args.id).eq("user_id", userId);
+      if (error) throw error;
+      return { success: true, message: "Site removido da biblioteca!" };
+    }
+
+    case "pin_saved_site": {
+      const { data, error } = await supabaseAdmin.from("saved_sites").update({ is_pinned: args.is_pinned }).eq("id", args.id).eq("user_id", userId).select().single();
+      if (error) throw error;
+      return { success: true, message: args.is_pinned ? `Site "${data.title}" fixado! 📌` : `Site "${data.title}" desafixado!` };
+    }
+
+    case "search_saved_sites": {
+      const { data, error } = await supabaseAdmin.from("saved_sites").select("*").eq("user_id", userId).or(`title.ilike.%${args.query}%,url.ilike.%${args.query}%,description.ilike.%${args.query}%`).limit(10);
+      if (error) throw error;
+      return { sites: data, message: `${data.length} sites encontrados para "${args.query}".` };
+    }
+
+    case "get_site_url": {
+      const { data, error } = await supabaseAdmin.from("saved_sites").select("title, url").eq("id", args.id).eq("user_id", userId).single();
+      if (error) throw error;
+      return { success: true, title: data.title, url: data.url, message: `URL do site "${data.title}": ${data.url}` };
+    }
+
     default:
       return { error: `Tool "${toolName}" não reconhecida` };
   }
@@ -1632,6 +1983,8 @@ FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
 - Projetos: criar, listar, editar, excluir
 - Subtarefas de projetos: criar, listar (list_project_tasks), editar (update_project_task), excluir
 - Diário: criar, listar, editar, excluir
+- Biblioteca de Prompts: criar (create_prompt), listar (list_prompts), editar (update_prompt), excluir (delete_prompt), fixar (pin_prompt), buscar (search_prompts), copiar texto (get_prompt_text)
+- Sites Salvos: criar (create_saved_site), listar (list_saved_sites), editar (update_saved_site), excluir (delete_saved_site), fixar (pin_saved_site), buscar (search_saved_sites), obter URL (get_site_url)
 - Contexto pessoal: atualizar (update_user_context)
 - Nome do usuário: atualizar (update_user_name)
 - Avatar/foto de perfil: atualizar URL (update_avatar_url), remover (remove_avatar)
