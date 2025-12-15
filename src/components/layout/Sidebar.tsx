@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { MessageSquare, CheckSquare, Target, FolderKanban, Bell, Wallet, BookOpen, Brain, Settings, LogOut, Menu, User, Sun, Moon, RefreshCw } from 'lucide-react';
+import { MessageSquare, CheckSquare, Target, FolderKanban, Bell, Wallet, BookOpen, Brain, Settings, LogOut, Menu, User, Sun, Moon, RefreshCw, Sparkles, Globe } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -17,6 +17,8 @@ const navItems = [
   { icon: Wallet, label: 'Finanças', path: '/finances' },
   { icon: BookOpen, label: 'Diário', path: '/diary' },
   { icon: Brain, label: 'Brain Dump', path: '/brain-dump' },
+  { icon: Sparkles, label: 'Prompts', path: '/prompts' },
+  { icon: Globe, label: 'Sites', path: '/sites' },
   { icon: Settings, label: 'Configurações', path: '/settings' }
 ];
 
