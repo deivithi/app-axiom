@@ -34,13 +34,16 @@ REGRAS:
 4. Considere o público-alvo e o modelo de IA provável
 5. Seja direto e perspicaz, sem enrolação
 6. Use emojis naturalmente para dar vida aos insights
-7. Estruture em 4 partes curtas:
+7. Estruture em 5 partes:
    - 🎯 PROPÓSITO (O que o prompt busca alcançar)
    - ✅ PONTOS FORTES (2-3 aspectos positivos)
    - ⚠️ PONTOS FRACOS (2-3 melhorias necessárias)
    - 💡 DICA DE OURO (1 sugestão de alto impacto)
-8. Limite a resposta a ~150 palavras para ser conciso
-9. Fale diretamente com o usuário (use "você")`;
+   - ✨ PROMPT OTIMIZADO (versão melhorada completa, pronta para uso)
+8. O PROMPT OTIMIZADO deve ser uma versão reescrita do original aplicando todas as melhorias identificadas
+9. Separe o PROMPT OTIMIZADO com "---" antes e depois para fácil identificação
+10. Limite o diagnóstico a ~150 palavras (sem contar o prompt otimizado)
+11. Fale diretamente com o usuário (use "você")`;
     } else if (type === 'journal') {
       typeLabel = 'entrada de diário';
       systemPrompt = `Você é Axiom, um consultor estratégico pessoal com QI 180. Sua missão é analisar ${typeLabel} e fornecer insights profundos e personalizados.
@@ -117,11 +120,23 @@ REGRAS:
     }
 
     const data = await response.json();
-    const insights = data.choices[0].message.content;
+    const fullResponse = data.choices[0].message.content;
+
+    // Parse optimized prompt from response (for prompt type)
+    let insights = fullResponse;
+    let optimizedPrompt = null;
+
+    if (type === 'prompt') {
+      const optimizedMatch = fullResponse.match(/---\s*\n*✨\s*PROMPT OTIMIZADO[:\s]*\n*([\s\S]*?)(?:\n*---|\s*$)/i);
+      if (optimizedMatch) {
+        optimizedPrompt = optimizedMatch[1].trim();
+        insights = fullResponse.replace(/\n*---\s*\n*✨\s*PROMPT OTIMIZADO[\s\S]*$/, '').trim();
+      }
+    }
 
     console.log("Insights generated successfully");
 
-    return new Response(JSON.stringify({ insights }), {
+    return new Response(JSON.stringify({ insights, optimizedPrompt }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
