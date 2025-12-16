@@ -1,15 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { MessageSquare, Target, Wallet, Brain, Settings, LogOut, Menu, User, Sun, Moon, RefreshCw, Sparkles, CheckSquare } from 'lucide-react';
+import { Target, Wallet, Brain, Settings, LogOut, Menu, User, Sun, Moon, RefreshCw, Sparkles, CheckSquare } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useTheme } from 'next-themes';
 import axiomLogo from '@/assets/axiom-logo.png';
-
-// Chat item destacado separadamente
-const chatItem = { icon: MessageSquare, label: 'Falar com Axiom', path: '/chat' };
 
 // 5 módulos core
 const navItems = [
@@ -39,8 +36,6 @@ const NavContent = ({ onClose }: { onClose?: () => void }) => {
     window.location.reload();
   };
 
-  const isChatActive = location.pathname === '/chat';
-
   return (
     <div className="flex flex-col h-full bg-sidebar">
       {/* Header com logo oficial */}
@@ -51,33 +46,6 @@ const NavContent = ({ onClose }: { onClose?: () => void }) => {
       
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {/* Chat destacado como item principal */}
-        <Link
-          to={chatItem.path}
-          onClick={onClose}
-          className={cn(
-            'flex items-center gap-4 px-3 py-3 rounded-lg transition-all duration-200 mb-4',
-            'bg-primary/10 border border-primary/20 hover:bg-primary/20',
-            isChatActive && 'bg-primary text-primary-foreground border-primary'
-          )}
-        >
-          <div className={cn(
-            'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200',
-            isChatActive 
-              ? 'bg-primary-foreground/20' 
-              : 'bg-primary text-primary-foreground'
-          )}>
-            <chatItem.icon className="h-5 w-5" />
-          </div>
-          <div>
-            <span className="font-semibold block">{chatItem.label}</span>
-            <p className="text-xs opacity-70">Seu estrategista pessoal</p>
-          </div>
-        </Link>
-
-        {/* Separador */}
-        <div className="border-t border-border/30 my-2" />
-
         {/* 5 módulos core */}
         {navItems.map(item => {
           const isActive = location.pathname === item.path;
