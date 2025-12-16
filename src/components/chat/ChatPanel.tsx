@@ -2,7 +2,8 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Loader2, Mic, MicOff, X } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Send, Loader2, Mic, MicOff, X, Minimize2, Maximize2, Square } from 'lucide-react';
 import { UserMessage } from '@/components/chat/UserMessage';
 import { AxiomMessage } from '@/components/chat/AxiomMessage';
 import { AxiomTyping } from '@/components/chat/AxiomTyping';
@@ -11,6 +12,7 @@ import { ProactiveQuestion } from '@/components/chat/ProactiveQuestion';
 import { OnboardingOptions } from '@/components/chat/OnboardingOptions';
 import { WeeklyReportCard } from '@/components/chat/WeeklyReportCard';
 import { useChatContext } from '@/contexts/ChatContext';
+import { useChatPanelResize, ChatPanelSize } from '@/hooks/useChatPanelResize';
 import axiomLogo from '@/assets/axiom-logo.png';
 
 const ONBOARDING_OPTIONS = [
@@ -48,6 +50,15 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
     scrollRef
   } = useChatContext();
 
+  const { 
+    size, 
+    setCompact, 
+    setNormal, 
+    setExpanded, 
+    widthClass, 
+    isCompact 
+  } = useChatPanelResize();
+
   const handleOnboardingSelect = (id: string) => {
     const labels: Record<string, string> = {
       empreendedor: 'Empreendedor Solo',
@@ -60,13 +71,65 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
     setTimeout(() => sendMessage(), 100);
   };
 
+  // Compact mode: show only avatar and expand button
+  if (isCompact) {
+    return (
+      <aside className={cn(
+        "chat-panel fixed right-0 top-0 h-screen z-40",
+        "w-20 flex flex-col items-center",
+        "bg-card/95 backdrop-blur-xl",
+        "border-l border-border/50",
+        "transition-all duration-300",
+        isExpanded ? "translate-x-0" : "translate-x-full",
+        "lg:translate-x-0"
+      )}>
+        {/* Compact Header */}
+        <div className="flex flex-col items-center gap-4 py-4">
+          <div className="relative cursor-pointer" onClick={setNormal}>
+            <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center hover:bg-primary/30 transition-colors">
+              <img src={axiomLogo} alt="Axiom" className="w-8 h-8" />
+            </div>
+            <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-card" />
+          </div>
+          
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={setNormal}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <Maximize2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="left">Expandir chat</TooltipContent>
+          </Tooltip>
+        </div>
+        
+        {/* Unread indicator */}
+        {messages.length > 0 && (
+          <div className="mt-auto mb-4">
+            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+              {messages.filter(m => m.is_ai).length}
+            </div>
+          </div>
+        )}
+      </aside>
+    );
+  }
+
   return (
     <aside className={cn(
       "chat-panel fixed right-0 top-0 h-screen z-40",
-      "w-full sm:w-96 flex flex-col",
+      "flex flex-col",
       "bg-card/95 backdrop-blur-xl",
       "border-l border-border/50",
-      "transition-transform duration-300",
+      "transition-all duration-300",
+      // Mobile: always full width
+      "w-full sm:w-96",
+      // Desktop: respect size setting
+      `lg:${widthClass}`,
       isExpanded ? "translate-x-0" : "translate-x-full",
       "lg:translate-x-0"
     )}>
@@ -87,14 +150,41 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
             </span>
           </div>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="lg:hidden"
-          onClick={onToggle}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        
+        {/* Size controls */}
+        <div className="flex items-center gap-1">
+          {/* Desktop size controls */}
+          <div className="hidden lg:flex items-center gap-1">
+            <SizeButton 
+              icon={<Minimize2 className="h-3.5 w-3.5" />}
+              label="Compacto"
+              active={size === 'compact'}
+              onClick={setCompact}
+            />
+            <SizeButton 
+              icon={<Square className="h-3.5 w-3.5" />}
+              label="Normal"
+              active={size === 'normal'}
+              onClick={setNormal}
+            />
+            <SizeButton 
+              icon={<Maximize2 className="h-3.5 w-3.5" />}
+              label="Expandido"
+              active={size === 'expanded'}
+              onClick={setExpanded}
+            />
+          </div>
+          
+          {/* Mobile close button */}
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="lg:hidden"
+            onClick={onToggle}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Messages ScrollArea */}
@@ -250,5 +340,37 @@ Pra começar rápido, escolha quem você é:`}
         </div>
       </div>
     </aside>
+  );
+}
+
+// Size toggle button component
+function SizeButton({ 
+  icon, 
+  label, 
+  active, 
+  onClick 
+}: { 
+  icon: React.ReactNode; 
+  label: string; 
+  active: boolean; 
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onClick}
+          className={cn(
+            "h-7 w-7",
+            active && "bg-primary/20 text-primary"
+          )}
+        >
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   );
 }
