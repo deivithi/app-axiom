@@ -34,6 +34,8 @@ interface ChatContextType {
   setInput: (value: string) => void;
   loading: boolean;
   loadingMessages: boolean;
+  loadingMore: boolean;
+  hasMoreMessages: boolean;
   isRecording: boolean;
   isTranscribing: boolean;
   userAvatar: string | null;
@@ -47,7 +49,7 @@ interface ChatContextType {
   setRespondingToQuestion: (id: string | null) => void;
   handleRespondToQuestion: (questionId: string) => void;
   handleDismissQuestion: (questionId: string) => void;
-  scrollRef: React.RefObject<HTMLDivElement>;
+  loadMoreMessages: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | null>(null);
@@ -60,19 +62,22 @@ export const useChatContext = () => {
   return context;
 };
 
+const MESSAGES_PER_PAGE = 50;
+
 export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [uiActions, setUiActions] = useState<UIAction[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const [chatOpen, setChatOpen] = useState(true);
   const [respondingToQuestion, setRespondingToQuestion] = useState<string | null>(null);
-  
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState(1);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   
@@ -133,23 +138,38 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  // Scroll to bottom on new messages
-  useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const loadMessages = async () => {
+  const loadMessages = async (pageNum = 1, prepend = false) => {
+    const from = (pageNum - 1) * MESSAGES_PER_PAGE;
+    const to = from + MESSAGES_PER_PAGE - 1;
+    
     const { data, error } = await supabase
       .from('messages')
       .select('*')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: false })
+      .range(from, to);
     
     if (error) {
       console.error('Error loading messages:', error);
-    } else {
-      setMessages(data || []);
+    } else if (data) {
+      const reversed = [...data].reverse();
+      if (prepend) {
+        setMessages(prev => [...reversed, ...prev]);
+      } else {
+        setMessages(reversed);
+      }
+      setHasMoreMessages(data.length === MESSAGES_PER_PAGE);
     }
     setLoadingMessages(false);
+  };
+
+  const loadMoreMessages = async () => {
+    if (!hasMoreMessages || loadingMore) return;
+    
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    await loadMessages(nextPage, true);
+    setPage(nextPage);
+    setLoadingMore(false);
   };
 
   const loadUserAvatar = async () => {
@@ -428,6 +448,8 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       setInput,
       loading,
       loadingMessages,
+      loadingMore,
+      hasMoreMessages,
       isRecording,
       isTranscribing,
       userAvatar,
@@ -441,7 +463,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       setRespondingToQuestion,
       handleRespondToQuestion,
       handleDismissQuestion,
-      scrollRef
+      loadMoreMessages
     }}>
       {children}
     </ChatContext.Provider>
