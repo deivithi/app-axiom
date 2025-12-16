@@ -932,6 +932,49 @@ const tools = [
         required: ["id"]
       }
     }
+  },
+  // AXIOM SCORE
+  {
+    type: "function",
+    function: {
+      name: "get_axiom_score",
+      description: "Obtém o Axiom Score atual do usuário com breakdown completo dos 5 pilares (Execução, Financeiro, Hábitos, Projetos, Clareza). Use quando o usuário perguntar 'qual meu score?', 'como estou?', 'minha pontuação', etc.",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "analyze_score_drop",
+      description: "Analisa por que o score caiu comparando com período anterior. Use quando o usuário perguntar 'por que meu score caiu?', 'o que aconteceu com minha pontuação?', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          days_ago: { type: "number", description: "Comparar com quantos dias atrás (default: 1)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_score_improvement_suggestions",
+      description: "Retorna sugestões priorizadas para melhorar o score, focando no pilar mais baixo. Use quando o usuário perguntar 'como melhorar meu score?', 'como subir minha pontuação?', etc.",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_score_history",
+      description: "Obtém histórico de score dos últimos dias para ver evolução. Use quando o usuário pedir 'mostre evolução do score', 'histórico de pontuação', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          days: { type: "number", description: "Número de dias de histórico (default: 30)" }
+        }
+      }
+    }
   }
 ];
 
@@ -1903,6 +1946,229 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       return { success: true, title: data.title, url: data.url, message: `URL do site "${data.title}": ${data.url}` };
     }
 
+    // AXIOM SCORE
+    case "get_axiom_score": {
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+      // 1. EXECUTION
+      const { data: tasks } = await supabaseAdmin.from("tasks").select("status").eq("user_id", userId).gte("created_at", thirtyDaysAgoStr);
+      const tasksTotal = tasks?.length || 0;
+      const tasksCompleted = tasks?.filter((t: any) => t.status === "done").length || 0;
+      const executionRate = tasksTotal > 0 ? (tasksCompleted / tasksTotal) : 0;
+      const executionScore = Math.round(executionRate * 200);
+
+      // 2. FINANCIAL
+      const sixMonthsAgo = new Date(now);
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const { data: transactions } = await supabaseAdmin.from("transactions").select("amount, type, transaction_date").eq("user_id", userId).gte("transaction_date", sixMonthsAgo.toISOString().split("T")[0]);
+      const monthlyBalances: Record<string, number> = {};
+      transactions?.forEach((t: any) => {
+        const month = t.transaction_date.substring(0, 7);
+        if (!monthlyBalances[month]) monthlyBalances[month] = 0;
+        monthlyBalances[month] += t.type === "income" ? Number(t.amount) : -Number(t.amount);
+      });
+      const totalMonths = Math.max(Object.keys(monthlyBalances).length, 1);
+      const monthsPositive = Object.values(monthlyBalances).filter(b => b >= 0).length;
+      const financialScore = Math.round((monthsPositive / totalMonths) * 200);
+
+      // 3. HABITS
+      const { data: habitLogs } = await supabaseAdmin.from("habit_logs").select("completed_at").eq("user_id", userId).gte("completed_at", thirtyDaysAgoStr);
+      const uniqueDays = new Set(habitLogs?.map((l: any) => l.completed_at) || []);
+      const habitsScore = Math.round((uniqueDays.size / 30) * 200);
+
+      // 4. PROJECTS
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const { data: projects } = await supabaseAdmin.from("projects").select("id, updated_at, status").eq("user_id", userId).eq("status", "active");
+      const activeProjects = projects?.length || 0;
+      const projectsWithProgress = projects?.filter((p: any) => new Date(p.updated_at) >= sevenDaysAgo).length || 0;
+      const projectsScore = activeProjects > 0 ? Math.round((projectsWithProgress / activeProjects) * 200) : 0;
+
+      // 5. CLARITY
+      const { data: notes } = await supabaseAdmin.from("notes").select("ai_insights").eq("user_id", userId).gte("created_at", thirtyDaysAgoStr);
+      const { data: journals } = await supabaseAdmin.from("journal_entries").select("ai_insights").eq("user_id", userId).gte("created_at", thirtyDaysAgoStr);
+      const totalNotes = (notes?.length || 0) + (journals?.length || 0);
+      const notesWithInsights = (notes?.filter((n: any) => n.ai_insights)?.length || 0) + (journals?.filter((j: any) => j.ai_insights)?.length || 0);
+      const clarityScore = totalNotes > 0 ? Math.round((notesWithInsights / totalNotes) * 200) : 0;
+
+      const totalScore = executionScore + financialScore + habitsScore + projectsScore + clarityScore;
+
+      // Find lowest pillar for suggestion
+      const pillarScores = [
+        { name: "Execução", score: executionScore },
+        { name: "Financeiro", score: financialScore },
+        { name: "Hábitos", score: habitsScore },
+        { name: "Projetos", score: projectsScore },
+        { name: "Clareza", score: clarityScore }
+      ];
+      const lowestPillar = pillarScores.sort((a, b) => a.score - b.score)[0];
+
+      return {
+        score: totalScore,
+        max_score: 1000,
+        pilares: {
+          "🎯 Execução": `${executionScore}/200 (${Math.round(executionRate * 100)}% tarefas concluídas)`,
+          "💰 Financeiro": `${financialScore}/200 (${monthsPositive}/${totalMonths} meses positivos)`,
+          "🔄 Hábitos": `${habitsScore}/200 (${uniqueDays.size}/30 dias ativos)`,
+          "📁 Projetos": `${projectsScore}/200 (${projectsWithProgress}/${activeProjects} projetos com atividade)`,
+          "🧠 Clareza": `${clarityScore}/200 (${notesWithInsights}/${totalNotes} reflexões processadas)`
+        },
+        pilar_mais_baixo: lowestPillar.name,
+        message: `Score Axiom: ${totalScore}/1000. Pilar mais baixo: ${lowestPillar.name} (${lowestPillar.score}/200)`
+      };
+    }
+
+    case "analyze_score_drop": {
+      const daysAgo = args.days_ago || 1;
+      const compareDate = new Date();
+      compareDate.setDate(compareDate.getDate() - daysAgo);
+      
+      const { data: previousScores } = await supabaseAdmin
+        .from("axiom_score_history")
+        .select("*")
+        .eq("user_id", userId)
+        .lte("calculated_at", compareDate.toISOString())
+        .order("calculated_at", { ascending: false })
+        .limit(1);
+      
+      const { data: currentScores } = await supabaseAdmin
+        .from("axiom_score_history")
+        .select("*")
+        .eq("user_id", userId)
+        .order("calculated_at", { ascending: false })
+        .limit(1);
+
+      if (!previousScores?.length || !currentScores?.length) {
+        return { message: "Sem dados suficientes para comparação. Continue usando o Axiom e o histórico será construído." };
+      }
+
+      const prev = previousScores[0];
+      const curr = currentScores[0];
+      const diff = curr.total_score - prev.total_score;
+
+      const changes = [
+        { name: "Execução", diff: curr.execution_score - prev.execution_score },
+        { name: "Financeiro", diff: curr.financial_score - prev.financial_score },
+        { name: "Hábitos", diff: curr.habits_score - prev.habits_score },
+        { name: "Projetos", diff: curr.projects_score - prev.projects_score },
+        { name: "Clareza", diff: curr.clarity_score - prev.clarity_score }
+      ].sort((a, b) => a.diff - b.diff);
+
+      const biggestDrop = changes[0];
+
+      return {
+        score_anterior: prev.total_score,
+        score_atual: curr.total_score,
+        variacao: diff,
+        maior_queda: biggestDrop.name,
+        detalhes: changes.map(c => `${c.name}: ${c.diff > 0 ? '+' : ''}${c.diff}`).join(", "),
+        message: diff < 0 
+          ? `Score caiu ${Math.abs(diff)} pontos. A maior queda foi em ${biggestDrop.name} (${biggestDrop.diff} pts).`
+          : diff > 0
+          ? `Score subiu ${diff} pontos! 🎉`
+          : "Score estável no período."
+      };
+    }
+
+    case "get_score_improvement_suggestions": {
+      // Get current score to find lowest pillar
+      const now = new Date();
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+      const { data: tasks } = await supabaseAdmin.from("tasks").select("status").eq("user_id", userId).gte("created_at", thirtyDaysAgoStr);
+      const { data: habitLogs } = await supabaseAdmin.from("habit_logs").select("completed_at").eq("user_id", userId).gte("completed_at", thirtyDaysAgoStr);
+      const { data: projects } = await supabaseAdmin.from("projects").select("updated_at, status").eq("user_id", userId).eq("status", "active");
+      const { data: notes } = await supabaseAdmin.from("notes").select("ai_insights").eq("user_id", userId).gte("created_at", thirtyDaysAgoStr);
+      const { data: journals } = await supabaseAdmin.from("journal_entries").select("ai_insights").eq("user_id", userId).gte("created_at", thirtyDaysAgoStr);
+
+      const executionScore = tasks?.length ? Math.round((tasks.filter((t: any) => t.status === "done").length / tasks.length) * 200) : 0;
+      const habitsScore = Math.round((new Set(habitLogs?.map((l: any) => l.completed_at) || []).size / 30) * 200);
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const projectsScore = projects?.length ? Math.round((projects.filter((p: any) => new Date(p.updated_at) >= sevenDaysAgo).length / projects.length) * 200) : 0;
+      const totalNotes = (notes?.length || 0) + (journals?.length || 0);
+      const clarityScore = totalNotes ? Math.round(((notes?.filter((n: any) => n.ai_insights)?.length || 0) + (journals?.filter((j: any) => j.ai_insights)?.length || 0)) / totalNotes * 200) : 0;
+
+      const suggestions: Record<string, string[]> = {
+        "Execução": [
+          "Conclua uma tarefa pendente agora (+5-15 pts)",
+          "Revise tarefas antigas e exclua as irrelevantes",
+          "Divida tarefas grandes em subtarefas menores"
+        ],
+        "Hábitos": [
+          "Marque um hábito como feito hoje (+5-10 pts)",
+          "Crie um hábito simples que você pode fazer diariamente",
+          "Retome um hábito que você abandonou"
+        ],
+        "Projetos": [
+          "Atualize um projeto que está parado (+10-20 pts)",
+          "Adicione uma subtarefa a um projeto ativo",
+          "Conclua uma subtarefa de projeto"
+        ],
+        "Clareza": [
+          "Crie uma nota e gere insights com IA (+10 pts)",
+          "Escreva no diário sobre sua semana",
+          "Faça brain dump do que está na sua mente"
+        ]
+      };
+
+      const pillarScores = [
+        { name: "Execução", score: executionScore },
+        { name: "Hábitos", score: habitsScore },
+        { name: "Projetos", score: projectsScore },
+        { name: "Clareza", score: clarityScore }
+      ].sort((a, b) => a.score - b.score);
+
+      const lowestPillar = pillarScores[0];
+
+      return {
+        pilar_foco: lowestPillar.name,
+        score_pilar: lowestPillar.score,
+        sugestoes: suggestions[lowestPillar.name],
+        message: `Para subir seu score, foque em ${lowestPillar.name} (${lowestPillar.score}/200). ${suggestions[lowestPillar.name][0]}`
+      };
+    }
+
+    case "get_score_history": {
+      const days = args.days || 30;
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - days);
+
+      const { data, error } = await supabaseAdmin
+        .from("axiom_score_history")
+        .select("total_score, calculated_at")
+        .eq("user_id", userId)
+        .gte("calculated_at", startDate.toISOString())
+        .order("calculated_at", { ascending: false })
+        .limit(days);
+
+      if (error) throw error;
+
+      if (!data?.length) {
+        return { message: "Ainda não há histórico de score. Continue usando o Axiom e o histórico será construído automaticamente." };
+      }
+
+      const scores = data.map((d: any) => ({
+        data: new Date(d.calculated_at).toLocaleDateString("pt-BR"),
+        score: d.total_score
+      }));
+
+      const avg = Math.round(data.reduce((acc: number, d: any) => acc + d.total_score, 0) / data.length);
+      const trend = data.length > 1 ? data[0].total_score - data[data.length - 1].total_score : 0;
+
+      return {
+        historico: scores.slice(0, 10),
+        media: avg,
+        tendencia: trend,
+        message: `Histórico dos últimos ${days} dias: Média de ${avg} pontos. Tendência: ${trend > 0 ? '+' : ''}${trend} pontos.`
+      };
+    }
+
     default:
       return { error: `Tool "${toolName}" não reconhecida` };
   }
@@ -2003,6 +2269,14 @@ FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
 - Nome do usuário: atualizar (update_user_name)
 - Avatar/foto de perfil: atualizar URL (update_avatar_url), remover (remove_avatar)
 - Reset completo: excluir todos os dados (delete_all_user_data)
+
+📊 AXIOM SCORE (0-1000 pontos, 5 pilares de 200 cada):
+- "Qual meu score?" ou "Como estou?" → use get_axiom_score para mostrar score atual com breakdown dos pilares
+- "Por que meu score caiu?" → use analyze_score_drop para comparar com período anterior
+- "Como melhorar meu score?" → use get_score_improvement_suggestions para sugestões priorizadas
+- "Mostre evolução" ou "Histórico do score" → use get_score_history e mencione que detalhes visuais estão no Motor de Inteligência
+- SEMPRE apresente o score de forma natural e motivadora, contextualizando os números
+- Quando ações forem concluídas (tarefas, hábitos, etc), mencione o impacto positivo no score
 
 💳 REGRAS PARA PARCELAS (MUITO IMPORTANTE):
 Quando o usuário mencionar "parcelado", "em X vezes", "Xx" (ex: 10x, 3x, 12x):

@@ -47,6 +47,45 @@ export type Database = {
         }
         Relationships: []
       }
+      axiom_score_history: {
+        Row: {
+          breakdown: Json | null
+          calculated_at: string
+          clarity_score: number
+          execution_score: number
+          financial_score: number
+          habits_score: number
+          id: string
+          projects_score: number
+          total_score: number
+          user_id: string
+        }
+        Insert: {
+          breakdown?: Json | null
+          calculated_at?: string
+          clarity_score?: number
+          execution_score?: number
+          financial_score?: number
+          habits_score?: number
+          id?: string
+          projects_score?: number
+          total_score?: number
+          user_id: string
+        }
+        Update: {
+          breakdown?: Json | null
+          calculated_at?: string
+          clarity_score?: number
+          execution_score?: number
+          financial_score?: number
+          habits_score?: number
+          id?: string
+          projects_score?: number
+          total_score?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       habit_logs: {
         Row: {
           completed_at: string

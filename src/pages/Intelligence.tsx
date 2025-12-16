@@ -9,6 +9,8 @@ import { Loader2, Sparkles, TrendingUp, Target, Wallet, Brain, CheckSquare } fro
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { ScoreCard } from '@/components/intelligence/ScoreCard';
+import { ScoreEvolutionChart } from '@/components/intelligence/ScoreEvolutionChart';
 
 interface WeeklySummary {
   tasksCompleted: number;
@@ -21,6 +23,20 @@ interface WeeklySummary {
   journalEntries: number;
 }
 
+interface ScoreBreakdown {
+  total_score: number;
+  execution: { score: number; rate: number };
+  financial: { score: number; rate: number };
+  habits: { score: number; rate: number };
+  projects: { score: number; rate: number };
+  clarity: { score: number; rate: number };
+}
+
+interface ScoreHistoryItem {
+  calculated_at: string;
+  total_score: number;
+}
+
 const COLORS = ['#14B8A6', '#8B5CF6', '#F59E0B', '#EC4899', '#3B82F6'];
 
 export default function Intelligence() {
@@ -28,12 +44,54 @@ export default function Intelligence() {
   const [summary, setSummary] = useState<WeeklySummary | null>(null);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [generatingInsight, setGeneratingInsight] = useState(false);
+  const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null);
+  const [scoreHistory, setScoreHistory] = useState<ScoreHistoryItem[]>([]);
+  const [loadingScore, setLoadingScore] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user) loadSummary();
+    if (user) {
+      loadSummary();
+      loadScore();
+      loadScoreHistory();
+    }
   }, [user]);
+
+  const loadScore = async () => {
+    setLoadingScore(true);
+    try {
+      const response = await supabase.functions.invoke('calculate-score', {
+        body: { userId: user?.id, saveHistory: true }
+      });
+      
+      if (response.data) {
+        setScoreBreakdown(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading score:', error);
+    }
+    setLoadingScore(false);
+  };
+
+  const loadScoreHistory = async () => {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data } = await supabase
+        .from('axiom_score_history')
+        .select('calculated_at, total_score')
+        .eq('user_id', user?.id)
+        .gte('calculated_at', thirtyDaysAgo.toISOString())
+        .order('calculated_at', { ascending: false })
+        .limit(30);
+      
+      setScoreHistory(data || []);
+    } catch (error) {
+      console.error('Error loading score history:', error);
+    }
+  };
 
   const loadSummary = async () => {
     setLoading(true);
@@ -44,7 +102,6 @@ export default function Intelligence() {
     const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd');
 
     try {
-      // Tasks da semana
       const { data: tasks } = await supabase
         .from('tasks')
         .select('status')
@@ -53,7 +110,6 @@ export default function Intelligence() {
       const tasksCompleted = tasks?.filter(t => t.status === 'done').length || 0;
       const tasksTotal = tasks?.length || 0;
 
-      // Habit logs da semana
       const { data: habits } = await supabase
         .from('habits')
         .select('id')
@@ -68,7 +124,6 @@ export default function Intelligence() {
       const habitsCompleted = new Set(habitLogs?.map(l => l.habit_id)).size;
       const habitsTotal = habits?.length || 0;
 
-      // Finanças do mês
       const { data: transactions } = await supabase
         .from('transactions')
         .select('amount, type')
@@ -79,14 +134,12 @@ export default function Intelligence() {
       const income = transactions?.filter(t => t.type === 'income').reduce((acc, t) => acc + Number(t.amount), 0) || 0;
       const expenses = transactions?.filter(t => t.type === 'expense').reduce((acc, t) => acc + Number(t.amount), 0) || 0;
 
-      // Notas da semana
       const { data: notes } = await supabase
         .from('notes')
         .select('id')
         .eq('user_id', user?.id)
         .gte('created_at', weekStart);
 
-      // Journal entries da semana
       const { data: journal } = await supabase
         .from('journal_entries')
         .select('id')
@@ -130,6 +183,14 @@ export default function Intelligence() {
         - Saldo: R$${(summary.income - summary.expenses).toFixed(2)}
         - Notas criadas: ${summary.notesCreated}
         - Entradas no diário: ${summary.journalEntries}
+        ${scoreBreakdown ? `
+        - Axiom Score: ${scoreBreakdown.total_score}/1000
+        - Execução: ${scoreBreakdown.execution.score}/200
+        - Financeiro: ${scoreBreakdown.financial.score}/200
+        - Hábitos: ${scoreBreakdown.habits.score}/200
+        - Projetos: ${scoreBreakdown.projects.score}/200
+        - Clareza: ${scoreBreakdown.clarity.score}/200
+        ` : ''}
       `;
 
       const response = await supabase.functions.invoke('analyze-content', {
@@ -181,6 +242,12 @@ export default function Intelligence() {
           </div>
         ) : (
           <div className="space-y-6">
+            {/* Score Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <ScoreCard breakdown={scoreBreakdown} loading={loadingScore} />
+              <ScoreEvolutionChart history={scoreHistory} loading={loadingScore} />
+            </div>
+
             {/* Cards de resumo */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <Card>
