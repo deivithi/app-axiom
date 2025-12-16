@@ -1041,6 +1041,117 @@ const tools = [
       description: "Gera um novo relatório semanal do Axiom Insights imediatamente. Use quando o usuário pedir 'gerar relatório', 'fazer análise semanal', 'quero meu insight semanal', etc.",
       parameters: { type: "object", properties: {} }
     }
+  },
+  // CFO PESSOAL - FERRAMENTAS FINANCEIRAS AVANÇADAS
+  {
+    type: "function",
+    function: {
+      name: "predict_month_end",
+      description: "Analisa padrão de gastos dos últimos 60-90 dias e prevê se o usuário terá saldo positivo ou déficit no fim do mês. Use quando perguntarem 'vou ter dinheiro?', 'vou fechar no azul?', 'previsão do mês', 'como vou terminar o mês?'",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "simulate_expense_cut",
+      description: "Simula quanto o usuário economizaria cortando determinadas despesas. Use quando perguntarem 'se eu cortar X?', 'quanto economizo sem Netflix?', 'simule cortar delivery', 'e se eu cancelar...'",
+      parameters: {
+        type: "object",
+        properties: {
+          categories: { type: "array", items: { type: "string" }, description: "Categorias a simular corte (ex: ['Delivery', 'Assinaturas'])" },
+          items: { type: "array", items: { type: "string" }, description: "Itens específicos por título (ex: ['Netflix', 'Spotify'])" },
+          reduction_percent: { type: "number", description: "Percentual de redução (0-100). Se não informado, assume corte total (100%)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "analyze_spending_behavior",
+      description: "Analisa correlações entre gastos e comportamentos (horário, dia da semana, humor, hábitos). Use quando perguntarem 'por que meu dinheiro some?', 'padrões de gasto', 'análise comportamental', 'onde está indo meu dinheiro?'",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_expenses_by_category",
+      description: "Obtém breakdown detalhado de gastos por categoria com subcategorias e comparativos. Use quando perguntarem 'quanto gastei em alimentação?', 'detalhes de gastos', 'breakdown por categoria', 'gastos em transporte'",
+      parameters: {
+        type: "object",
+        properties: {
+          category: { type: "string", description: "Categoria específica para detalhar (ex: 'Alimentação', 'Transporte')" },
+          period: { type: "string", enum: ["week", "month", "quarter"], description: "Período de análise (default: month)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_financial_goal",
+      description: "Cria uma meta financeira com plano de ação sugerido. Use quando disserem 'quero juntar X', 'meta de economia', 'guardar dinheiro para...', 'quero economizar'",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Nome da meta (ex: 'Reserva de emergência', 'Viagem', 'Curso')" },
+          target_amount: { type: "number", description: "Valor alvo em reais" },
+          deadline_months: { type: "number", description: "Prazo em meses (opcional)" }
+        },
+        required: ["title", "target_amount"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "track_financial_goal",
+      description: "Acompanha progresso de uma meta financeira existente. Use quando perguntarem 'como está minha meta?', 'quanto falta para...', 'progresso da economia'",
+      parameters: {
+        type: "object",
+        properties: {
+          goal_id: { type: "string", description: "UUID da meta (use list_financial_goals primeiro)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_financial_goals",
+      description: "Lista as metas financeiras do usuário. SEMPRE use primeiro para obter IDs antes de track_financial_goal.",
+      parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "suggest_transaction_category",
+      description: "Sugere categoria para uma transação baseado no histórico do usuário. Use quando o usuário informar um gasto sem categoria ou quando quiser deduzir a categoria.",
+      parameters: {
+        type: "object",
+        properties: {
+          amount: { type: "number", description: "Valor da transação" },
+          description: { type: "string", description: "Descrição opcional do gasto" }
+        },
+        required: ["amount"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_upcoming_bills",
+      description: "Lista transações pendentes que vencem nos próximos X dias. Use quando perguntarem sobre contas a pagar, boletos vencendo, compromissos financeiros.",
+      parameters: {
+        type: "object",
+        properties: {
+          days: { type: "number", description: "Dias para frente (default: 7)" }
+        }
+      }
+    }
   }
 ];
 
@@ -2477,6 +2588,620 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       }
     }
 
+    // CFO PESSOAL - FERRAMENTAS FINANCEIRAS AVANÇADAS
+    case "predict_month_end": {
+      const now = new Date();
+      const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      const daysRemaining = daysInMonth - now.getDate();
+      
+      // Get transactions from last 60 days for pattern analysis
+      const sixtyDaysAgo = new Date(now);
+      sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+      
+      const { data: recentTransactions } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("transaction_date", sixtyDaysAgo.toISOString().split("T")[0]);
+      
+      // Calculate average daily expense
+      const expenses = recentTransactions?.filter((t: any) => t.type === "expense" && t.is_paid) || [];
+      const totalExpenses = expenses.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      const avgDailyExpense = totalExpenses / 60;
+      
+      // Get current month income and expenses
+      const { data: currentMonthTransactions } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("reference_month", currentMonth);
+      
+      const monthIncome = currentMonthTransactions?.filter((t: any) => t.type === "income" && t.is_paid).reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+      const monthExpensesPaid = currentMonthTransactions?.filter((t: any) => t.type === "expense" && t.is_paid).reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+      
+      // Get pending bills
+      const { data: pendingBills } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("is_paid", false)
+        .eq("type", "expense")
+        .eq("reference_month", currentMonth);
+      
+      const totalPending = pendingBills?.reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+      
+      // Project remaining expenses
+      const projectedRemainingExpenses = avgDailyExpense * daysRemaining;
+      const totalProjectedExpenses = monthExpensesPaid + totalPending + projectedRemainingExpenses;
+      const projectedBalance = monthIncome - totalProjectedExpenses;
+      
+      // Identify risks
+      const risks: string[] = [];
+      
+      // Check for spending anomalies by category
+      const categoryTotals: Record<string, number> = {};
+      expenses.forEach((t: any) => {
+        const cat = t.category || "Outros";
+        categoryTotals[cat] = (categoryTotals[cat] || 0) + Number(t.amount);
+      });
+      
+      const thisMonthCategories: Record<string, number> = {};
+      currentMonthTransactions?.filter((t: any) => t.type === "expense").forEach((t: any) => {
+        const cat = t.category || "Outros";
+        thisMonthCategories[cat] = (thisMonthCategories[cat] || 0) + Number(t.amount);
+      });
+      
+      // Find categories with significant increase
+      Object.entries(thisMonthCategories).forEach(([cat, amount]) => {
+        const avgMonthly = (categoryTotals[cat] || 0) / 2; // 60 days = ~2 months
+        if (avgMonthly > 0 && amount > avgMonthly * 1.5) {
+          const increase = Math.round(((amount - avgMonthly) / avgMonthly) * 100);
+          risks.push(`${cat} aumentou ${increase}% (de R$${avgMonthly.toFixed(0)} para R$${amount.toFixed(0)})`);
+        }
+      });
+      
+      if (pendingBills && pendingBills.length > 0) {
+        risks.push(`${pendingBills.length} boletos pendentes (R$${totalPending.toFixed(2)} total)`);
+      }
+      
+      return {
+        success: true,
+        current_balance: monthIncome - monthExpensesPaid,
+        month_income: monthIncome,
+        month_expenses_paid: monthExpensesPaid,
+        pending_bills: totalPending,
+        days_remaining: daysRemaining,
+        avg_daily_expense: Math.round(avgDailyExpense * 100) / 100,
+        projected_remaining_expenses: Math.round(projectedRemainingExpenses),
+        projected_end_balance: Math.round(projectedBalance),
+        will_have_deficit: projectedBalance < 0,
+        deficit_amount: projectedBalance < 0 ? Math.abs(Math.round(projectedBalance)) : 0,
+        risks,
+        message: projectedBalance < 0 
+          ? `⚠️ Previsão: Déficit de R$${Math.abs(Math.round(projectedBalance))} no fim do mês. ${risks.length > 0 ? `Riscos: ${risks.slice(0, 2).join("; ")}` : ""}`
+          : `✅ Previsão: Saldo de R$${Math.round(projectedBalance)} no fim do mês.`
+      };
+    }
+
+    case "simulate_expense_cut": {
+      const now = new Date();
+      const threeMonthsAgo = new Date(now);
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      
+      const { data: transactions } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("type", "expense")
+        .gte("transaction_date", threeMonthsAgo.toISOString().split("T")[0]);
+      
+      let itemsAnalyzed: Array<{ name: string; monthly_avg: number }> = [];
+      let totalMonthlySavings = 0;
+      
+      // Search by specific items (titles)
+      if (args.items && args.items.length > 0) {
+        for (const item of args.items) {
+          const matching = transactions?.filter((t: any) => 
+            t.title.toLowerCase().includes(item.toLowerCase())
+          ) || [];
+          
+          const total = matching.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+          const monthlyAvg = total / 3; // 3 months
+          
+          const reductionPercent = args.reduction_percent ?? 100;
+          const savings = monthlyAvg * (reductionPercent / 100);
+          
+          itemsAnalyzed.push({ name: item, monthly_avg: Math.round(monthlyAvg) });
+          totalMonthlySavings += savings;
+        }
+      }
+      
+      // Search by categories
+      if (args.categories && args.categories.length > 0) {
+        for (const category of args.categories) {
+          const matching = transactions?.filter((t: any) => 
+            t.category?.toLowerCase().includes(category.toLowerCase())
+          ) || [];
+          
+          const total = matching.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+          const monthlyAvg = total / 3;
+          
+          const reductionPercent = args.reduction_percent ?? 100;
+          const savings = monthlyAvg * (reductionPercent / 100);
+          
+          itemsAnalyzed.push({ name: category, monthly_avg: Math.round(monthlyAvg) });
+          totalMonthlySavings += savings;
+        }
+      }
+      
+      totalMonthlySavings = Math.round(totalMonthlySavings);
+      const yearlySavings = totalMonthlySavings * 12;
+      
+      // Generate projections
+      const projections = [
+        { months: 3, total_saved: totalMonthlySavings * 3 },
+        { months: 6, total_saved: totalMonthlySavings * 6 },
+        { months: 12, total_saved: yearlySavings }
+      ];
+      
+      return {
+        success: true,
+        items_analyzed: itemsAnalyzed,
+        reduction_percent: args.reduction_percent ?? 100,
+        monthly_savings: totalMonthlySavings,
+        yearly_savings: yearlySavings,
+        projections,
+        message: `💰 Cortando ${itemsAnalyzed.map(i => i.name).join(" + ")}: economia de R$${totalMonthlySavings}/mês = R$${yearlySavings}/ano!`
+      };
+    }
+
+    case "analyze_spending_behavior": {
+      const now = new Date();
+      const ninetyDaysAgo = new Date(now);
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      
+      const { data: transactions } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("type", "expense")
+        .gte("transaction_date", ninetyDaysAgo.toISOString().split("T")[0]);
+      
+      const { data: scoreHistory } = await supabaseAdmin
+        .from("axiom_score_history")
+        .select("total_score, calculated_at")
+        .eq("user_id", userId)
+        .gte("calculated_at", ninetyDaysAgo.toISOString())
+        .order("calculated_at", { ascending: false });
+      
+      const { data: habitLogs } = await supabaseAdmin
+        .from("habit_logs")
+        .select("completed_at")
+        .eq("user_id", userId)
+        .gte("completed_at", ninetyDaysAgo.toISOString().split("T")[0]);
+      
+      // Analyze by day of week
+      const dayOfWeekTotals: Record<number, { total: number; count: number }> = {};
+      const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+      
+      transactions?.forEach((t: any) => {
+        const date = new Date(t.transaction_date);
+        const day = date.getDay();
+        if (!dayOfWeekTotals[day]) dayOfWeekTotals[day] = { total: 0, count: 0 };
+        dayOfWeekTotals[day].total += Number(t.amount);
+        dayOfWeekTotals[day].count++;
+      });
+      
+      // Find highest spending day
+      let highestDay = 0;
+      let highestAvg = 0;
+      Object.entries(dayOfWeekTotals).forEach(([day, data]) => {
+        const avg = data.total / data.count;
+        if (avg > highestAvg) {
+          highestAvg = avg;
+          highestDay = parseInt(day);
+        }
+      });
+      
+      // Identify "invisible" small expenses
+      const smallExpenses: Record<string, { total: number; count: number }> = {};
+      transactions?.filter((t: any) => Number(t.amount) <= 30).forEach((t: any) => {
+        const key = t.title.toLowerCase().slice(0, 20);
+        if (!smallExpenses[key]) smallExpenses[key] = { total: 0, count: 0 };
+        smallExpenses[key].total += Number(t.amount);
+        smallExpenses[key].count++;
+      });
+      
+      const invisibleExpenses = Object.entries(smallExpenses)
+        .filter(([_, data]) => data.count >= 5)
+        .map(([name, data]) => ({
+          name,
+          monthly_estimate: Math.round((data.total / 3)), // 3 months
+          frequency: data.count
+        }))
+        .sort((a, b) => b.monthly_estimate - a.monthly_estimate)
+        .slice(0, 5);
+      
+      const totalInvisible = invisibleExpenses.reduce((sum, e) => sum + e.monthly_estimate, 0);
+      
+      // Correlate with score (simplified)
+      const avgScore = scoreHistory?.length 
+        ? scoreHistory.reduce((sum: number, s: any) => sum + s.total_score, 0) / scoreHistory.length 
+        : 0;
+      
+      // Correlate with habits
+      const habitDays = new Set(habitLogs?.map((l: any) => l.completed_at) || []);
+      
+      return {
+        success: true,
+        invisible_expenses: {
+          items: invisibleExpenses,
+          total_monthly: totalInvisible,
+          yearly_impact: totalInvisible * 12
+        },
+        timing_patterns: {
+          highest_spending_day: dayNames[highestDay],
+          average_on_highest: Math.round(highestAvg)
+        },
+        correlations: {
+          avg_score: Math.round(avgScore),
+          habit_consistency: `${habitDays.size}/90 dias ativos`
+        },
+        message: `🔍 Gastos invisíveis: R$${totalInvisible}/mês (R$${totalInvisible * 12}/ano). Dia mais caro: ${dayNames[highestDay]}. ${invisibleExpenses.length > 0 ? `Maiores: ${invisibleExpenses.slice(0, 2).map(e => e.name).join(", ")}` : ""}`
+      };
+    }
+
+    case "get_expenses_by_category": {
+      const now = new Date();
+      let startDate: Date;
+      
+      switch (args.period) {
+        case "week":
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case "quarter":
+          startDate = new Date(now);
+          startDate.setMonth(startDate.getMonth() - 3);
+          break;
+        default: // month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      
+      const { data: transactions } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("type", "expense")
+        .gte("transaction_date", startDate.toISOString().split("T")[0]);
+      
+      // If specific category requested
+      if (args.category) {
+        const categoryTransactions = transactions?.filter((t: any) => 
+          t.category?.toLowerCase().includes(args.category.toLowerCase())
+        ) || [];
+        
+        const total = categoryTransactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+        
+        // Group by title for subcategory breakdown
+        const byTitle: Record<string, number> = {};
+        categoryTransactions.forEach((t: any) => {
+          byTitle[t.title] = (byTitle[t.title] || 0) + Number(t.amount);
+        });
+        
+        const breakdown = Object.entries(byTitle)
+          .map(([name, amount]) => ({
+            subcategory: name,
+            amount: Math.round(amount),
+            percentage: Math.round((amount / total) * 100)
+          }))
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 10);
+        
+        return {
+          success: true,
+          category: args.category,
+          total: Math.round(total),
+          breakdown,
+          period: args.period || "month",
+          message: `💸 ${args.category}: R$${Math.round(total)} no período. ${breakdown.length > 0 ? `Maiores: ${breakdown.slice(0, 3).map(b => `${b.subcategory} (R$${b.amount})`).join(", ")}` : ""}`
+        };
+      }
+      
+      // All categories breakdown
+      const byCategory: Record<string, number> = {};
+      transactions?.forEach((t: any) => {
+        const cat = t.category || "Outros";
+        byCategory[cat] = (byCategory[cat] || 0) + Number(t.amount);
+      });
+      
+      const total = transactions?.reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+      
+      const breakdown = Object.entries(byCategory)
+        .map(([category, amount]) => ({
+          category,
+          amount: Math.round(amount),
+          percentage: Math.round((amount / total) * 100)
+        }))
+        .sort((a, b) => b.amount - a.amount);
+      
+      return {
+        success: true,
+        total: Math.round(total),
+        breakdown,
+        period: args.period || "month",
+        top_category: breakdown[0]?.category || "N/A",
+        message: `📊 Total de despesas: R$${Math.round(total)}. Maior categoria: ${breakdown[0]?.category} (${breakdown[0]?.percentage}%)`
+      };
+    }
+
+    case "create_financial_goal": {
+      const monthlyTarget = args.deadline_months ? args.target_amount / args.deadline_months : null;
+      
+      // Get current monthly surplus
+      const now = new Date();
+      const threeMonthsAgo = new Date(now);
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      
+      const { data: transactions } = await supabaseAdmin
+        .from("transactions")
+        .select("amount, type, is_paid")
+        .eq("user_id", userId)
+        .eq("is_paid", true)
+        .gte("transaction_date", threeMonthsAgo.toISOString().split("T")[0]);
+      
+      const income = transactions?.filter((t: any) => t.type === "income").reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+      const expenses = transactions?.filter((t: any) => t.type === "expense").reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+      const avgMonthlySurplus = (income - expenses) / 3;
+      
+      // Generate action plan
+      const actionPlan: string[] = [];
+      let achievableSavings = avgMonthlySurplus;
+      
+      if (monthlyTarget && avgMonthlySurplus < monthlyTarget) {
+        const gap = monthlyTarget - avgMonthlySurplus;
+        actionPlan.push(`Você precisa de +R$${Math.round(gap)}/mês além da sobra atual`);
+        
+        // Suggest cutting common categories
+        const { data: categoryExpenses } = await supabaseAdmin
+          .from("transactions")
+          .select("category, amount")
+          .eq("user_id", userId)
+          .eq("type", "expense")
+          .gte("transaction_date", threeMonthsAgo.toISOString().split("T")[0]);
+        
+        const byCategory: Record<string, number> = {};
+        categoryExpenses?.forEach((t: any) => {
+          byCategory[t.category || "Outros"] = (byCategory[t.category || "Outros"] || 0) + Number(t.amount);
+        });
+        
+        const sortedCategories = Object.entries(byCategory)
+          .map(([cat, total]) => ({ cat, monthly: total / 3 }))
+          .sort((a, b) => b.monthly - a.monthly);
+        
+        const discretionaryCategories = ["Delivery", "Entretenimento", "Assinaturas", "Lazer", "Restaurantes"];
+        const cuttable = sortedCategories.filter(c => 
+          discretionaryCategories.some(d => c.cat.toLowerCase().includes(d.toLowerCase()))
+        );
+        
+        if (cuttable.length > 0) {
+          const suggestion = cuttable[0];
+          const potentialSaving = Math.round(suggestion.monthly * 0.5);
+          actionPlan.push(`Reduzir ${suggestion.cat} em 50%: +R$${potentialSaving}/mês`);
+          achievableSavings += potentialSaving;
+        }
+      }
+      
+      const deadline = args.deadline_months 
+        ? new Date(now.setMonth(now.getMonth() + args.deadline_months))
+        : null;
+      
+      const { data, error } = await supabaseAdmin.from("financial_goals").insert({
+        user_id: userId,
+        title: args.title,
+        target_amount: args.target_amount,
+        deadline: deadline?.toISOString().split("T")[0] || null,
+        action_plan: actionPlan
+      }).select().single();
+      
+      if (error) throw error;
+      
+      const feasibility = monthlyTarget && achievableSavings >= monthlyTarget 
+        ? "Viável com sua sobra atual" 
+        : monthlyTarget && achievableSavings >= monthlyTarget * 0.7
+        ? "Viável com pequenos ajustes"
+        : "Exige mudanças significativas";
+      
+      return {
+        success: true,
+        goal: data,
+        monthly_target: monthlyTarget ? Math.round(monthlyTarget) : null,
+        current_surplus: Math.round(avgMonthlySurplus),
+        gap: monthlyTarget ? Math.round(monthlyTarget - avgMonthlySurplus) : null,
+        action_plan: actionPlan,
+        feasibility,
+        message: `🎯 Meta "${args.title}" criada! Alvo: R$${args.target_amount}${args.deadline_months ? ` em ${args.deadline_months} meses (R$${Math.round(monthlyTarget!)}/mês)` : ""}. ${feasibility}.`
+      };
+    }
+
+    case "track_financial_goal": {
+      const { data: goal, error } = await supabaseAdmin
+        .from("financial_goals")
+        .select("*")
+        .eq("id", args.goal_id)
+        .eq("user_id", userId)
+        .single();
+      
+      if (error || !goal) {
+        return { success: false, message: "Meta não encontrada. Use list_financial_goals primeiro para ver as metas disponíveis." };
+      }
+      
+      const percentComplete = Math.round((Number(goal.current_amount) / Number(goal.target_amount)) * 100);
+      const remaining = Number(goal.target_amount) - Number(goal.current_amount);
+      
+      let daysRemaining = null;
+      let monthsRemaining = null;
+      if (goal.deadline) {
+        const deadline = new Date(goal.deadline);
+        const now = new Date();
+        daysRemaining = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        monthsRemaining = Math.ceil(daysRemaining / 30);
+      }
+      
+      return {
+        success: true,
+        goal: {
+          title: goal.title,
+          target: Number(goal.target_amount),
+          current: Number(goal.current_amount),
+          remaining,
+          percent_complete: percentComplete,
+          deadline: goal.deadline,
+          days_remaining: daysRemaining,
+          months_remaining: monthsRemaining,
+          status: goal.status
+        },
+        monthly_needed: monthsRemaining && monthsRemaining > 0 ? Math.round(remaining / monthsRemaining) : null,
+        action_plan: goal.action_plan,
+        message: `📈 "${goal.title}": R$${Number(goal.current_amount).toFixed(0)}/${Number(goal.target_amount).toFixed(0)} (${percentComplete}%). Faltam R$${remaining.toFixed(0)}${monthsRemaining ? ` em ${monthsRemaining} meses` : ""}.`
+      };
+    }
+
+    case "list_financial_goals": {
+      const { data, error } = await supabaseAdmin
+        .from("financial_goals")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      
+      const goalsWithProgress = data?.map((g: any) => ({
+        ...g,
+        percent_complete: Math.round((Number(g.current_amount) / Number(g.target_amount)) * 100)
+      })) || [];
+      
+      return {
+        success: true,
+        goals: goalsWithProgress,
+        message: `${goalsWithProgress.length} metas financeiras encontradas. Use os IDs para acompanhar progresso.`
+      };
+    }
+
+    case "suggest_transaction_category": {
+      // Get user's transaction history to learn patterns
+      const { data: history } = await supabaseAdmin
+        .from("transactions")
+        .select("title, category, amount")
+        .eq("user_id", userId)
+        .eq("type", "expense")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      
+      // Find similar amounts
+      const amountRange = args.amount * 0.3; // 30% tolerance
+      const similarByAmount = history?.filter((t: any) => 
+        Math.abs(Number(t.amount) - args.amount) <= amountRange
+      ) || [];
+      
+      // Count categories
+      const categoryCounts: Record<string, number> = {};
+      similarByAmount.forEach((t: any) => {
+        categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
+      });
+      
+      // Also check description if provided
+      if (args.description) {
+        const similarByTitle = history?.filter((t: any) =>
+          t.title.toLowerCase().includes(args.description.toLowerCase()) ||
+          args.description.toLowerCase().includes(t.title.toLowerCase())
+        ) || [];
+        
+        similarByTitle.forEach((t: any) => {
+          categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 2; // Weight title matches higher
+        });
+      }
+      
+      // Sort by frequency
+      const suggestions = Object.entries(categoryCounts)
+        .map(([category, count]) => ({
+          category,
+          confidence: Math.min(Math.round((count / Math.max(similarByAmount.length, 1)) * 100), 95)
+        }))
+        .sort((a, b) => b.confidence - a.confidence)
+        .slice(0, 3);
+      
+      // Default suggestions if no history
+      if (suggestions.length === 0) {
+        if (args.amount <= 30) suggestions.push({ category: "Alimentação", confidence: 60 });
+        else if (args.amount <= 100) suggestions.push({ category: "Transporte", confidence: 50 });
+        else suggestions.push({ category: "Compras", confidence: 40 });
+      }
+      
+      return {
+        success: true,
+        suggestions,
+        reasoning: `Baseado em ${similarByAmount.length} transações similares no seu histórico`,
+        message: `🤔 Chuto: ${suggestions[0]?.category} (${suggestions[0]?.confidence}% de chance). Certo?`
+      };
+    }
+
+    case "get_upcoming_bills": {
+      const days = args.days || 7;
+      const now = new Date();
+      const futureDate = new Date(now);
+      futureDate.setDate(futureDate.getDate() + days);
+      
+      const { data: upcoming } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("is_paid", false)
+        .eq("type", "expense")
+        .gte("transaction_date", now.toISOString().split("T")[0])
+        .lte("transaction_date", futureDate.toISOString().split("T")[0])
+        .order("transaction_date", { ascending: true });
+      
+      const total = upcoming?.reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
+      
+      // Get current balance from accounts
+      const { data: accounts } = await supabaseAdmin
+        .from("accounts")
+        .select("balance")
+        .eq("user_id", userId);
+      
+      const currentBalance = accounts?.reduce((sum: number, a: any) => sum + Number(a.balance), 0) || 0;
+      const willCover = currentBalance >= total;
+      
+      const bills = upcoming?.map((t: any) => {
+        const dueDate = new Date(t.transaction_date);
+        const daysUntil = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return {
+          title: t.title,
+          amount: Number(t.amount),
+          due_date: t.transaction_date,
+          days_until: daysUntil,
+          category: t.category
+        };
+      }) || [];
+      
+      const riskLevel = !willCover ? "high" : total > currentBalance * 0.8 ? "medium" : "low";
+      
+      return {
+        success: true,
+        upcoming: bills,
+        total: Math.round(total),
+        current_balance: Math.round(currentBalance),
+        will_cover: willCover,
+        shortfall: willCover ? 0 : Math.round(total - currentBalance),
+        risk_level: riskLevel,
+        message: bills.length > 0 
+          ? `📅 ${bills.length} contas vencendo em ${days} dias: R$${Math.round(total)} total. ${willCover ? "✅ Saldo suficiente." : `⚠️ Faltam R$${Math.round(total - currentBalance)}!`}`
+          : `✅ Nenhuma conta vencendo nos próximos ${days} dias.`
+      };
+    }
+
     default:
       return { error: `Tool "${toolName}" não reconhecida` };
   }
@@ -2624,6 +3349,41 @@ FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
 - "Mostre evolução" ou "Histórico do score" → use get_score_history e mencione que detalhes visuais estão no Motor de Inteligência
 - SEMPRE apresente o score de forma natural e motivadora, contextualizando os números
 - Quando ações forem concluídas (tarefas, hábitos, etc), mencione o impacto positivo no score
+
+💰 CFO PESSOAL (CONSULTOR FINANCEIRO VIA CHAT):
+Você é o CFO Pessoal do ${userName}. Ajude a dominar finanças via conversa natural.
+
+REGISTRO DE TRANSAÇÕES:
+- Quando disser "gastei R$X em Y" → use create_transaction
+- Se não informar categoria → use suggest_transaction_category para deduzir
+- Sempre confirme o registro com saldo disponível
+
+CONSULTAS:
+- "Quanto gastei em X?" → use get_expenses_by_category com a categoria específica
+- "Saldo?" ou "resumo?" → use get_finance_summary
+- "Transações pendentes?" → use list_pending_transactions
+- "Contas a pagar?" ou "Boletos vencendo?" → use get_upcoming_bills
+
+ANÁLISES AVANÇADAS:
+- "Vou ter dinheiro no fim do mês?" ou "Previsão?" → use predict_month_end
+- "Por que meu dinheiro some?" ou "Padrões de gasto?" → use analyze_spending_behavior
+- "Se eu cortar X, quanto economizo?" → use simulate_expense_cut
+
+METAS FINANCEIRAS:
+- "Quero juntar R$X" ou "Meta de economia" → use create_financial_goal (gera plano de ação)
+- "Como está minha meta?" → use list_financial_goals + track_financial_goal
+- Sempre relacione metas com ações práticas e hábitos
+
+CATEGORIZAÇÃO INTELIGENTE:
+- Se usuário disser "gastei R$X" sem especificar categoria → use suggest_transaction_category
+- Confirme a sugestão: "Chuto Alimentação. Certo?"
+- Se errar, aprenda para próximas vezes
+
+ESTILO DE RESPOSTA FINANCEIRA:
+- Use emojis para tornar dados mais digeríveis (💰💸🎯📊📉📈)
+- SEMPRE contextualize números: "R$420 em delivery = 35% do orçamento de alimentação"
+- Faça correlações comportamentais: "Delivery sobe quando você não exercita"
+- Termine com pergunta estratégica ou sugestão de ação
 
 💳 REGRAS PARA PARCELAS (MUITO IMPORTANTE):
 Quando o usuário mencionar "parcelado", "em X vezes", "Xx" (ex: 10x, 3x, 12x):
