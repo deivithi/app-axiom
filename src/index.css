@@ -130,11 +130,126 @@ All colors MUST be HSL.
     background-size: 450px 350px;
     animation: twinkle 4s ease-in-out infinite;
   }
+
+  /* ===== GRADIENT ORBS (Animated Background) ===== */
+  .gradient-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.4;
+    animation: float 20s ease-in-out infinite;
+  }
+
+  .orb-cyan {
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, hsl(174 84% 40%) 0%, transparent 70%);
+    top: -10%;
+    left: -10%;
+  }
+
+  .orb-violet {
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, hsl(263 70% 50%) 0%, transparent 70%);
+    bottom: -10%;
+    right: 10%;
+    animation-delay: -7s;
+  }
+
+  .orb-blue {
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, hsl(217 91% 60%) 0%, transparent 70%);
+    top: 40%;
+    right: -5%;
+    animation-delay: -14s;
+  }
+
+  /* ===== INPUT PREMIUM ===== */
+  .input-premium {
+    @apply w-full px-4 py-3 rounded-lg;
+    @apply bg-background/50 border border-border/50;
+    @apply text-foreground placeholder:text-muted-foreground;
+    @apply transition-all duration-300;
+  }
+
+  .input-premium:focus {
+    @apply outline-none border-primary;
+    box-shadow: 0 0 0 4px hsl(174 84% 40% / 0.15);
+    @apply bg-background/80;
+  }
+
+  /* ===== BUTTON GRADIENT ===== */
+  .btn-gradient {
+    @apply w-full py-3 px-4 rounded-lg font-semibold;
+    @apply flex items-center justify-center gap-2;
+    background: linear-gradient(135deg, hsl(174 84% 40%) 0%, hsl(263 70% 50%) 100%);
+    @apply text-white border-0;
+    @apply transition-all duration-300;
+    box-shadow: 0 0 20px hsl(174 84% 40% / 0.3);
+  }
+
+  .btn-gradient:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px hsl(174 84% 40% / 0.5), 0 10px 40px rgba(0,0,0,0.2);
+  }
+
+  .btn-gradient:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .btn-gradient:disabled {
+    @apply opacity-60 cursor-not-allowed;
+  }
+
+  /* ===== SOCIAL BUTTON ===== */
+  .btn-social {
+    @apply flex items-center justify-center gap-2;
+    @apply py-3 px-4 rounded-lg font-medium;
+    @apply bg-card/50 border border-border/50;
+    @apply text-foreground;
+    @apply transition-all duration-300;
+  }
+
+  .btn-social:hover {
+    @apply bg-card border-border;
+    transform: translateY(-1px);
+  }
+
+  /* ===== GRADIENT TEXT ===== */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(174 84% 40%) 0%, hsl(263 70% 50%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ===== DIVIDER ===== */
+  .divider-text {
+    @apply relative flex items-center justify-center my-6;
+  }
+
+  .divider-text::before,
+  .divider-text::after {
+    content: '';
+    @apply flex-1 h-px bg-border/50;
+  }
+
+  .divider-text span {
+    @apply px-4 text-sm text-muted-foreground;
+  }
 }
 
 @keyframes twinkle {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.6; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -30px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
 }
 
 @layer base {
