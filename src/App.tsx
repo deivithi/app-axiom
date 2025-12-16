@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { AxiomSyncProvider } from "@/contexts/AxiomSyncContext";
 import Auth from "./pages/Auth";
 import Chat from "./pages/Chat";
 import Tasks from "./pages/Tasks";
@@ -90,7 +91,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <AppRoutes />
+            <AxiomSyncProvider>
+              <AppRoutes />
+            </AxiomSyncProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

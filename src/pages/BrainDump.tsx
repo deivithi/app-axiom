@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useAxiomSync } from '@/contexts/AxiomSyncContext';
 import { Plus, Loader2, Trash2, Pin, PinOff, Search, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -34,10 +36,36 @@ export default function BrainDump() {
   const [generatingInsights, setGeneratingInsights] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyAction } = useAxiomSync();
 
   useEffect(() => {
     if (user) loadNotes();
   }, [user]);
+
+  // Realtime sync for notes
+  const handleInsert = useCallback((newNote: Note) => {
+    setNotes(prev => {
+      if (prev.some(n => n.id === newNote.id)) return prev;
+      return [newNote, ...prev].sort((a, b) => {
+        if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+    });
+  }, []);
+
+  const handleUpdate = useCallback((updatedNote: Note) => {
+    setNotes(prev => prev.map(n => n.id === updatedNote.id ? updatedNote : n));
+  }, []);
+
+  const handleDelete = useCallback(({ old }: { old: Note }) => {
+    setNotes(prev => prev.filter(n => n.id !== old.id));
+  }, []);
+
+  useRealtimeSync<Note>('notes', user?.id, {
+    onInsert: handleInsert,
+    onUpdate: handleUpdate,
+    onDelete: handleDelete,
+  });
 
   const loadNotes = async () => {
     const { data, error } = await supabase

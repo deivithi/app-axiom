@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useAxiomSync } from '@/contexts/AxiomSyncContext';
 import { Plus, Loader2, Trash2, Pin, PinOff, Search, Sparkles, Copy, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -41,10 +43,36 @@ export default function PromptLibrary() {
   const [generatingDiagnosis, setGeneratingDiagnosis] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyAction } = useAxiomSync();
 
   useEffect(() => {
     if (user) loadPrompts();
   }, [user]);
+
+  // Realtime sync for prompts
+  const handleInsert = useCallback((newPrompt: Prompt) => {
+    setPrompts(prev => {
+      if (prev.some(p => p.id === newPrompt.id)) return prev;
+      return [newPrompt, ...prev].sort((a, b) => {
+        if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+    });
+  }, []);
+
+  const handleUpdate = useCallback((updatedPrompt: Prompt) => {
+    setPrompts(prev => prev.map(p => p.id === updatedPrompt.id ? updatedPrompt : p));
+  }, []);
+
+  const handleDelete = useCallback(({ old }: { old: Prompt }) => {
+    setPrompts(prev => prev.filter(p => p.id !== old.id));
+  }, []);
+
+  useRealtimeSync<Prompt>('prompt_library', user?.id, {
+    onInsert: handleInsert,
+    onUpdate: handleUpdate,
+    onDelete: handleDelete,
+  });
 
   const loadPrompts = async () => {
     const { data, error } = await supabase

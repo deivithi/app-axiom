@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,8 @@ import { toast } from "sonner";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isAfter, isSameMonth } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { useAxiomSync } from "@/contexts/AxiomSyncContext";
 
 interface Transaction {
   id: string;
@@ -52,6 +54,7 @@ const ACCOUNT_ICONS = ["💳", "🏦", "💰", "💵", "🪙", "💎"];
 
 export default function Finances() {
   const { user } = useAuth();
+  const { notifyAction } = useAxiomSync();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,6 +88,50 @@ export default function Finances() {
       loadData();
     }
   }, [user, selectedMonth]);
+
+  // Realtime sync for transactions
+  const handleTransactionInsert = useCallback((newTx: Transaction) => {
+    setTransactions(prev => {
+      if (prev.some(t => t.id === newTx.id)) return prev;
+      return [...prev, newTx];
+    });
+  }, []);
+
+  const handleTransactionUpdate = useCallback((updatedTx: Transaction) => {
+    setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
+  }, []);
+
+  const handleTransactionDelete = useCallback(({ old }: { old: Transaction }) => {
+    setTransactions(prev => prev.filter(t => t.id !== old.id));
+  }, []);
+
+  useRealtimeSync<Transaction>('transactions', user?.id, {
+    onInsert: handleTransactionInsert,
+    onUpdate: handleTransactionUpdate,
+    onDelete: handleTransactionDelete,
+  });
+
+  // Realtime sync for accounts
+  const handleAccountInsert = useCallback((newAcc: Account) => {
+    setAccounts(prev => {
+      if (prev.some(a => a.id === newAcc.id)) return prev;
+      return [...prev, newAcc];
+    });
+  }, []);
+
+  const handleAccountUpdate = useCallback((updatedAcc: Account) => {
+    setAccounts(prev => prev.map(a => a.id === updatedAcc.id ? updatedAcc : a));
+  }, []);
+
+  const handleAccountDelete = useCallback(({ old }: { old: Account }) => {
+    setAccounts(prev => prev.filter(a => a.id !== old.id));
+  }, []);
+
+  useRealtimeSync<Account>('accounts', user?.id, {
+    onInsert: handleAccountInsert,
+    onUpdate: handleAccountUpdate,
+    onDelete: handleAccountDelete,
+  });
 
   const loadData = async () => {
     setLoading(true);

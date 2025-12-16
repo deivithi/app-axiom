@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useAxiomSync } from '@/contexts/AxiomSyncContext';
 import { Plus, Loader2, GripVertical, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,10 +46,33 @@ export default function Tasks() {
   const [newTask, setNewTask] = useState<{ title: string; description: string; priority: Task['priority'] }>({ title: '', description: '', priority: 'medium' });
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyAction } = useAxiomSync();
 
   useEffect(() => {
     if (user) loadTasks();
   }, [user]);
+
+  // Realtime sync - automatically updates when Axiom creates/edits/deletes tasks
+  const handleInsert = useCallback((newTask: Task) => {
+    setTasks(prev => {
+      if (prev.some(t => t.id === newTask.id)) return prev;
+      return [newTask, ...prev];
+    });
+  }, []);
+
+  const handleUpdate = useCallback((updatedTask: Task) => {
+    setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+  }, []);
+
+  const handleDelete = useCallback(({ old }: { old: Task }) => {
+    setTasks(prev => prev.filter(t => t.id !== old.id));
+  }, []);
+
+  useRealtimeSync<Task>('tasks', user?.id, {
+    onInsert: handleInsert,
+    onUpdate: handleUpdate,
+    onDelete: handleDelete,
+  });
 
   const loadTasks = async () => {
     const { data, error } = await supabase
@@ -108,6 +133,7 @@ export default function Tasks() {
   };
 
   const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
+    const task = tasks.find(t => t.id === taskId);
     const { error } = await supabase
       .from('tasks')
       .update({ status: newStatus })
@@ -119,6 +145,10 @@ export default function Tasks() {
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
       );
+      // Notify chat about status change
+      if (newStatus === 'done' && task) {
+        notifyAction('complete_task', 'tasks', `✓ Tarefa "${task.title}" concluída!`);
+      }
     }
   };
 

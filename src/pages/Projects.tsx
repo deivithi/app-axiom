@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +13,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useAxiomSync } from '@/contexts/AxiomSyncContext';
 import { Plus, Loader2, Trash2, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +57,7 @@ export default function Projects() {
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyAction } = useAxiomSync();
 
   useEffect(() => {
     if (user) {
@@ -62,6 +65,50 @@ export default function Projects() {
       loadProjectTasks();
     }
   }, [user]);
+
+  // Realtime sync for projects
+  const handleProjectInsert = useCallback((newProject: Project) => {
+    setProjects(prev => {
+      if (prev.some(p => p.id === newProject.id)) return prev;
+      return [...prev, newProject];
+    });
+  }, []);
+
+  const handleProjectUpdate = useCallback((updatedProject: Project) => {
+    setProjects(prev => prev.map(p => p.id === updatedProject.id ? updatedProject : p));
+  }, []);
+
+  const handleProjectDelete = useCallback(({ old }: { old: Project }) => {
+    setProjects(prev => prev.filter(p => p.id !== old.id));
+  }, []);
+
+  useRealtimeSync<Project>('projects', user?.id, {
+    onInsert: handleProjectInsert,
+    onUpdate: handleProjectUpdate,
+    onDelete: handleProjectDelete,
+  });
+
+  // Realtime sync for project tasks
+  const handleTaskInsert = useCallback((newTask: ProjectTask) => {
+    setProjectTasks(prev => {
+      if (prev.some(t => t.id === newTask.id)) return prev;
+      return [...prev, newTask];
+    });
+  }, []);
+
+  const handleTaskUpdate = useCallback((updatedTask: ProjectTask) => {
+    setProjectTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+  }, []);
+
+  const handleTaskDelete = useCallback(({ old }: { old: ProjectTask }) => {
+    setProjectTasks(prev => prev.filter(t => t.id !== old.id));
+  }, []);
+
+  useRealtimeSync<ProjectTask>('project_tasks', user?.id, {
+    onInsert: handleTaskInsert,
+    onUpdate: handleTaskUpdate,
+    onDelete: handleTaskDelete,
+  });
 
   const loadProjects = async () => {
     const { data, error } = await supabase

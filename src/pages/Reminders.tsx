@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +12,8 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useAxiomSync } from '@/contexts/AxiomSyncContext';
 import { Plus, Loader2, Trash2, Bell, Check, Clock, Pencil, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, isPast, isToday } from 'date-fns';
@@ -58,10 +60,35 @@ export default function Reminders() {
   });
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyAction } = useAxiomSync();
 
   useEffect(() => {
     if (user) loadReminders();
   }, [user]);
+
+  // Realtime sync for reminders
+  const handleInsert = useCallback((newReminder: Reminder) => {
+    setReminders(prev => {
+      if (prev.some(r => r.id === newReminder.id)) return prev;
+      return [...prev, newReminder].sort((a, b) => 
+        new Date(a.remind_at).getTime() - new Date(b.remind_at).getTime()
+      );
+    });
+  }, []);
+
+  const handleUpdate = useCallback((updatedReminder: Reminder) => {
+    setReminders(prev => prev.map(r => r.id === updatedReminder.id ? updatedReminder : r));
+  }, []);
+
+  const handleDelete = useCallback(({ old }: { old: Reminder }) => {
+    setReminders(prev => prev.filter(r => r.id !== old.id));
+  }, []);
+
+  useRealtimeSync<Reminder>('reminders', user?.id, {
+    onInsert: handleInsert,
+    onUpdate: handleUpdate,
+    onDelete: handleDelete,
+  });
 
   const loadReminders = async () => {
     const { data, error } = await supabase
