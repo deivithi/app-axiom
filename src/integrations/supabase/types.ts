@@ -86,6 +86,45 @@ export type Database = {
         }
         Relationships: []
       }
+      financial_goals: {
+        Row: {
+          action_plan: Json | null
+          created_at: string | null
+          current_amount: number | null
+          deadline: string | null
+          id: string
+          status: string | null
+          target_amount: number
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          action_plan?: Json | null
+          created_at?: string | null
+          current_amount?: number | null
+          deadline?: string | null
+          id?: string
+          status?: string | null
+          target_amount: number
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          action_plan?: Json | null
+          created_at?: string | null
+          current_amount?: number | null
+          deadline?: string | null
+          id?: string
+          status?: string | null
+          target_amount?: number
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       habit_logs: {
         Row: {
           completed_at: string
