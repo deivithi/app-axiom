@@ -16,8 +16,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useAxiomSync } from '@/contexts/AxiomSyncContext';
-import { Plus, Loader2, GripVertical, Trash2, Pencil, ChevronDown, ChevronUp, FolderKanban, CheckSquare } from 'lucide-react';
+import { Plus, Loader2, GripVertical, Trash2, Pencil, ChevronDown, ChevronUp, FolderKanban, CheckSquare, Inbox, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useNavigate } from 'react-router-dom';
 
 interface Task {
   id: string;
@@ -85,6 +87,7 @@ export default function Execution() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { notifyAction } = useAxiomSync();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
@@ -385,54 +388,76 @@ export default function Execution() {
               </Dialog>
 
               {/* Kanban Board */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {columns.map((col) => (
-                  <Card
-                    key={col.id}
-                    className={cn('min-h-[400px]', col.color)}
-                    onDrop={(e) => handleDrop(e, col.id)}
-                    onDragOver={handleDragOver}
-                  >
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        {col.title}
-                        <Badge variant="secondary">{tasks.filter(t => t.status === col.id).length}</Badge>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {tasks.filter(t => t.status === col.id).map((task) => (
-                        <div
-                          key={task.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, task.id)}
-                          className="bg-background p-3 rounded-lg border cursor-move group"
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex items-start gap-2 flex-1">
-                              <GripVertical className="h-4 w-4 text-muted-foreground mt-1 opacity-50" />
-                              <div className="flex-1">
-                                <p className="font-medium">{task.title}</p>
-                                {task.description && <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>}
-                                <Badge className={cn('mt-2 text-xs', priorityColors[task.priority])}>
-                                  {task.priority === 'low' ? 'Baixa' : task.priority === 'medium' ? 'Média' : 'Alta'}
-                                </Badge>
+              {tasks.length === 0 ? (
+                <EmptyState
+                  icon={<Inbox className="h-8 w-8" />}
+                  title="Nenhuma tarefa cadastrada"
+                  description="Crie tarefas para organizar seu dia ou peça ao Axiom para te ajudar."
+                  action={{
+                    label: 'Nova Tarefa',
+                    onClick: () => setTaskDialogOpen(true),
+                  }}
+                  secondaryAction={{
+                    label: 'Pedir ao Axiom',
+                    onClick: () => navigate('/'),
+                  }}
+                />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {columns.map((col) => (
+                    <Card
+                      key={col.id}
+                      className={cn('min-h-[400px]', col.color)}
+                      onDrop={(e) => handleDrop(e, col.id)}
+                      onDragOver={handleDragOver}
+                    >
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {col.title}
+                          <Badge variant="secondary">{tasks.filter(t => t.status === col.id).length}</Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {tasks.filter(t => t.status === col.id).length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-8">
+                            Arraste tarefas aqui
+                          </p>
+                        ) : (
+                          tasks.filter(t => t.status === col.id).map((task) => (
+                            <div
+                              key={task.id}
+                              draggable
+                              onDragStart={(e) => handleDragStart(e, task.id)}
+                              className="bg-background p-3 rounded-lg border cursor-move group"
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex items-start gap-2 flex-1">
+                                  <GripVertical className="h-4 w-4 text-muted-foreground mt-1 opacity-50" />
+                                  <div className="flex-1">
+                                    <p className="font-medium">{task.title}</p>
+                                    {task.description && <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>}
+                                    <Badge className={cn('mt-2 text-xs', priorityColors[task.priority])}>
+                                      {task.priority === 'low' ? 'Baixa' : task.priority === 'medium' ? 'Média' : 'Alta'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTask({ ...task }); setEditTaskDialogOpen(true); }}>
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTask(task.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
                             </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTask({ ...task }); setEditTaskDialogOpen(true); }}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTask(task.id)}>
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                          ))
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </TabsContent>
 
             {/* PROJETOS */}
@@ -480,9 +505,19 @@ export default function Execution() {
               </Dialog>
 
               {projects.length === 0 ? (
-                <Card className="p-8 text-center">
-                  <p className="text-muted-foreground">Nenhum projeto cadastrado</p>
-                </Card>
+                <EmptyState
+                  icon={<FolderKanban className="h-8 w-8" />}
+                  title="Nenhum projeto cadastrado"
+                  description="Organize suas metas criando projetos com subtarefas ou peça ao Axiom para te ajudar a estruturar."
+                  action={{
+                    label: 'Novo Projeto',
+                    onClick: () => setProjectDialogOpen(true),
+                  }}
+                  secondaryAction={{
+                    label: 'Pedir ao Axiom',
+                    onClick: () => navigate('/'),
+                  }}
+                />
               ) : (
                 <div className="space-y-4">
                   {projects.map((project) => {

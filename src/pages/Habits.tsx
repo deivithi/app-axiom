@@ -11,8 +11,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { useAxiomSync } from '@/contexts/AxiomSyncContext';
-import { Plus, Loader2, Flame, Check, Trash2, Pencil } from 'lucide-react';
+import { Plus, Loader2, Flame, Check, Trash2, Pencil, Target, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -43,6 +45,7 @@ export default function Habits() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { notifyAction } = useAxiomSync();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
@@ -312,10 +315,19 @@ export default function Habits() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : habits.length === 0 ? (
-          <Card className="p-8 text-center">
-            <p className="text-muted-foreground">Nenhum hábito cadastrado</p>
-            <p className="text-sm text-muted-foreground">Crie seu primeiro hábito para começar</p>
-          </Card>
+          <EmptyState
+            icon={<Target className="h-8 w-8" />}
+            title="Nenhum hábito cadastrado"
+            description="Comece a construir sua rotina criando seu primeiro hábito ou peça ao Axiom para te ajudar."
+            action={{
+              label: 'Criar Hábito',
+              onClick: () => setDialogOpen(true),
+            }}
+            secondaryAction={{
+              label: 'Pedir ao Axiom',
+              onClick: () => navigate('/'),
+            }}
+          />
         ) : (
           <div className="space-y-6">
             {habits.map((habit) => (

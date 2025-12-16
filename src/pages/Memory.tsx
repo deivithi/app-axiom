@@ -12,8 +12,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
-import { Plus, Loader2, Trash2, Pin, PinOff, Search, Sparkles, Brain, BookOpen, Save } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pin, PinOff, Search, Sparkles, Brain, BookOpen, Save, MessageSquare, Lightbulb } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/empty-state';
+import { useNavigate } from 'react-router-dom';
 import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -69,6 +71,7 @@ export default function Memory() {
 
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
@@ -289,8 +292,20 @@ export default function Memory() {
                   )}
                   <div>
                     {pinnedNotes.length > 0 && <h3 className="text-sm font-medium text-muted-foreground mb-2">Outras notas</h3>}
-                    {otherNotes.length === 0 && pinnedNotes.length === 0 ? (
-                      <Card className="p-8 text-center text-muted-foreground">Nenhuma nota encontrada</Card>
+                  {otherNotes.length === 0 && pinnedNotes.length === 0 ? (
+                      <EmptyState
+                        icon={<Lightbulb className="h-8 w-8" />}
+                        title="Nenhum pensamento registrado"
+                        description="Capture suas ideias criando uma nota ou converse com Axiom para organizar seus pensamentos."
+                        action={{
+                          label: 'Nova Nota',
+                          onClick: () => setNoteDialogOpen(true),
+                        }}
+                        secondaryAction={{
+                          label: 'Conversar com Axiom',
+                          onClick: () => navigate('/'),
+                        }}
+                      />
                     ) : (
                       <div className="space-y-2">
                         {otherNotes.map((note) => (
