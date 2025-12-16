@@ -331,6 +331,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          notification_preferences: Json | null
           personality_mode: string | null
           updated_at: string
           user_context: string | null
@@ -340,6 +341,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          notification_preferences?: Json | null
           personality_mode?: string | null
           updated_at?: string
           user_context?: string | null
@@ -349,6 +351,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          notification_preferences?: Json | null
           personality_mode?: string | null
           updated_at?: string
           user_context?: string | null
@@ -461,6 +464,42 @@ export type Database = {
           prompt_text?: string
           title?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string | null
+          device_name: string | null
+          endpoint: string
+          id: string
+          is_active: boolean | null
+          last_used_at: string | null
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string | null
+          device_name?: string | null
+          endpoint: string
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string | null
+          device_name?: string | null
+          endpoint?: string
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          p256dh?: string
           user_id?: string
         }
         Relationships: []

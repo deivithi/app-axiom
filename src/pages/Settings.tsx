@@ -10,6 +10,7 @@ import { Loader2, Save, Trash2, AlertTriangle, Upload, User, Target, Compass, Ha
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
 
 type PersonalityMode = "direto" | "sabio" | "parceiro";
 
@@ -338,6 +339,9 @@ export default function Settings() {
             )}
           </CardContent>
         </Card>
+
+        {/* Notificações Push */}
+        <NotificationSettings />
 
         {/* Dados da Conta */}
         <Card>
