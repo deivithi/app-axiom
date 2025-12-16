@@ -8,6 +8,7 @@ import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AxiomSyncProvider } from "@/contexts/AxiomSyncContext";
 import { ChatProvider } from "@/contexts/ChatContext";
+import { SidebarProvider } from "@/contexts/SidebarContext";
 import Auth from "./pages/Auth";
 import Intelligence from "./pages/Intelligence";
 import Execution from "./pages/Execution";
@@ -103,11 +104,13 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <AxiomSyncProvider>
-              <ChatProvider>
-                <AppRoutes />
-              </ChatProvider>
-            </AxiomSyncProvider>
+            <SidebarProvider>
+              <AxiomSyncProvider>
+                <ChatProvider>
+                  <AppRoutes />
+                </ChatProvider>
+              </AxiomSyncProvider>
+            </SidebarProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

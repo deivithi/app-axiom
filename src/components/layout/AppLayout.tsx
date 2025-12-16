@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MessageSquare } from 'lucide-react';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useChatPanelResize } from '@/hooks/useChatPanelResize';
+import { useSidebar } from '@/contexts/SidebarContext';
 import { cn } from '@/lib/utils';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 
@@ -16,6 +17,7 @@ interface AppLayoutProps {
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const { chatOpen, setChatOpen } = useChatContext();
   const { marginClass } = useChatPanelResize();
+  const { collapsed } = useSidebar();
   
   // Enable keyboard navigation
   useKeyboardNavigation();
@@ -30,8 +32,8 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       {/* Main Content (Center) */}
       <main className={cn(
         "min-h-screen relative z-10",
-        "transition-all duration-300",
-        "md:ml-64",
+        "transition-all duration-200 ease-out",
+        collapsed ? "md:ml-16" : "md:ml-64",
         marginClass
       )}>
         {children}
