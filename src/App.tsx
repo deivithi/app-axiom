@@ -7,8 +7,8 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-route
 import { ThemeProvider } from "next-themes";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AxiomSyncProvider } from "@/contexts/AxiomSyncContext";
+import { ChatProvider } from "@/contexts/ChatContext";
 import Auth from "./pages/Auth";
-import Chat from "./pages/Chat";
 import Intelligence from "./pages/Intelligence";
 import Execution from "./pages/Execution";
 import Habits from "./pages/Habits";
@@ -81,9 +81,9 @@ function AppRoutes() {
   
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/chat" replace />} />
+<Route path="/" element={<Navigate to="/intelligence" replace />} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
-      <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
+      <Route path="/chat" element={<Navigate to="/intelligence" replace />} />
       <Route path="/intelligence" element={<ProtectedRoute><Intelligence /></ProtectedRoute>} />
       <Route path="/execution" element={<ProtectedRoute><Execution /></ProtectedRoute>} />
       <Route path="/habits" element={<ProtectedRoute><Habits /></ProtectedRoute>} />
@@ -104,7 +104,9 @@ const App = () => (
         <BrowserRouter>
           <AuthProvider>
             <AxiomSyncProvider>
-              <AppRoutes />
+              <ChatProvider>
+                <AppRoutes />
+              </ChatProvider>
             </AxiomSyncProvider>
           </AuthProvider>
         </BrowserRouter>

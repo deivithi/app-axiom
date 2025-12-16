@@ -108,6 +108,38 @@ All colors MUST be HSL.
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
+  /* ===== CHAT PANEL STYLES ===== */
+  .chat-panel {
+    transition-timing-function: cubic-bezier(0.76, 0, 0.24, 1);
+  }
+
+  .chat-header {
+    @apply bg-card/50 backdrop-blur-md;
+  }
+
+  .chat-input-wrapper {
+    @apply bg-gradient-to-t from-card/80 to-transparent backdrop-blur-md;
+  }
+
+  .chat-input:focus-within {
+    @apply border-primary/50;
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.1);
+  }
+
+  /* Axiom Question Glow Card */
+  .axiom-question {
+    @apply relative overflow-hidden;
+    @apply bg-gradient-to-br from-primary/10 to-purple-500/10;
+    @apply border border-primary/20;
+    @apply rounded-xl p-4;
+  }
+
+  .axiom-question::before {
+    content: '';
+    @apply absolute inset-0;
+    background: radial-gradient(circle at top right, hsl(var(--primary) / 0.15), transparent 60%);
+  }
+
   /* ===== STARRY BACKGROUND ===== */
   .stars {
     background-image: 

@@ -1,42 +1,66 @@
-import { useState, useRef, useEffect } from 'react';
-import { AppLayout } from '@/components/layout/AppLayout';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Send, Loader2, Mic, MicOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { UserMessage } from '@/components/chat/UserMessage';
-import { AxiomMessage } from '@/components/chat/AxiomMessage';
-import { AxiomTyping } from '@/components/chat/AxiomTyping';
-import { ActionConfirmation } from '@/components/chat/ActionConfirmation';
-import { ProactiveQuestion } from '@/components/chat/ProactiveQuestion';
-import { OnboardingOptions } from '@/components/chat/OnboardingOptions';
-import { WeeklyReportCard } from '@/components/chat/WeeklyReportCard';
 import { useAxiomSync, UIAction } from '@/contexts/AxiomSyncContext';
 import { useProactiveQuestions } from '@/hooks/useProactiveQuestions';
 
-const ONBOARDING_OPTIONS = [
-  { id: 'empreendedor', emoji: '👔', label: 'Empreendedor Solo', description: 'Projetos de produto, marketing, vendas e finanças' },
-  { id: 'executivo', emoji: '💼', label: 'Executivo Corporativo', description: 'OKRs, gestão de time e stakeholders' },
-  { id: 'freelancer', emoji: '🎨', label: 'Freelancer Criativo', description: 'Clientes, portfólio e prospecção' },
-  { id: 'vendas', emoji: '📊', label: 'Profissional de Vendas', description: 'Pipeline, comissões e eventos' },
-  { id: 'personalizado', emoji: '⚙️', label: 'Personalizado', description: 'Eu te guio passo a passo' }
-];
 interface Message {
   id: string;
   content: string;
   is_ai: boolean;
   created_at: string;
 }
+
 interface ExecutedAction {
   success: boolean;
   action: string;
   message: string;
   data?: any;
 }
-export default function Chat() {
+
+interface ProactiveQuestion {
+  id: string;
+  question: string;
+  priority: string;
+  trigger_type: string;
+  created_at: string;
+}
+
+interface ChatContextType {
+  messages: Message[];
+  uiActions: UIAction[];
+  input: string;
+  setInput: (value: string) => void;
+  loading: boolean;
+  loadingMessages: boolean;
+  isRecording: boolean;
+  isTranscribing: boolean;
+  userAvatar: string | null;
+  chatOpen: boolean;
+  setChatOpen: (open: boolean) => void;
+  sendMessage: () => Promise<void>;
+  toggleRecording: () => Promise<void>;
+  handleKeyDown: (e: React.KeyboardEvent) => void;
+  proactiveQuestions: ProactiveQuestion[];
+  respondingToQuestion: string | null;
+  setRespondingToQuestion: (id: string | null) => void;
+  handleRespondToQuestion: (questionId: string) => void;
+  handleDismissQuestion: (questionId: string) => void;
+  scrollRef: React.RefObject<HTMLDivElement>;
+}
+
+const ChatContext = createContext<ChatContextType | null>(null);
+
+export const useChatContext = () => {
+  const context = useContext(ChatContext);
+  if (!context) {
+    throw new Error('useChatContext must be used within a ChatProvider');
+  }
+  return context;
+};
+
+export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [uiActions, setUiActions] = useState<UIAction[]>([]);
   const [input, setInput] = useState('');
@@ -45,24 +69,23 @@ export default function Chat() {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(true);
+  const [respondingToQuestion, setRespondingToQuestion] = useState<string | null>(null);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  const {
-    user
-  } = useAuth();
-  const {
-    toast
-  } = useToast();
-  const { subscribeToActions, setLastActionSource } = useAxiomSync();
+  
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { subscribeToActions } = useAxiomSync();
   const { 
     questions: proactiveQuestions, 
     answerQuestion, 
     dismissQuestion 
   } = useProactiveQuestions(user?.id);
-  const [respondingToQuestion, setRespondingToQuestion] = useState<string | null>(null);
 
-  // Subscribe to personality mode changes from Settings
+  // Subscribe to personality mode changes
   useEffect(() => {
     if (!user?.id) return;
 
@@ -93,31 +116,34 @@ export default function Chat() {
       supabase.removeChannel(channel);
     };
   }, [user?.id, toast]);
-  // Subscribe to UI actions to show confirmations in chat
+
+  // Subscribe to UI actions
   useEffect(() => {
     const unsubscribe = subscribeToActions((action: UIAction) => {
       setUiActions(prev => [...prev, action]);
     });
     return unsubscribe;
   }, [subscribeToActions]);
+
+  // Load messages and avatar
   useEffect(() => {
     if (user) {
       loadMessages();
       loadUserAvatar();
     }
   }, [user]);
+
+  // Scroll to bottom on new messages
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({
-      behavior: 'smooth'
-    });
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
   const loadMessages = async () => {
-    const {
-      data,
-      error
-    } = await supabase.from('messages').select('*').order('created_at', {
-      ascending: true
-    });
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true });
+    
     if (error) {
       console.error('Error loading messages:', error);
     } else {
@@ -125,14 +151,19 @@ export default function Chat() {
     }
     setLoadingMessages(false);
   };
+
   const loadUserAvatar = async () => {
-    const {
-      data
-    } = await supabase.from('profiles').select('avatar_url').eq('id', user?.id).single();
+    const { data } = await supabase
+      .from('profiles')
+      .select('avatar_url')
+      .eq('id', user?.id)
+      .single();
+    
     if (data?.avatar_url) {
       setUserAvatar(data.avatar_url);
     }
   };
+
   const showActionToast = (actions: ExecutedAction[]) => {
     actions.forEach(action => {
       if (action.success) {
@@ -170,20 +201,18 @@ export default function Chat() {
     const question = proactiveQuestions.find(q => q.id === questionId);
     if (question) {
       setRespondingToQuestion(questionId);
-      // Pre-fill with context hint
       setInput('');
-      // Focus the input
-      document.querySelector('textarea')?.focus();
+      setChatOpen(true);
     }
   };
 
   const handleDismissQuestion = (questionId: string) => {
     dismissQuestion(questionId);
   };
+
   const transcribeAudio = async (audioBlob: Blob) => {
     setIsTranscribing(true);
     try {
-      // Get access token for authenticated request
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
         throw new Error('Usuário não autenticado');
@@ -219,29 +248,29 @@ export default function Chat() {
       setIsTranscribing(false);
     }
   };
+
   const toggleRecording = async () => {
     if (isRecording) {
       mediaRecorderRef.current?.stop();
       setIsRecording(false);
     } else {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true
-        });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         audioChunksRef.current = [];
+        
         mediaRecorder.ondataavailable = e => {
           if (e.data.size > 0) {
             audioChunksRef.current.push(e.data);
           }
         };
+        
         mediaRecorder.onstop = async () => {
           stream.getTracks().forEach(track => track.stop());
-          const audioBlob = new Blob(audioChunksRef.current, {
-            type: 'audio/webm'
-          });
+          const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           await transcribeAudio(audioBlob);
         };
+        
         mediaRecorder.start();
         mediaRecorderRef.current = mediaRecorder;
         setIsRecording(true);
@@ -259,13 +288,13 @@ export default function Chat() {
       }
     }
   };
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
     const userMessage = input.trim();
     setInput('');
     setLoading(true);
 
-    // If responding to a proactive question, mark it as answered
     if (respondingToQuestion) {
       const question = proactiveQuestions.find(q => q.id === respondingToQuestion);
       if (question) {
@@ -281,76 +310,75 @@ export default function Chat() {
       created_at: new Date().toISOString()
     };
     setMessages(prev => [...prev, tempUserMsg]);
+    
     await supabase.from('messages').insert({
       user_id: user?.id,
       content: userMessage,
       is_ai: false
     });
+
     const aiMessages = messages.slice(-10).map(m => ({
       role: m.is_ai ? 'assistant' : 'user',
       content: m.content
     }));
-    aiMessages.push({
-      role: 'user',
-      content: userMessage
-    });
+    aiMessages.push({ role: 'user', content: userMessage });
+
     try {
-      const {
-        data: sessionData
-      } = await supabase.auth.getSession();
+      const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
+      
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
         },
-        body: JSON.stringify({
-          messages: aiMessages
-        })
+        body: JSON.stringify({ messages: aiMessages })
       });
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Erro ao processar mensagem');
       }
+
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
       let aiContent = '';
       const tempAiId = crypto.randomUUID();
+      
       setMessages(prev => [...prev, {
         id: tempAiId,
         content: '',
         is_ai: true,
         created_at: new Date().toISOString()
       }]);
+
       let textBuffer = '';
       while (reader) {
-        const {
-          done,
-          value
-        } = await reader.read();
+        const { done, value } = await reader.read();
         if (done) break;
-        textBuffer += decoder.decode(value, {
-          stream: true
-        });
+        
+        textBuffer += decoder.decode(value, { stream: true });
         let newlineIndex: number;
+        
         while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
           let line = textBuffer.slice(0, newlineIndex);
           textBuffer = textBuffer.slice(newlineIndex + 1);
           if (line.endsWith('\r')) line = line.slice(0, -1);
           if (line.startsWith(':') || line.trim() === '') continue;
           if (!line.startsWith('data: ')) continue;
+          
           const jsonStr = line.slice(6).trim();
           if (jsonStr === '[DONE]') break;
+          
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.content || parsed.choices?.[0]?.delta?.content;
             if (content) {
               aiContent += content;
-              setMessages(prev => prev.map(m => m.id === tempAiId ? {
-                ...m,
-                content: aiContent
-              } : m));
+              setMessages(prev => prev.map(m => 
+                m.id === tempAiId ? { ...m, content: aiContent } : m
+              ));
             }
             if (parsed.actions && Array.isArray(parsed.actions)) {
               parsed.actions.forEach((actionName: string) => {
@@ -366,6 +394,7 @@ export default function Chat() {
           }
         }
       }
+
       if (aiContent) {
         await supabase.from('messages').insert({
           user_id: user?.id,
@@ -383,149 +412,38 @@ export default function Chat() {
     }
     setLoading(false);
   };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
   };
-  return <AppLayout>
-      <div className="flex flex-col h-screen">
-        <header className="p-4 pl-16 md:pl-4 border-b border-border">
-          <h1 className="text-xl font-semibold text-foreground">Axiom</h1>
-          <p className="text-sm text-muted-foreground">
-            Estrategista conversacional • Diga o que precisa, eu executo
-          </p>
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground/70">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Online
-            </span>
-            <span>•</span>
-            <span>Atalho: Cmd/Ctrl+K</span>
-          </div>
-        </header>
 
-        <ScrollArea className="flex-1 p-4">
-          <div className="max-w-3xl mx-auto space-y-4">
-          {loadingMessages ? <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div> : messages.length === 0 && uiActions.length === 0 ? <div className="py-8">
-                <AxiomMessage 
-                  content={`Olá! Sou Axiom, seu estrategista de vida. 🎯
-
-Vou te ajudar a organizar tudo: dinheiro, projetos, hábitos, tarefas.
-
-Pra começar rápido, escolha quem você é:`}
-                  timestamp={new Date().toISOString()}
-                />
-                <OnboardingOptions 
-                  options={ONBOARDING_OPTIONS}
-                  onSelect={(id) => {
-                    const labels: Record<string, string> = {
-                      empreendedor: 'Empreendedor Solo',
-                      executivo: 'Executivo Corporativo',
-                      freelancer: 'Freelancer Criativo',
-                      vendas: 'Profissional de Vendas',
-                      personalizado: 'Quero criar minha configuração personalizada'
-                    };
-                    setInput(labels[id] || id);
-                    setTimeout(() => sendMessage(), 100);
-                  }}
-                  disabled={loading}
-                />
-              </div> : <>
-                {/* Proactive Questions at the top */}
-                {proactiveQuestions.length > 0 && (
-                  <div className="space-y-3 mb-6">
-                    {proactiveQuestions.map(q => (
-                      <ProactiveQuestion
-                        key={q.id}
-                        id={q.id}
-                        question={q.question}
-                        priority={q.priority}
-                        triggerType={q.trigger_type}
-                        timestamp={q.created_at}
-                        onRespond={handleRespondToQuestion}
-                        onDismiss={handleDismissQuestion}
-                      />
-                    ))}
-                  </div>
-                )}
-                {messages.map(msg => {
-                  // Check if this is a weekly report message
-                  const isWeeklyReport = msg.is_ai && (
-                    msg.content.includes('📊 **Axiom Insights**') || 
-                    msg.content.includes('📊 **Relatório Completo da Semana**')
-                  );
-                  
-                  if (isWeeklyReport) {
-                    return (
-                      <WeeklyReportCard 
-                        key={msg.id} 
-                        content={msg.content} 
-                        timestamp={msg.created_at}
-                        isFullReport={msg.content.includes('Relatório Completo')}
-                      />
-                    );
-                  }
-                  
-                  return msg.is_ai ? (
-                    <AxiomMessage key={msg.id} content={msg.content} timestamp={msg.created_at} />
-                  ) : (
-                    <UserMessage key={msg.id} content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />
-                  );
-                })}
-                {uiActions.map(action => (
-                  <ActionConfirmation 
-                    key={action.id} 
-                    message={action.message} 
-                    module={action.module} 
-                    timestamp={action.timestamp} 
-                  />
-                ))}
-              </>}
-            {loading && <AxiomTyping />}
-            <div ref={scrollRef} />
-          </div>
-        </ScrollArea>
-
-        <div className="p-4 border-t border-border">
-          <div className="max-w-3xl mx-auto">
-              {respondingToQuestion && (
-                <div className="flex items-center gap-2 text-primary text-sm mb-3">
-                  <span className="relative flex h-2 w-2">
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                  </span>
-                  Respondendo pergunta do Axiom...
-                  <button 
-                    onClick={() => setRespondingToQuestion(null)}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    (cancelar)
-                  </button>
-                </div>
-              )}
-              {isRecording && <div className="flex items-center gap-2 text-destructive text-sm mb-3">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-                </span>
-                Gravando... Clique no microfone para parar
-              </div>}
-            <div className="flex gap-2">
-              <Textarea value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Digite ou fale sua mensagem..." className="min-h-[48px] max-h-32 resize-none flex-1" rows={1} disabled={loading || isRecording || isTranscribing} />
-              <div className="flex flex-col gap-2">
-                <Button size="icon" variant={isRecording ? 'destructive' : 'outline'} onClick={toggleRecording} disabled={loading || isTranscribing} className={isRecording ? 'animate-pulse' : ''}>
-                  {isTranscribing ? <Loader2 className="h-4 w-4 animate-spin" /> : isRecording ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </Button>
-                <Button size="icon" onClick={sendMessage} disabled={loading || !input.trim() || isRecording}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </AppLayout>;
-}
+  return (
+    <ChatContext.Provider value={{
+      messages,
+      uiActions,
+      input,
+      setInput,
+      loading,
+      loadingMessages,
+      isRecording,
+      isTranscribing,
+      userAvatar,
+      chatOpen,
+      setChatOpen,
+      sendMessage,
+      toggleRecording,
+      handleKeyDown,
+      proactiveQuestions,
+      respondingToQuestion,
+      setRespondingToQuestion,
+      handleRespondToQuestion,
+      handleDismissQuestion,
+      scrollRef
+    }}>
+      {children}
+    </ChatContext.Provider>
+  );
+};
