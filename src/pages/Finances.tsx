@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank, Check, Clock, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank, Check, Clock, RefreshCw, FileText } from "lucide-react";
+import { generateFinancialPDF } from "@/lib/generateFinancialPDF";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
@@ -589,10 +590,30 @@ export default function Finances() {
             </Button>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="h-4 w-4 mr-2" /> Nova Transação</Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                generateFinancialPDF({
+                  month: selectedMonth,
+                  transactions,
+                  accounts,
+                  totalIncome,
+                  totalExpenses,
+                  balance,
+                  pendingExpenses,
+                  expensesByCategory
+                });
+                toast.success("PDF gerado com sucesso!");
+              }}
+            >
+              <FileText className="h-4 w-4 mr-2" /> Exportar PDF
+            </Button>
+            
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="h-4 w-4 mr-2" /> Nova Transação</Button>
+              </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Nova Transação</DialogTitle>
@@ -691,6 +712,7 @@ export default function Finances() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* Cards de Resumo com Emojis */}
