@@ -12,8 +12,17 @@ import { AxiomMessage } from '@/components/chat/AxiomMessage';
 import { AxiomTyping } from '@/components/chat/AxiomTyping';
 import { ActionConfirmation } from '@/components/chat/ActionConfirmation';
 import { ProactiveQuestion } from '@/components/chat/ProactiveQuestion';
+import { OnboardingOptions } from '@/components/chat/OnboardingOptions';
 import { useAxiomSync, UIAction } from '@/contexts/AxiomSyncContext';
 import { useProactiveQuestions } from '@/hooks/useProactiveQuestions';
+
+const ONBOARDING_OPTIONS = [
+  { id: 'empreendedor', emoji: '👔', label: 'Empreendedor Solo', description: 'Projetos de produto, marketing, vendas e finanças' },
+  { id: 'executivo', emoji: '💼', label: 'Executivo Corporativo', description: 'OKRs, gestão de time e stakeholders' },
+  { id: 'freelancer', emoji: '🎨', label: 'Freelancer Criativo', description: 'Clientes, portfólio e prospecção' },
+  { id: 'vendas', emoji: '📊', label: 'Profissional de Vendas', description: 'Pipeline, comissões e eventos' },
+  { id: 'personalizado', emoji: '⚙️', label: 'Personalizado', description: 'Eu te guio passo a passo' }
+];
 interface Message {
   id: string;
   content: string;
@@ -398,22 +407,31 @@ export default function Chat() {
 
         <ScrollArea className="flex-1 p-4">
           <div className="max-w-3xl mx-auto space-y-4">
-            {loadingMessages ? <div className="flex justify-center py-8">
+          {loadingMessages ? <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div> : messages.length === 0 && uiActions.length === 0 ? <div className="py-8">
                 <AxiomMessage 
-                  content={`Olá! Sou Axiom, seu estrategista pessoal. 🎯
+                  content={`Olá! Sou Axiom, seu estrategista de vida. 🎯
 
-Me conte: o que você quer organizar primeiro?
+Vou te ajudar a organizar tudo: dinheiro, projetos, hábitos, tarefas.
 
-💰 **Dinheiro** — rastreie gastos, receitas e contas
-📋 **Tarefas** — gerencie o que precisa fazer  
-🎯 **Hábitos** — construa rotinas consistentes
-📁 **Projetos** — organize iniciativas maiores
-⏰ **Lembretes** — nunca mais esqueça compromissos
-
-Apenas me diga e eu cuido do resto.`}
+Pra começar rápido, escolha quem você é:`}
                   timestamp={new Date().toISOString()}
+                />
+                <OnboardingOptions 
+                  options={ONBOARDING_OPTIONS}
+                  onSelect={(id) => {
+                    const labels: Record<string, string> = {
+                      empreendedor: 'Empreendedor Solo',
+                      executivo: 'Executivo Corporativo',
+                      freelancer: 'Freelancer Criativo',
+                      vendas: 'Profissional de Vendas',
+                      personalizado: 'Quero criar minha configuração personalizada'
+                    };
+                    setInput(labels[id] || id);
+                    setTimeout(() => sendMessage(), 100);
+                  }}
+                  disabled={loading}
                 />
               </div> : <>
                 {/* Proactive Questions at the top */}
