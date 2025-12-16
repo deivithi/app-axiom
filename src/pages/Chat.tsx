@@ -52,6 +52,37 @@ export default function Chat() {
   } = useProactiveQuestions(user?.id);
   const [respondingToQuestion, setRespondingToQuestion] = useState<string | null>(null);
 
+  // Subscribe to personality mode changes from Settings
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel('profile-personality-changes')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${user.id}`
+      }, (payload: any) => {
+        if (payload.new?.personality_mode && payload.old?.personality_mode && 
+            payload.new.personality_mode !== payload.old.personality_mode) {
+          const modeNames: Record<string, string> = { 
+            direto: 'Direto 🎯', 
+            sabio: 'Sábio 🧘', 
+            parceiro: 'Parceiro 🤝' 
+          };
+          toast({
+            title: 'Modo alterado',
+            description: `Axiom agora está no modo ${modeNames[payload.new.personality_mode] || payload.new.personality_mode}`
+          });
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, toast]);
   // Subscribe to UI actions to show confirmations in chat
   useEffect(() => {
     const unsubscribe = subscribeToActions((action: UIAction) => {

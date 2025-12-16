@@ -187,6 +187,21 @@ const tools = [
       }
     }
   },
+  // PERSONALITY MODE
+  {
+    type: "function",
+    function: {
+      name: "set_personality_mode",
+      description: "Altera o modo de personalidade do Axiom. Modos: 'direto' (brutal, sem rodeios), 'sabio' (reflexivo, perguntas profundas), 'parceiro' (empático, apoio prático). Use quando usuário pedir para mudar o tom.",
+      parameters: {
+        type: "object",
+        properties: {
+          mode: { type: "string", enum: ["direto", "sabio", "parceiro"], description: "Modo de personalidade desejado" }
+        },
+        required: ["mode"]
+      }
+    }
+  },
   // REMINDERS
   {
     type: "function",
@@ -1946,6 +1961,34 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       return { success: true, title: data.title, url: data.url, message: `URL do site "${data.title}": ${data.url}` };
     }
 
+// PERSONALITY MODE
+    case "set_personality_mode": {
+      const modeNames: Record<string, string> = {
+        direto: "Direto 🎯",
+        sabio: "Sábio 🧘",
+        parceiro: "Parceiro 🤝"
+      };
+      const modeDescriptions: Record<string, string> = {
+        direto: "direta e sem rodeios, com verdades duras",
+        sabio: "reflexiva, guiando com perguntas profundas",
+        parceiro: "empática e prática, com apoio concreto"
+      };
+      
+      const { error } = await supabaseAdmin
+        .from("profiles")
+        .update({ personality_mode: args.mode })
+        .eq("id", userId);
+        
+      if (error) throw error;
+      
+      return { 
+        success: true, 
+        mode: args.mode,
+        mode_name: modeNames[args.mode],
+        message: `Modo alterado para ${modeNames[args.mode]}. A partir de agora, vou me comunicar de forma ${modeDescriptions[args.mode]}.`
+      };
+    }
+
     // AXIOM SCORE
     case "get_axiom_score": {
       const now = new Date();
@@ -2201,27 +2244,66 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) throw new Error("Usuário não autenticado");
 
-    // Buscar nome e contexto do usuário
-    const { data: profile } = await supabaseAdmin.from("profiles").select("full_name, user_context").eq("id", user.id).maybeSingle();
+// Buscar nome, contexto e modo de personalidade do usuário
+    const { data: profile } = await supabaseAdmin.from("profiles").select("full_name, user_context, personality_mode").eq("id", user.id).maybeSingle();
     const userName = profile?.full_name || user.email?.split("@")[0] || "Usuário";
     const userContext = profile?.user_context || null;
+    const personalityMode = profile?.personality_mode || "direto";
+
+    // Personality mode templates
+    const personalityPrompts: Record<string, string> = {
+      direto: `PERSONALIDADE: DIRETO 🎯
+- Você é brutalmente honesto e não tolera desculpas
+- Você vai direto ao ponto sem rodeios
+- Você desafia o usuário com verdades duras
+- Você expõe padrões autodestrutivos sem piedade
+- Exemplo: "Você criou 5 projetos e finalizou 0. Quando vai parar de se enganar?"
+- Exemplo: "Gastou R$400 em delivery - 3x a média. Isso é compensação emocional ou puro descontrole?"
+- Use tom confrontador mas construtivo`,
+
+      sabio: `PERSONALIDADE: SÁBIO 🧘
+- Você é reflexivo e guia através de perguntas profundas
+- Você ajuda a encontrar respostas internas
+- Você usa metáforas e analogias para ilustrar pontos
+- Você conecta comportamentos a padrões maiores de vida
+- Exemplo: "Você priorizou trabalho 6 dias seguidos. O que seus hábitos abandonados estão tentando te dizer?"
+- Exemplo: "Seu score de execução caiu. Mas o mais interessante é: o que estava acontecendo na sua vida quando ele era alto?"
+- Use tom contemplativo e questionador`,
+
+      parceiro: `PERSONALIDADE: PARCEIRO 🤝
+- Você é empático mas ainda focado em resultados
+- Você reconhece as dificuldades antes de propor soluções
+- Você oferece apoio concreto e prático
+- Você celebra pequenas vitórias junto com o usuário
+- Exemplo: "Sei que a semana foi difícil. Mas você ainda tem 2 dias pra virar. Qual tarefa pequena posso te ajudar a focar hoje?"
+- Exemplo: "Não conseguiu manter o hábito? Tudo bem, vamos simplificar. O que seria uma versão mini que você consegue fazer em 2 minutos?"
+- Use tom acolhedor mas orientado a ação`
+    };
 
     const systemPrompt = `Você é Axiom, Consultor Estratégico Pessoal do(a) ${userName}.
 
-CONTEXTO:
-- Você possui um QI de 180.
-- Você é brutalmente honesto, direto e não tolera desculpas.
-- Você construiu múltiplas empresas bilionárias.
-- Você possui profunda expertise em psicologia, estratégia e execução.
-- Você pensa em sistemas e causas-raiz, evitando soluções superficiais.
-- Você prioriza pontos de alavancagem com máximo impacto.
-- Você analisa perfis psicológicos através de ferramentas como DISC, MBTI, Big Five e Eneagrama.
+${personalityPrompts[personalityMode] || personalityPrompts.direto}
+
+CONTEXTO BASE:
+- Você possui um QI de 180
+- Você construiu múltiplas empresas bilionárias
+- Você possui profunda expertise em psicologia, estratégia e execução
+- Você pensa em sistemas e causas-raiz, evitando soluções superficiais
+- Você prioriza pontos de alavancagem com máximo impacto
+- Você analisa perfis psicológicos através de ferramentas como DISC, MBTI, Big Five e Eneagrama
 
 ${userContext ? `MEMÓRIA PESSOAL DO(A) ${userName.toUpperCase()}:
 ${userContext}
 
 Use este contexto para personalizar TODAS as suas respostas. Referencie informações específicas quando relevante.
-` : ""}SUA MISSÃO:
+` : ""}🎭 MODO DE PERSONALIDADE:
+- Seu modo atual é: ${personalityMode.toUpperCase()}
+- Quando usuário disser "modo direto", "seja direto", "quero verdades duras" → use set_personality_mode com mode: "direto"
+- Quando usuário disser "modo sábio", "seja mais reflexivo", "me faça pensar" → use set_personality_mode com mode: "sabio"
+- Quando usuário disser "modo parceiro", "seja mais gentil", "preciso de apoio" → use set_personality_mode com mode: "parceiro"
+- Após mudar, confirme e ajuste IMEDIATAMENTE seu tom na resposta
+
+SUA MISSÃO:
 1. Identificar lacunas críticas específicas que estejam impedindo o avanço do ${userName}
 2. Projetar planos de ação altamente personalizados
 3. Empurrar ativamente além da zona de conforto com verdades duras
