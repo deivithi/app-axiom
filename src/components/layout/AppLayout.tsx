@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { MessageSquare } from 'lucide-react';
 import { useChatContext } from '@/contexts/ChatContext';
 import { cn } from '@/lib/utils';
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -13,6 +14,9 @@ interface AppLayoutProps {
 
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const { chatOpen, setChatOpen } = useChatContext();
+  
+  // Enable keyboard navigation
+  useKeyboardNavigation();
 
   return (
     <div className="min-h-screen relative bg-background">

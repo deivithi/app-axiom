@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank, Check, Clock, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isAfter, isSameMonth } from "date-fns";
@@ -17,6 +18,11 @@ import { ptBR } from "date-fns/locale";
 import { Badge } from "@/components/ui/badge";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useAxiomSync } from "@/contexts/AxiomSyncContext";
+import { useDuplicateDetection } from "@/hooks/useDuplicateDetection";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useNavigate } from "react-router-dom";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 
 interface Transaction {
   id: string;
@@ -55,6 +61,7 @@ const ACCOUNT_ICONS = ["💳", "🏦", "💰", "💵", "🪙", "💎"];
 export default function Finances() {
   const { user } = useAuth();
   const { notifyAction } = useAxiomSync();
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,6 +139,9 @@ export default function Finances() {
     onUpdate: handleAccountUpdate,
     onDelete: handleAccountDelete,
   });
+
+  // Duplicate detection
+  const { hasDuplicates, duplicateCount, isDuplicate } = useDuplicateDetection(transactions);
 
   const loadData = async () => {
     setLoading(true);
@@ -810,7 +820,10 @@ export default function Finances() {
           </CardHeader>
           <CardContent>
             {accounts.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">Nenhuma conta cadastrada</p>
+              <div className="text-center py-4 text-muted-foreground">
+                <p>Nenhuma conta cadastrada</p>
+                <p className="text-sm">Adicione contas para controlar seus saldos</p>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -960,20 +973,42 @@ export default function Finances() {
             <CardTitle>Transações do Mês</CardTitle>
           </CardHeader>
           <CardContent>
+            {hasDuplicates && (
+              <Alert className="mb-4 border-amber-500/30 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                <AlertDescription className="text-amber-500">
+                  Detectadas {duplicateCount} possíveis transações duplicadas (mesmo título, valor e data).
+                </AlertDescription>
+              </Alert>
+            )}
             {transactions.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">Nenhuma transação neste mês</p>
+              <EmptyState
+                icon={<Wallet className="h-8 w-8" />}
+                title="Nenhuma transação neste mês"
+                description="Registre suas receitas e despesas para ter controle total das suas finanças."
+                action={{
+                  label: 'Nova Transação',
+                  onClick: () => setIsDialogOpen(true),
+                }}
+                secondaryAction={{
+                  label: 'Pedir ao Axiom',
+                  onClick: () => navigate('/'),
+                }}
+              />
             ) : (
               <div className="space-y-3">
                 {transactions.map(transaction => (
                   <div 
                     key={transaction.id} 
-                    className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
+                    className={cn(
+                      "flex items-center justify-between p-4 rounded-xl border transition-all",
+                      isDuplicate(transaction.id) && "ring-2 ring-amber-500/50",
                       transaction.is_paid 
                         ? "bg-muted/20 border-border/30" 
                         : transaction.type === "income"
                           ? "bg-cyan-500/5 border-cyan-500/20"
                           : "bg-yellow-500/5 border-yellow-500/20"
-                    }`}
+                    )}
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
