@@ -1,13 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Mail, Eye, EyeOff, ArrowRight, User } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { StarryBackground } from '@/components/ui/starry-background';
 import axiomLogo from '@/assets/axiom-logo.png';
@@ -17,24 +14,21 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
-  const {
-    signIn,
-    signUp
-  } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const {
-      error
-    } = await signIn(email, password);
+    const { error } = await signIn(email, password);
     if (error) {
       toast({
         title: 'Erro ao entrar',
-        description: error.message === 'Invalid login credentials' ? 'Email ou senha incorretos' : error.message,
+        description: error.message === 'Invalid login credentials' 
+          ? 'Email ou senha incorretos' 
+          : error.message,
         variant: 'destructive'
       });
     } else {
@@ -42,16 +36,17 @@ export default function Auth() {
     }
     setLoading(false);
   };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const {
-      error
-    } = await signUp(email, password, fullName);
+    const { error } = await signUp(email, password, fullName);
     if (error) {
       toast({
         title: 'Erro ao criar conta',
-        description: error.message.includes('already registered') ? 'Este email já está cadastrado' : error.message,
+        description: error.message.includes('already registered') 
+          ? 'Este email já está cadastrado' 
+          : error.message,
         variant: 'destructive'
       });
     } else {
@@ -63,75 +58,277 @@ export default function Auth() {
     }
     setLoading(false);
   };
-  return <div className="min-h-screen flex items-center justify-center p-4 relative bg-sidebar-border">
-      <StarryBackground />
+
+  return (
+    <div className="min-h-screen relative overflow-hidden bg-background">
+      {/* Background: Gradient Orbs + Stars */}
+      <div className="absolute inset-0 z-0">
+        <div className="gradient-orb orb-cyan" />
+        <div className="gradient-orb orb-violet" />
+        <div className="gradient-orb orb-blue" />
+        <StarryBackground />
+      </div>
+
+      {/* Theme Toggle */}
       <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
-      <Card className="w-full max-w-md relative z-10">
-        <CardHeader className="text-center space-y-4">
-          <img src={axiomLogo} alt="Axiom Logo" className="w-32 h-auto mx-auto object-contain" />
-          
-          {/* Hero Headline */}
-          <h1 className="text-lg font-bold leading-tight text-foreground">
-            Converse com o Único Estrategista que Conecta Seu Dinheiro, Hábitos e Projetos em Tempo Real
+
+      {/* Content Grid */}
+      <div className="relative z-10 min-h-screen grid lg:grid-cols-2 gap-8 p-4 lg:p-8">
+        
+        {/* Left: Branding (hidden on mobile) */}
+        <div className="hidden lg:flex flex-col justify-center items-start p-8 lg:p-12">
+          <img 
+            src={axiomLogo} 
+            alt="Axiom Logo" 
+            className="w-44 h-auto mb-8 drop-shadow-2xl" 
+          />
+          <h1 className="text-4xl xl:text-5xl font-bold leading-tight mb-4 text-foreground">
+            O Estrategista que{' '}
+            <span className="gradient-text">Conecta Sua Vida</span>
           </h1>
-          
-          {/* Subheadline */}
-          <p className="text-sm text-muted-foreground">
-            Não preencha formulários. Não clique em menus. Apenas converse. 
-            Axiom entende, executa e te questiona.
+          <p className="text-xl text-muted-foreground mb-8">
+            Dinheiro. Hábitos. Projetos. Tudo em uma conversa.
           </p>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="register">Começar Conversa</TabsTrigger>
-            </TabsList>
+          
+          {/* Score Visualization Placeholder */}
+          <div className="mt-8 w-full max-w-sm">
+            <div className="aspect-square rounded-full bg-gradient-to-br from-primary/20 to-violet-500/20 
+                          flex items-center justify-center relative overflow-hidden">
+              <div className="absolute inset-4 rounded-full bg-gradient-to-tr from-primary/30 to-transparent 
+                            animate-pulse" />
+              <div className="relative z-10 text-center">
+                <span className="text-6xl font-bold gradient-text">847</span>
+                <p className="text-sm text-muted-foreground mt-2">Axiom Score</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Form Glassmorphism */}
+        <div className="flex items-center justify-center">
+          <div className="w-full max-w-md glass rounded-2xl p-6 sm:p-8">
+            {/* Mobile Logo */}
+            <img 
+              src={axiomLogo} 
+              alt="Axiom Logo" 
+              className="lg:hidden w-24 h-auto mx-auto mb-6" 
+            />
             
-            <TabsContent value="login">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input id="login-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
+            {/* Header */}
+            <div className="text-center lg:text-left mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground">
+                Bem-vindo de volta
+              </h2>
+              <p className="text-muted-foreground mt-2">
+                Entre para continuar sua jornada
+              </p>
+            </div>
+
+            {/* Form with Tabs */}
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-6">
+                <TabsTrigger value="login">Entrar</TabsTrigger>
+                <TabsTrigger value="register">Criar Conta</TabsTrigger>
+              </TabsList>
+
+              {/* Login Tab */}
+              <TabsContent value="login">
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  {/* Email Input */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Email</Label>
+                    <div className="relative">
+                      <input 
+                        type="email"
+                        className="input-premium pr-10"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                      />
+                      <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Senha</Label>
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"}
+                        className="input-premium pr-10"
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        required
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground 
+                                   hover:text-foreground transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Forgot Password */}
+                  <a href="#" className="inline-block text-sm text-muted-foreground hover:text-primary transition-colors">
+                    Esqueceu sua senha?
+                  </a>
+
+                  {/* Submit Button */}
+                  <button type="submit" className="btn-gradient" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Entrando...
+                      </>
+                    ) : (
+                      <>
+                        Entrar
+                        <ArrowRight className="h-5 w-5" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Divider */}
+                <div className="divider-text">
+                  <span>ou</span>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
-                  <Input id="login-password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+
+                {/* Social Login */}
+                <div className="grid grid-cols-2 gap-4">
+                  <button type="button" className="btn-social">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Google
+                  </button>
+                  <button type="button" className="btn-social">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                    </svg>
+                    Apple
+                  </button>
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar Conversa'}
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="register">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="register-name">Nome completo</Label>
-                  <Input id="register-name" type="text" placeholder="Seu nome" value={fullName} onChange={e => setFullName(e.target.value)} required />
+              </TabsContent>
+
+              {/* Register Tab */}
+              <TabsContent value="register">
+                <form onSubmit={handleSignUp} className="space-y-4">
+                  {/* Name Input */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Nome completo</Label>
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        className="input-premium pr-10"
+                        placeholder="Seu nome"
+                        value={fullName}
+                        onChange={e => setFullName(e.target.value)}
+                        required
+                      />
+                      <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Email Input */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Email</Label>
+                    <div className="relative">
+                      <input 
+                        type="email"
+                        className="input-premium pr-10"
+                        placeholder="seu@email.com"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                      />
+                      <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Password Input */}
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Senha</Label>
+                    <div className="relative">
+                      <input 
+                        type={showPassword ? "text" : "password"}
+                        className="input-premium pr-10"
+                        placeholder="Mínimo 6 caracteres"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        minLength={6}
+                        required
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground 
+                                   hover:text-foreground transition-colors"
+                      >
+                        {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button type="submit" className="btn-gradient" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Criando conta...
+                      </>
+                    ) : (
+                      <>
+                        Começar Jornada
+                        <ArrowRight className="h-5 w-5" />
+                      </>
+                    )}
+                  </button>
+                </form>
+
+                {/* Divider */}
+                <div className="divider-text">
+                  <span>ou</span>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-email">Email</Label>
-                  <Input id="register-email" type="email" placeholder="seu@email.com" value={email} onChange={e => setEmail(e.target.value)} required />
+
+                {/* Social Login */}
+                <div className="grid grid-cols-2 gap-4">
+                  <button type="button" className="btn-social">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Google
+                  </button>
+                  <button type="button" className="btn-social">
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                    </svg>
+                    Apple
+                  </button>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Senha</Label>
-                  <Input id="register-password" type="password" placeholder="Mínimo 6 caracteres" value={password} onChange={e => setPassword(e.target.value)} minLength={6} required />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Começar Conversa'}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-      
-      {/* Pitch */}
-      <p className="text-xs text-center text-muted-foreground mt-4 max-w-sm relative z-10">
-        Axiom não é um app com chatbot. É um estrategista conversacional que gerencia sua vida enquanto você fala.
-      </p>
-    </div>;
+              </TabsContent>
+            </Tabs>
+
+            {/* Footer */}
+            <p className="text-xs text-center text-muted-foreground mt-6">
+              Axiom não é um app com chatbot. É um estrategista conversacional.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
