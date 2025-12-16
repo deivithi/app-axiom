@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useAxiomSync } from '@/contexts/AxiomSyncContext';
 import { Plus, Loader2, Trash2, Pin, PinOff, Search, ExternalLink, Pencil, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -39,10 +41,36 @@ export default function SavedSites() {
   const [editSite, setEditSite] = useState({ title: '', url: '', description: '', category: 'geral' });
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyAction } = useAxiomSync();
 
   useEffect(() => {
     if (user) loadSites();
   }, [user]);
+
+  // Realtime sync for saved sites
+  const handleInsert = useCallback((newSite: SavedSite) => {
+    setSites(prev => {
+      if (prev.some(s => s.id === newSite.id)) return prev;
+      return [newSite, ...prev].sort((a, b) => {
+        if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      });
+    });
+  }, []);
+
+  const handleUpdate = useCallback((updatedSite: SavedSite) => {
+    setSites(prev => prev.map(s => s.id === updatedSite.id ? updatedSite : s));
+  }, []);
+
+  const handleDelete = useCallback(({ old }: { old: SavedSite }) => {
+    setSites(prev => prev.filter(s => s.id !== old.id));
+  }, []);
+
+  useRealtimeSync<SavedSite>('saved_sites', user?.id, {
+    onInsert: handleInsert,
+    onUpdate: handleUpdate,
+    onDelete: handleDelete,
+  });
 
   const loadSites = async () => {
     const { data, error } = await supabase

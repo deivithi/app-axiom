@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -7,6 +7,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useAxiomSync } from '@/contexts/AxiomSyncContext';
 import { Loader2, Save, Trash2, Sparkles } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -55,10 +57,35 @@ export default function Diary() {
   const [generatingInsights, setGeneratingInsights] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyAction } = useAxiomSync();
 
   useEffect(() => {
     if (user) loadEntries();
   }, [user]);
+
+  // Realtime sync for journal entries
+  const handleInsert = useCallback((newEntry: JournalEntry) => {
+    setEntries(prev => {
+      if (prev.some(e => e.id === newEntry.id)) return prev;
+      return [newEntry, ...prev].sort((a, b) => 
+        new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime()
+      );
+    });
+  }, []);
+
+  const handleUpdate = useCallback((updatedEntry: JournalEntry) => {
+    setEntries(prev => prev.map(e => e.id === updatedEntry.id ? updatedEntry : e));
+  }, []);
+
+  const handleDelete = useCallback(({ old }: { old: JournalEntry }) => {
+    setEntries(prev => prev.filter(e => e.id !== old.id));
+  }, []);
+
+  useRealtimeSync<JournalEntry>('journal_entries', user?.id, {
+    onInsert: handleInsert,
+    onUpdate: handleUpdate,
+    onDelete: handleDelete,
+  });
 
   useEffect(() => {
     const entry = entries.find((e) =>

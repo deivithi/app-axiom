@@ -10,6 +10,8 @@ import { useToast } from '@/hooks/use-toast';
 import { UserMessage } from '@/components/chat/UserMessage';
 import { AxiomMessage } from '@/components/chat/AxiomMessage';
 import { AxiomTyping } from '@/components/chat/AxiomTyping';
+import { ActionConfirmation } from '@/components/chat/ActionConfirmation';
+import { useAxiomSync, UIAction } from '@/contexts/AxiomSyncContext';
 interface Message {
   id: string;
   content: string;
@@ -24,6 +26,7 @@ interface ExecutedAction {
 }
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [uiActions, setUiActions] = useState<UIAction[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadingMessages, setLoadingMessages] = useState(true);
@@ -39,6 +42,15 @@ export default function Chat() {
   const {
     toast
   } = useToast();
+  const { subscribeToActions, setLastActionSource } = useAxiomSync();
+
+  // Subscribe to UI actions to show confirmations in chat
+  useEffect(() => {
+    const unsubscribe = subscribeToActions((action: UIAction) => {
+      setUiActions(prev => [...prev, action]);
+    });
+    return unsubscribe;
+  }, [subscribeToActions]);
   useEffect(() => {
     if (user) {
       loadMessages();
@@ -316,7 +328,7 @@ export default function Chat() {
           <div className="max-w-3xl mx-auto space-y-4">
             {loadingMessages ? <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div> : messages.length === 0 ? <div className="text-center py-12 text-muted-foreground">
+              </div> : messages.length === 0 && uiActions.length === 0 ? <div className="text-center py-12 text-muted-foreground">
                 <p className="text-lg font-medium">Olá! Sou o Axiom</p>
                 <p className="text-sm mt-2">Como posso te ajudar hoje?</p>
                 <div className="mt-6 text-left max-w-md mx-auto bg-card rounded-lg p-4 space-y-2">
@@ -329,7 +341,17 @@ export default function Chat() {
                     <li>• "Quais são minhas tarefas pendentes?"</li>
                   </ul>
                 </div>
-              </div> : messages.map(msg => msg.is_ai ? <AxiomMessage key={msg.id} content={msg.content} timestamp={msg.created_at} /> : <UserMessage key={msg.id} content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />)}
+              </div> : <>
+                {messages.map(msg => msg.is_ai ? <AxiomMessage key={msg.id} content={msg.content} timestamp={msg.created_at} /> : <UserMessage key={msg.id} content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />)}
+                {uiActions.map(action => (
+                  <ActionConfirmation 
+                    key={action.id} 
+                    message={action.message} 
+                    module={action.module} 
+                    timestamp={action.timestamp} 
+                  />
+                ))}
+              </>}
             {loading && <AxiomTyping />}
             <div ref={scrollRef} />
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +9,8 @@ import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimeSync } from '@/hooks/useRealtimeSync';
+import { useAxiomSync } from '@/contexts/AxiomSyncContext';
 import { Plus, Loader2, Flame, Check, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
@@ -40,6 +42,7 @@ export default function Habits() {
   const [newHabit, setNewHabit] = useState<{ title: string; frequency: Habit['frequency']; color: string }>({ title: '', frequency: 'daily', color: '#8B5CF6' });
   const { user } = useAuth();
   const { toast } = useToast();
+  const { notifyAction } = useAxiomSync();
 
   useEffect(() => {
     if (user) {
@@ -47,6 +50,45 @@ export default function Habits() {
       loadLogs();
     }
   }, [user, currentMonth]);
+
+  // Realtime sync for habits
+  const handleHabitInsert = useCallback((newHabit: Habit) => {
+    setHabits(prev => {
+      if (prev.some(h => h.id === newHabit.id)) return prev;
+      return [...prev, newHabit];
+    });
+  }, []);
+
+  const handleHabitUpdate = useCallback((updatedHabit: Habit) => {
+    setHabits(prev => prev.map(h => h.id === updatedHabit.id ? updatedHabit : h));
+  }, []);
+
+  const handleHabitDelete = useCallback(({ old }: { old: Habit }) => {
+    setHabits(prev => prev.filter(h => h.id !== old.id));
+  }, []);
+
+  useRealtimeSync<Habit>('habits', user?.id, {
+    onInsert: handleHabitInsert,
+    onUpdate: handleHabitUpdate,
+    onDelete: handleHabitDelete,
+  });
+
+  // Realtime sync for habit logs
+  const handleLogInsert = useCallback((newLog: HabitLog) => {
+    setLogs(prev => {
+      if (prev.some(l => l.id === newLog.id)) return prev;
+      return [...prev, newLog];
+    });
+  }, []);
+
+  const handleLogDelete = useCallback(({ old }: { old: HabitLog }) => {
+    setLogs(prev => prev.filter(l => l.id !== old.id));
+  }, []);
+
+  useRealtimeSync<HabitLog>('habit_logs', user?.id, {
+    onInsert: handleLogInsert,
+    onDelete: handleLogDelete,
+  });
 
   const loadHabits = async () => {
     const { data, error } = await supabase
