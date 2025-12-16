@@ -9,15 +9,11 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AxiomSyncProvider } from "@/contexts/AxiomSyncContext";
 import Auth from "./pages/Auth";
 import Chat from "./pages/Chat";
-import Tasks from "./pages/Tasks";
+import Intelligence from "./pages/Intelligence";
+import Execution from "./pages/Execution";
 import Habits from "./pages/Habits";
-import Projects from "./pages/Projects";
-import Reminders from "./pages/Reminders";
 import Finances from "./pages/Finances";
-import Diary from "./pages/Diary";
-import BrainDump from "./pages/BrainDump";
-import PromptLibrary from "./pages/PromptLibrary";
-import SavedSites from "./pages/SavedSites";
+import Memory from "./pages/Memory";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
@@ -88,15 +84,11 @@ function AppRoutes() {
       <Route path="/" element={<Navigate to="/chat" replace />} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
       <Route path="/chat" element={<ProtectedRoute><Chat /></ProtectedRoute>} />
-      <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+      <Route path="/intelligence" element={<ProtectedRoute><Intelligence /></ProtectedRoute>} />
+      <Route path="/execution" element={<ProtectedRoute><Execution /></ProtectedRoute>} />
       <Route path="/habits" element={<ProtectedRoute><Habits /></ProtectedRoute>} />
-      <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-      <Route path="/reminders" element={<ProtectedRoute><Reminders /></ProtectedRoute>} />
       <Route path="/finances" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
-      <Route path="/diary" element={<ProtectedRoute><Diary /></ProtectedRoute>} />
-      <Route path="/brain-dump" element={<ProtectedRoute><BrainDump /></ProtectedRoute>} />
-      <Route path="/prompts" element={<ProtectedRoute><PromptLibrary /></ProtectedRoute>} />
-      <Route path="/sites" element={<ProtectedRoute><SavedSites /></ProtectedRoute>} />
+      <Route path="/memory" element={<ProtectedRoute><Memory /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
