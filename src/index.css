@@ -17,8 +17,8 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -34,54 +34,47 @@ All colors MUST be HSL.
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 239 84% 67%;
 
     --radius: 0.5rem;
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
+    --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 239 84% 67%;
   }
 
   .dark {
-    /* ===== BASE LAYERS (Azul Suave) ===== */
-    --background: 222 35% 5%;
-    --foreground: 0 0% 98%;
+    /* ===== BASE LAYERS (Preto Profundo) ===== */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 100%;
 
     /* ===== CARDS (Elevação +1) ===== */
-    --card: 222 30% 8%;
-    --card-foreground: 0 0% 98%;
+    --card: 222 14% 9%;
+    --card-foreground: 0 0% 100%;
 
     /* ===== POPOVERS (Elevação +2) ===== */
-    --popover: 222 25% 11%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 222 11% 13%;
+    --popover-foreground: 0 0% 100%;
 
-    /* ===== PRIMARY (Cyan/Teal - estilo Néctar) ===== */
-    --primary: 174 84% 40%;
+    /* ===== PRIMARY (Indigo - Premium Identity) ===== */
+    --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
 
     /* ===== SECONDARY ===== */
-    --secondary: 240 6% 14%;
+    --secondary: 222 14% 9%;
     --secondary-foreground: 0 0% 98%;
 
-    /* ===== MUTED (Texto Secundário) ===== */
-    --muted: 240 6% 14%;
+    /* ===== MUTED (Texto Secundário WCAG AA) ===== */
+    --muted: 222 14% 9%;
     --muted-foreground: 240 5% 65%;
 
-    /* ===== ACCENT (Hover/Focus) ===== */
-    --accent: 174 40% 15%;
+    /* ===== ACCENT (Indigo subtle) ===== */
+    --accent: 239 40% 15%;
     --accent-foreground: 0 0% 98%;
 
     /* ===== DESTRUCTIVE ===== */
@@ -89,19 +82,19 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 98%;
 
     /* ===== BORDERS & INPUTS ===== */
-    --border: 240 6% 18%;
-    --input: 240 6% 12%;
-    --ring: 174 84% 40%;
+    --border: 240 6% 10%;
+    --input: 222 14% 9%;
+    --ring: 239 84% 67%;
 
     /* ===== SIDEBAR ===== */
-    --sidebar-background: 222 35% 6%;
+    --sidebar-background: 240 10% 5%;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 174 84% 40%;
+    --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 174 40% 15%;
+    --sidebar-accent: 239 40% 15%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 222 20% 15%;
-    --sidebar-ring: 174 84% 40%;
+    --sidebar-border: 240 6% 10%;
+    --sidebar-ring: 239 84% 67%;
   }
 }
 
@@ -143,7 +136,7 @@ All colors MUST be HSL.
   .orb-cyan {
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, hsl(174 84% 40%) 0%, transparent 70%);
+    background: radial-gradient(circle, hsl(239 84% 67%) 0%, transparent 70%);
     top: -10%;
     left: -10%;
   }
@@ -151,7 +144,7 @@ All colors MUST be HSL.
   .orb-violet {
     width: 400px;
     height: 400px;
-    background: radial-gradient(circle, hsl(263 70% 50%) 0%, transparent 70%);
+    background: radial-gradient(circle, hsl(280 70% 60%) 0%, transparent 70%);
     bottom: -10%;
     right: 10%;
     animation-delay: -7s;
@@ -176,7 +169,7 @@ All colors MUST be HSL.
 
   .input-premium:focus {
     @apply outline-none border-primary;
-    box-shadow: 0 0 0 4px hsl(174 84% 40% / 0.15);
+    box-shadow: 0 0 0 4px hsl(239 84% 67% / 0.15);
     @apply bg-background/80;
   }
 
@@ -184,15 +177,15 @@ All colors MUST be HSL.
   .btn-gradient {
     @apply w-full py-3 px-4 rounded-lg font-semibold;
     @apply flex items-center justify-center gap-2;
-    background: linear-gradient(135deg, hsl(174 84% 40%) 0%, hsl(263 70% 50%) 100%);
+    background: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(280 70% 60%) 100%);
     @apply text-white border-0;
     @apply transition-all duration-300;
-    box-shadow: 0 0 20px hsl(174 84% 40% / 0.3);
+    box-shadow: 0 0 20px hsl(239 84% 67% / 0.3);
   }
 
   .btn-gradient:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 0 30px hsl(174 84% 40% / 0.5), 0 10px 40px rgba(0,0,0,0.2);
+    box-shadow: 0 0 30px hsl(239 84% 67% / 0.5), 0 10px 40px rgba(0,0,0,0.2);
   }
 
   .btn-gradient:active:not(:disabled) {
@@ -219,7 +212,7 @@ All colors MUST be HSL.
 
   /* ===== GRADIENT TEXT ===== */
   .gradient-text {
-    background: linear-gradient(135deg, hsl(174 84% 40%) 0%, hsl(263 70% 50%) 100%);
+    background: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(280 70% 60%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

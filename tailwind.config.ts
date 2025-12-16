@@ -14,9 +14,50 @@ export default {
     },
     extend: {
       fontFamily: {
+        'sans': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
         'orbitron': ['Orbitron', 'sans-serif'],
+        'mono': ['JetBrains Mono', 'SF Mono', 'Consolas', 'monospace'],
+      },
+      boxShadow: {
+        'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
+        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3)',
+        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4)',
+        'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5)',
+        'glow': '0 0 30px hsl(var(--primary) / 0.3)',
+        'glow-sm': '0 0 15px hsl(var(--primary) / 0.3)',
+      },
+      transitionTimingFunction: {
+        'quart': 'cubic-bezier(0.76, 0, 0.24, 1)',
+        'spring': 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+        'expo': 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
+      transitionDuration: {
+        'fast': '150ms',
+        'base': '250ms',
+        'slow': '350ms',
+        'slower': '500ms',
+      },
+      zIndex: {
+        'dropdown': '1000',
+        'sticky': '1100',
+        'modal-backdrop': '1200',
+        'modal': '1300',
+        'popover': '1400',
+        'toast': '1500',
       },
       colors: {
+        success: {
+          DEFAULT: 'hsl(160 84% 39%)',
+          foreground: 'hsl(0 0% 100%)',
+        },
+        warning: {
+          DEFAULT: 'hsl(38 92% 50%)',
+          foreground: 'hsl(0 0% 0%)',
+        },
+        info: {
+          DEFAULT: 'hsl(217 91% 60%)',
+          foreground: 'hsl(0 0% 100%)',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
