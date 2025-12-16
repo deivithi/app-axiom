@@ -990,9 +990,94 @@ const tools = [
         }
       }
     }
+  },
+  // ONBOARDING
+  {
+    type: "function",
+    function: {
+      name: "apply_onboarding_template",
+      description: "Aplica um template de onboarding criando projetos e hábitos pré-configurados para o perfil escolhido. Use quando o usuário escolher um perfil como 'Empreendedor Solo', 'Executivo Corporativo', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          template_type: {
+            type: "string",
+            enum: ["empreendedor", "executivo", "freelancer", "vendas"],
+            description: "Tipo do template de perfil"
+          },
+          custom_habits: {
+            type: "array",
+            items: { type: "string" },
+            description: "Hábitos adicionais solicitados pelo usuário"
+          },
+          custom_projects: {
+            type: "array",
+            items: { type: "string" },
+            description: "Projetos adicionais solicitados pelo usuário"
+          }
+        },
+        required: ["template_type"]
+      }
+    }
   }
 ];
 
+// Onboarding templates
+const onboardingTemplates: Record<string, { name: string; projects: Array<{ title: string; description: string }>; habits: Array<{ title: string; frequency: string; color: string }> }> = {
+  empreendedor: {
+    name: "Empreendedor Solo",
+    projects: [
+      { title: "Produto", description: "Desenvolvimento e melhorias do produto/serviço" },
+      { title: "Marketing", description: "Estratégias de aquisição e branding" },
+      { title: "Vendas", description: "Pipeline comercial e conversões" },
+      { title: "Financeiro", description: "Fluxo de caixa e contabilidade" }
+    ],
+    habits: [
+      { title: "Deep Work", frequency: "daily", color: "#8B5CF6" },
+      { title: "Networking", frequency: "weekly", color: "#14B8A6" },
+      { title: "Exercício Físico", frequency: "daily", color: "#F97316" }
+    ]
+  },
+  executivo: {
+    name: "Executivo Corporativo",
+    projects: [
+      { title: "OKRs", description: "Objetivos e resultados-chave do trimestre" },
+      { title: "Gestão de Time", description: "Desenvolvimento e performance da equipe" },
+      { title: "Stakeholders", description: "Relacionamento com stakeholders estratégicos" }
+    ],
+    habits: [
+      { title: "Reunião 1:1", frequency: "weekly", color: "#3B82F6" },
+      { title: "Leitura Estratégica", frequency: "daily", color: "#8B5CF6" },
+      { title: "Autocuidado", frequency: "daily", color: "#22C55E" }
+    ]
+  },
+  freelancer: {
+    name: "Freelancer Criativo",
+    projects: [
+      { title: "Clientes Ativos", description: "Projetos em andamento para clientes" },
+      { title: "Portfólio", description: "Atualização e showcase de trabalhos" },
+      { title: "Prospecção", description: "Busca ativa de novos clientes" }
+    ],
+    habits: [
+      { title: "Bloco Criativo", frequency: "daily", color: "#EC4899" },
+      { title: "Admin & Finanças", frequency: "weekly", color: "#14B8A6" },
+      { title: "Aprendizado", frequency: "daily", color: "#8B5CF6" }
+    ]
+  },
+  vendas: {
+    name: "Profissional de Vendas",
+    projects: [
+      { title: "Pipeline", description: "Gestão de oportunidades e negociações" },
+      { title: "Comissões", description: "Tracking de metas e comissões" },
+      { title: "Eventos", description: "Participação em eventos e networking" }
+    ],
+    habits: [
+      { title: "Prospecção Ativa", frequency: "daily", color: "#F97316" },
+      { title: "Follow-up", frequency: "daily", color: "#3B82F6" },
+      { title: "Estudo de Produto", frequency: "weekly", color: "#8B5CF6" }
+    ]
+  }
+};
 // Helper function to calculate habit streak
 async function calculateHabitStreak(supabaseAdmin: any, habitId: string, userId: string) {
   const { data: logs } = await supabaseAdmin
@@ -2212,6 +2297,82 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       };
     }
 
+    // ONBOARDING TEMPLATE
+    case "apply_onboarding_template": {
+      const template = onboardingTemplates[args.template_type];
+      if (!template) {
+        return { error: `Template "${args.template_type}" não encontrado` };
+      }
+
+      const createdProjects: string[] = [];
+      const createdHabits: string[] = [];
+
+      // Create projects from template
+      for (const project of template.projects) {
+        const { data, error } = await supabaseAdmin.from("projects").insert({
+          user_id: userId,
+          title: project.title,
+          description: project.description,
+          status: "active",
+          progress: 0
+        }).select().single();
+        if (!error && data) {
+          createdProjects.push(project.title);
+        }
+      }
+
+      // Create habits from template
+      for (const habit of template.habits) {
+        const { data, error } = await supabaseAdmin.from("habits").insert({
+          user_id: userId,
+          title: habit.title,
+          frequency: habit.frequency,
+          color: habit.color
+        }).select().single();
+        if (!error && data) {
+          createdHabits.push(habit.title);
+        }
+      }
+
+      // Create custom projects if provided
+      if (args.custom_projects && Array.isArray(args.custom_projects)) {
+        for (const projectTitle of args.custom_projects) {
+          const { data, error } = await supabaseAdmin.from("projects").insert({
+            user_id: userId,
+            title: projectTitle,
+            status: "active",
+            progress: 0
+          }).select().single();
+          if (!error && data) {
+            createdProjects.push(projectTitle);
+          }
+        }
+      }
+
+      // Create custom habits if provided
+      if (args.custom_habits && Array.isArray(args.custom_habits)) {
+        for (const habitTitle of args.custom_habits) {
+          const { data, error } = await supabaseAdmin.from("habits").insert({
+            user_id: userId,
+            title: habitTitle,
+            frequency: "daily",
+            color: "#14B8A6"
+          }).select().single();
+          if (!error && data) {
+            createdHabits.push(habitTitle);
+          }
+        }
+      }
+
+      return {
+        success: true,
+        template: template.name,
+        projects: createdProjects,
+        habits: createdHabits,
+        message: `Template "${template.name}" aplicado! Criados ${createdProjects.length} projetos (${createdProjects.join(", ")}) e ${createdHabits.length} hábitos (${createdHabits.join(", ")}).`
+      };
+    }
+
     default:
       return { error: `Tool "${toolName}" não reconhecida` };
   }
@@ -2404,6 +2565,31 @@ GUIE O USUÁRIO CORRETAMENTE:
 - Se o usuário quiser resetar tudo, confirme DUAS vezes antes de executar delete_all_user_data
 - Quando criar algo, confirme o que foi criado com os detalhes
 - Para voltar um lembrete para pendente, use update_reminder com is_completed: false
+
+🎬 ONBOARDING DE NOVOS USUÁRIOS:
+Quando o usuário escolher um perfil no início da conversa:
+
+- "Empreendedor Solo" → use apply_onboarding_template com template_type: "empreendedor"
+  Cria: 4 projetos (Produto, Marketing, Vendas, Financeiro) + 3 hábitos (Deep Work, Networking, Exercício)
+
+- "Executivo Corporativo" → use apply_onboarding_template com template_type: "executivo"
+  Cria: 3 projetos (OKRs, Time, Stakeholders) + 3 hábitos (1:1, Leitura, Autocuidado)
+
+- "Freelancer Criativo" → use apply_onboarding_template com template_type: "freelancer"
+  Cria: 3 projetos (Clientes, Portfólio, Prospecção) + 3 hábitos (Criativo, Admin, Aprendizado)
+
+- "Profissional de Vendas" → use apply_onboarding_template com template_type: "vendas"
+  Cria: 3 projetos (Pipeline, Comissões, Eventos) + 3 hábitos (Prospecção, Follow-up, Estudo)
+
+- "Quero criar minha configuração personalizada" → NÃO use template, guie passo a passo:
+  1. Pergunte: "Quais são os 2-4 principais projetos ou áreas que você quer organizar?"
+  2. Depois: "E quais hábitos você quer construir? (diários ou semanais)"
+  3. Crie cada um usando create_project e create_habit individualmente
+
+Após aplicar o template:
+- Confirme de forma entusiasmada o que foi criado
+- Pergunte se quer ajustar algo (adicionar/remover)
+- Se pedirem ajustes como "adiciona meditação nos hábitos" → use create_habit
 
 Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja genérico - seja específico e direcionado.`;
 
