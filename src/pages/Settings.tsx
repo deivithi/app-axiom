@@ -6,10 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Save, Trash2, AlertTriangle, Upload, User } from "lucide-react";
+import { Loader2, Save, Trash2, AlertTriangle, Upload, User, Target, Compass, Handshake } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+
+type PersonalityMode = "direto" | "sabio" | "parceiro";
 
 export default function Settings() {
   const { user } = useAuth();
@@ -22,6 +24,8 @@ export default function Settings() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [personalityMode, setPersonalityMode] = useState<PersonalityMode>("direto");
+  const [savingMode, setSavingMode] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -33,7 +37,7 @@ export default function Settings() {
     setLoading(true);
     const { data, error } = await supabase
       .from("profiles")
-      .select("full_name, user_context, avatar_url")
+      .select("full_name, user_context, avatar_url, personality_mode")
       .eq("id", user?.id)
       .maybeSingle();
 
@@ -41,8 +45,26 @@ export default function Settings() {
       setFullName(data.full_name || "");
       setUserContext(data.user_context || "");
       setAvatarUrl(data.avatar_url || null);
+      setPersonalityMode((data.personality_mode as PersonalityMode) || "direto");
     }
     setLoading(false);
+  };
+
+  const updatePersonalityMode = async (mode: PersonalityMode) => {
+    setSavingMode(true);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ personality_mode: mode })
+      .eq("id", user?.id);
+
+    if (error) {
+      toast.error("Erro ao alterar modo de personalidade");
+    } else {
+      setPersonalityMode(mode);
+      const modeNames = { direto: "Direto 🎯", sabio: "Sábio 🧘", parceiro: "Parceiro 🤝" };
+      toast.success(`Modo alterado para ${modeNames[mode]}`);
+    }
+    setSavingMode(false);
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -236,6 +258,84 @@ export default function Settings() {
                 )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Modo de Personalidade */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              🎭 Modo de Personalidade do Axiom
+            </CardTitle>
+            <CardDescription>
+              Escolha como o Axiom se comunica com você. A essência permanece a mesma, apenas o tom muda.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Direto */}
+              <button
+                onClick={() => updatePersonalityMode("direto")}
+                disabled={savingMode}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  personalityMode === "direto" 
+                    ? "border-primary bg-primary/10" 
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Target className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Direto</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Brutal, sem rodeios. "Quando vai parar de se enganar?"
+                </p>
+              </button>
+
+              {/* Sábio */}
+              <button
+                onClick={() => updatePersonalityMode("sabio")}
+                disabled={savingMode}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  personalityMode === "sabio" 
+                    ? "border-primary bg-primary/10" 
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Compass className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Sábio</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Reflexivo, guia com perguntas. "O que seus hábitos estão dizendo?"
+                </p>
+              </button>
+
+              {/* Parceiro */}
+              <button
+                onClick={() => updatePersonalityMode("parceiro")}
+                disabled={savingMode}
+                className={`p-4 rounded-lg border-2 transition-all text-left ${
+                  personalityMode === "parceiro" 
+                    ? "border-primary bg-primary/10" 
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Handshake className="h-5 w-5 text-primary" />
+                  <h3 className="font-semibold">Parceiro</h3>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Empático, apoio prático. "Qual tarefa pequena te ajudo hoje?"
+                </p>
+              </button>
+            </div>
+            {savingMode && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Alterando modo...
+              </div>
+            )}
           </CardContent>
         </Card>
 

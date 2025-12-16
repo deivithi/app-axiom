@@ -292,6 +292,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          personality_mode: string | null
           updated_at: string
           user_context: string | null
         }
@@ -300,6 +301,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          personality_mode?: string | null
           updated_at?: string
           user_context?: string | null
         }
@@ -308,6 +310,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          personality_mode?: string | null
           updated_at?: string
           user_context?: string | null
         }
