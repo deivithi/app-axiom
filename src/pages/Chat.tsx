@@ -11,7 +11,9 @@ import { UserMessage } from '@/components/chat/UserMessage';
 import { AxiomMessage } from '@/components/chat/AxiomMessage';
 import { AxiomTyping } from '@/components/chat/AxiomTyping';
 import { ActionConfirmation } from '@/components/chat/ActionConfirmation';
+import { ProactiveQuestion } from '@/components/chat/ProactiveQuestion';
 import { useAxiomSync, UIAction } from '@/contexts/AxiomSyncContext';
+import { useProactiveQuestions } from '@/hooks/useProactiveQuestions';
 interface Message {
   id: string;
   content: string;
@@ -43,6 +45,12 @@ export default function Chat() {
     toast
   } = useToast();
   const { subscribeToActions, setLastActionSource } = useAxiomSync();
+  const { 
+    questions: proactiveQuestions, 
+    answerQuestion, 
+    dismissQuestion 
+  } = useProactiveQuestions(user?.id);
+  const [respondingToQuestion, setRespondingToQuestion] = useState<string | null>(null);
 
   // Subscribe to UI actions to show confirmations in chat
   useEffect(() => {
@@ -115,6 +123,21 @@ export default function Chat() {
         });
       }
     });
+  };
+
+  const handleRespondToQuestion = (questionId: string) => {
+    const question = proactiveQuestions.find(q => q.id === questionId);
+    if (question) {
+      setRespondingToQuestion(questionId);
+      // Pre-fill with context hint
+      setInput('');
+      // Focus the input
+      document.querySelector('textarea')?.focus();
+    }
+  };
+
+  const handleDismissQuestion = (questionId: string) => {
+    dismissQuestion(questionId);
   };
   const transcribeAudio = async (audioBlob: Blob) => {
     setIsTranscribing(true);
@@ -200,6 +223,16 @@ export default function Chat() {
     const userMessage = input.trim();
     setInput('');
     setLoading(true);
+
+    // If responding to a proactive question, mark it as answered
+    if (respondingToQuestion) {
+      const question = proactiveQuestions.find(q => q.id === respondingToQuestion);
+      if (question) {
+        await answerQuestion(respondingToQuestion, userMessage);
+      }
+      setRespondingToQuestion(null);
+    }
+
     const tempUserMsg: Message = {
       id: crypto.randomUUID(),
       content: userMessage,
@@ -352,6 +385,23 @@ Apenas me diga e eu cuido do resto.`}
                   timestamp={new Date().toISOString()}
                 />
               </div> : <>
+                {/* Proactive Questions at the top */}
+                {proactiveQuestions.length > 0 && (
+                  <div className="space-y-3 mb-6">
+                    {proactiveQuestions.map(q => (
+                      <ProactiveQuestion
+                        key={q.id}
+                        id={q.id}
+                        question={q.question}
+                        priority={q.priority}
+                        triggerType={q.trigger_type}
+                        timestamp={q.created_at}
+                        onRespond={handleRespondToQuestion}
+                        onDismiss={handleDismissQuestion}
+                      />
+                    ))}
+                  </div>
+                )}
                 {messages.map(msg => msg.is_ai ? <AxiomMessage key={msg.id} content={msg.content} timestamp={msg.created_at} /> : <UserMessage key={msg.id} content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />)}
                 {uiActions.map(action => (
                   <ActionConfirmation 
@@ -369,7 +419,21 @@ Apenas me diga e eu cuido do resto.`}
 
         <div className="p-4 border-t border-border">
           <div className="max-w-3xl mx-auto">
-            {isRecording && <div className="flex items-center gap-2 text-destructive text-sm mb-3">
+              {respondingToQuestion && (
+                <div className="flex items-center gap-2 text-primary text-sm mb-3">
+                  <span className="relative flex h-2 w-2">
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                  </span>
+                  Respondendo pergunta do Axiom...
+                  <button 
+                    onClick={() => setRespondingToQuestion(null)}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    (cancelar)
+                  </button>
+                </div>
+              )}
+              {isRecording && <div className="flex items-center gap-2 text-destructive text-sm mb-3">
                 <span className="relative flex h-3 w-3">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>

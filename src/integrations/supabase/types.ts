@@ -205,6 +205,48 @@ export type Database = {
         }
         Relationships: []
       }
+      proactive_questions: {
+        Row: {
+          answered_at: string | null
+          context: string | null
+          created_at: string
+          id: string
+          priority: string
+          question: string
+          sent_at: string | null
+          status: string
+          trigger_type: string
+          user_id: string
+          user_response: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          context?: string | null
+          created_at?: string
+          id?: string
+          priority?: string
+          question: string
+          sent_at?: string | null
+          status?: string
+          trigger_type: string
+          user_id: string
+          user_response?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          context?: string | null
+          created_at?: string
+          id?: string
+          priority?: string
+          question?: string
+          sent_at?: string | null
+          status?: string
+          trigger_type?: string
+          user_id?: string
+          user_response?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
