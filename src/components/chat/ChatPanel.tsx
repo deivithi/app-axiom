@@ -1,9 +1,9 @@
+import { useEffect, useRef, memo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Send, Loader2, Mic, MicOff, X, Minimize2, Maximize2, Square } from 'lucide-react';
+import { Send, Loader2, Mic, MicOff, X, Minimize2, Maximize2, Square, ChevronDown } from 'lucide-react';
 import { UserMessage } from '@/components/chat/UserMessage';
 import { AxiomMessage } from '@/components/chat/AxiomMessage';
 import { AxiomTyping } from '@/components/chat/AxiomTyping';
@@ -12,7 +12,8 @@ import { ProactiveQuestion } from '@/components/chat/ProactiveQuestion';
 import { OnboardingOptions } from '@/components/chat/OnboardingOptions';
 import { WeeklyReportCard } from '@/components/chat/WeeklyReportCard';
 import { useChatContext } from '@/contexts/ChatContext';
-import { useChatPanelResize, ChatPanelSize } from '@/hooks/useChatPanelResize';
+import { useChatPanelResize } from '@/hooks/useChatPanelResize';
+import { useChatScroll } from '@/hooks/useChatScroll';
 import axiomLogo from '@/assets/axiom-logo.png';
 
 const ONBOARDING_OPTIONS = [
@@ -28,6 +29,38 @@ interface ChatPanelProps {
   onToggle: () => void;
 }
 
+// Memoized message item component
+const MessageItem = memo(({ 
+  msg, 
+  userAvatar 
+}: { 
+  msg: { id: string; content: string; is_ai: boolean; created_at: string }; 
+  userAvatar: string | null;
+}) => {
+  const isWeeklyReport = msg.is_ai && (
+    msg.content.includes('📊 **Axiom Insights**') || 
+    msg.content.includes('📊 **Relatório Completo da Semana**')
+  );
+  
+  if (isWeeklyReport) {
+    return (
+      <WeeklyReportCard 
+        content={msg.content} 
+        timestamp={msg.created_at}
+        isFullReport={msg.content.includes('Relatório Completo')}
+      />
+    );
+  }
+  
+  return msg.is_ai ? (
+    <AxiomMessage content={msg.content} timestamp={msg.created_at} />
+  ) : (
+    <UserMessage content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />
+  );
+});
+
+MessageItem.displayName = 'MessageItem';
+
 export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
   const {
     messages,
@@ -36,6 +69,8 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
     setInput,
     loading,
     loadingMessages,
+    loadingMore,
+    hasMoreMessages,
     isRecording,
     isTranscribing,
     userAvatar,
@@ -47,7 +82,7 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
     setRespondingToQuestion,
     handleRespondToQuestion,
     handleDismissQuestion,
-    scrollRef
+    loadMoreMessages
   } = useChatContext();
 
   const { 
@@ -58,6 +93,36 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
     widthClass, 
     isCompact 
   } = useChatPanelResize();
+
+  const {
+    scrollContainerRef,
+    messagesEndRef,
+    isAtBottom,
+    unreadCount,
+    scrollToBottom,
+    handleScroll,
+    handleNewMessage
+  } = useChatScroll({ 
+    threshold: 50, 
+    onLoadMore: hasMoreMessages ? loadMoreMessages : undefined 
+  });
+
+  const prevMessagesLength = useRef(messages.length);
+
+  // Handle new messages - auto scroll if at bottom
+  useEffect(() => {
+    if (messages.length > prevMessagesLength.current) {
+      handleNewMessage();
+    }
+    prevMessagesLength.current = messages.length;
+  }, [messages.length, handleNewMessage]);
+
+  // Initial scroll to bottom when messages first load
+  useEffect(() => {
+    if (!loadingMessages && messages.length > 0) {
+      scrollToBottom('instant');
+    }
+  }, [loadingMessages]);
 
   const handleOnboardingSelect = (id: string) => {
     const labels: Record<string, string> = {
@@ -187,90 +252,101 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
         </div>
       </div>
 
-      {/* Messages ScrollArea */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {loadingMessages ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : messages.length === 0 && uiActions.length === 0 ? (
-            <div className="py-4">
-              <AxiomMessage 
-                content={`Olá! Sou Axiom, seu estrategista de vida. 🎯
+      {/* Messages Container */}
+      <div className="relative flex-1 overflow-hidden">
+        <div 
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="messages-container h-full overflow-y-auto p-4"
+        >
+          <div className="space-y-4">
+            {/* Loading more indicator */}
+            {loadingMore && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="text-xs text-muted-foreground ml-2">
+                  Carregando mensagens antigas...
+                </span>
+              </div>
+            )}
+            
+            {loadingMessages ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : messages.length === 0 && uiActions.length === 0 ? (
+              <div className="py-4">
+                <AxiomMessage 
+                  content={`Olá! Sou Axiom, seu estrategista de vida. 🎯
 
 Vou te ajudar a organizar tudo: dinheiro, projetos, hábitos, tarefas.
 
 Pra começar rápido, escolha quem você é:`}
-                timestamp={new Date().toISOString()}
-              />
-              <OnboardingOptions 
-                options={ONBOARDING_OPTIONS}
-                onSelect={handleOnboardingSelect}
-                disabled={loading}
-              />
-            </div>
-          ) : (
-            <>
-              {/* Proactive Questions */}
-              {proactiveQuestions.length > 0 && (
-                <div className="space-y-3 mb-4">
-              {proactiveQuestions.map(q => (
-                    <ProactiveQuestion
-                      key={q.id}
-                      id={q.id}
-                      question={q.question}
-                      priority={q.priority as 'critical' | 'important' | 'normal' | 'reflective'}
-                      triggerType={q.trigger_type}
-                      timestamp={q.created_at}
-                      onRespond={handleRespondToQuestion}
-                      onDismiss={handleDismissQuestion}
-                    />
-                  ))}
-                </div>
-              )}
-              
-              {/* Messages */}
-              {messages.map(msg => {
-                const isWeeklyReport = msg.is_ai && (
-                  msg.content.includes('📊 **Axiom Insights**') || 
-                  msg.content.includes('📊 **Relatório Completo da Semana**')
-                );
-                
-                if (isWeeklyReport) {
-                  return (
-                    <WeeklyReportCard 
-                      key={msg.id} 
-                      content={msg.content} 
-                      timestamp={msg.created_at}
-                      isFullReport={msg.content.includes('Relatório Completo')}
-                    />
-                  );
-                }
-                
-                return msg.is_ai ? (
-                  <AxiomMessage key={msg.id} content={msg.content} timestamp={msg.created_at} />
-                ) : (
-                  <UserMessage key={msg.id} content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />
-                );
-              })}
-              
-              {/* UI Actions */}
-              {uiActions.map(action => (
-                <ActionConfirmation 
-                  key={action.id} 
-                  message={action.message} 
-                  module={action.module} 
-                  timestamp={action.timestamp} 
+                  timestamp={new Date().toISOString()}
                 />
-              ))}
-            </>
-          )}
-          
-          {loading && <AxiomTyping />}
-          <div ref={scrollRef} />
+                <OnboardingOptions 
+                  options={ONBOARDING_OPTIONS}
+                  onSelect={handleOnboardingSelect}
+                  disabled={loading}
+                />
+              </div>
+            ) : (
+              <>
+                {/* Proactive Questions */}
+                {proactiveQuestions.length > 0 && (
+                  <div className="space-y-3 mb-4">
+                    {proactiveQuestions.map(q => (
+                      <ProactiveQuestion
+                        key={q.id}
+                        id={q.id}
+                        question={q.question}
+                        priority={q.priority as 'critical' | 'important' | 'normal' | 'reflective'}
+                        triggerType={q.trigger_type}
+                        timestamp={q.created_at}
+                        onRespond={handleRespondToQuestion}
+                        onDismiss={handleDismissQuestion}
+                      />
+                    ))}
+                  </div>
+                )}
+                
+                {/* Messages */}
+                {messages.map(msg => (
+                  <MessageItem key={msg.id} msg={msg} userAvatar={userAvatar} />
+                ))}
+                
+                {/* UI Actions */}
+                {uiActions.map(action => (
+                  <ActionConfirmation 
+                    key={action.id} 
+                    message={action.message} 
+                    module={action.module} 
+                    timestamp={action.timestamp} 
+                  />
+                ))}
+              </>
+            )}
+            
+            {loading && <AxiomTyping />}
+            <div ref={messagesEndRef} />
+          </div>
         </div>
-      </ScrollArea>
+
+        {/* Floating scroll to bottom button */}
+        {!isAtBottom && (
+          <button 
+            onClick={() => scrollToBottom('smooth')}
+            className="absolute bottom-4 right-4 z-10 w-10 h-10 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90 transition-colors"
+          >
+            <ChevronDown className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-destructive rounded-full text-xs flex items-center justify-center font-medium">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+        )}
+      </div>
 
       {/* Input Area */}
       <div className="chat-input-wrapper p-4 border-t border-border/50">
