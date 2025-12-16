@@ -5,7 +5,8 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Sparkles, TrendingUp, Target, Wallet, Brain, CheckSquare } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Loader2, Sparkles, TrendingUp, Target, Wallet, Brain, CheckSquare, MessageSquare, BarChart3 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
@@ -37,6 +38,13 @@ interface ScoreHistoryItem {
   total_score: number;
 }
 
+interface LastInsight {
+  week: string;
+  score: number | null;
+  change: number | null;
+  date: string;
+}
+
 const COLORS = ['#14B8A6', '#8B5CF6', '#F59E0B', '#EC4899', '#3B82F6'];
 
 export default function Intelligence() {
@@ -47,16 +55,46 @@ export default function Intelligence() {
   const [scoreBreakdown, setScoreBreakdown] = useState<ScoreBreakdown | null>(null);
   const [scoreHistory, setScoreHistory] = useState<ScoreHistoryItem[]>([]);
   const [loadingScore, setLoadingScore] = useState(true);
+  const [lastInsight, setLastInsight] = useState<LastInsight | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (user) {
       loadSummary();
       loadScore();
       loadScoreHistory();
+      loadLastInsight();
     }
   }, [user]);
+
+  const loadLastInsight = async () => {
+    try {
+      const { data } = await supabase
+        .from('messages')
+        .select('content, created_at')
+        .eq('is_ai', true)
+        .ilike('content', '%Axiom Insights%')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data) {
+        const weekMatch = data.content.match(/Semana\s+(\d{2}\/\d{2})\s+a\s+(\d{2}\/\d{2})/);
+        const scoreMatch = data.content.match(/Score:\s*(\d+)\s*(📈|📉)\s*\(([+-]?\d+)\)/);
+        
+        setLastInsight({
+          week: weekMatch ? `${weekMatch[1]} - ${weekMatch[2]}` : 'N/A',
+          score: scoreMatch ? parseInt(scoreMatch[1]) : null,
+          change: scoreMatch ? parseInt(scoreMatch[3]) : null,
+          date: new Date(data.created_at).toLocaleDateString('pt-BR')
+        });
+      }
+    } catch (error) {
+      // No insights yet, that's fine
+    }
+  };
 
   const loadScore = async () => {
     setLoadingScore(true);
@@ -392,6 +430,60 @@ export default function Intelligence() {
                   <p className="text-sm text-muted-foreground text-center py-4">
                     Clique em "Gerar Análise" para receber insights personalizados sobre sua semana
                   </p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Last Weekly Insight Card */}
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  Último Insight Semanal
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {lastInsight ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Semana {lastInsight.week}</span>
+                      <span className="text-xs text-muted-foreground/60">{lastInsight.date}</span>
+                    </div>
+                    {lastInsight.score !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl font-bold">{lastInsight.score}</span>
+                        {lastInsight.change !== null && (
+                          <span className={`text-sm ${lastInsight.change >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                            {lastInsight.change >= 0 ? '+' : ''}{lastInsight.change}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => navigate('/chat')}
+                      className="w-full gap-2"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                      Ver no Chat
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Seu primeiro relatório será gerado na segunda-feira às 6h
+                    </p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => navigate('/chat?q=Gerar%20meu%20relatório%20semanal')}
+                      className="gap-2"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Gerar Agora
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>

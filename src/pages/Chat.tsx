@@ -13,6 +13,7 @@ import { AxiomTyping } from '@/components/chat/AxiomTyping';
 import { ActionConfirmation } from '@/components/chat/ActionConfirmation';
 import { ProactiveQuestion } from '@/components/chat/ProactiveQuestion';
 import { OnboardingOptions } from '@/components/chat/OnboardingOptions';
+import { WeeklyReportCard } from '@/components/chat/WeeklyReportCard';
 import { useAxiomSync, UIAction } from '@/contexts/AxiomSyncContext';
 import { useProactiveQuestions } from '@/hooks/useProactiveQuestions';
 
@@ -451,7 +452,30 @@ Pra começar rápido, escolha quem você é:`}
                     ))}
                   </div>
                 )}
-                {messages.map(msg => msg.is_ai ? <AxiomMessage key={msg.id} content={msg.content} timestamp={msg.created_at} /> : <UserMessage key={msg.id} content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />)}
+                {messages.map(msg => {
+                  // Check if this is a weekly report message
+                  const isWeeklyReport = msg.is_ai && (
+                    msg.content.includes('📊 **Axiom Insights**') || 
+                    msg.content.includes('📊 **Relatório Completo da Semana**')
+                  );
+                  
+                  if (isWeeklyReport) {
+                    return (
+                      <WeeklyReportCard 
+                        key={msg.id} 
+                        content={msg.content} 
+                        timestamp={msg.created_at}
+                        isFullReport={msg.content.includes('Relatório Completo')}
+                      />
+                    );
+                  }
+                  
+                  return msg.is_ai ? (
+                    <AxiomMessage key={msg.id} content={msg.content} timestamp={msg.created_at} />
+                  ) : (
+                    <UserMessage key={msg.id} content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />
+                  );
+                })}
                 {uiActions.map(action => (
                   <ActionConfirmation 
                     key={action.id} 

@@ -1019,6 +1019,28 @@ const tools = [
         required: ["template_type"]
       }
     }
+  },
+  // WEEKLY REPORTS
+  {
+    type: "function",
+    function: {
+      name: "list_weekly_reports",
+      description: "Lista os relatórios semanais do Axiom Insights do usuário. Use quando o usuário pedir 'mostre insights anteriores', '/insights', 'ver relatórios', etc.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Número de relatórios a buscar (default: 5)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_weekly_report",
+      description: "Gera um novo relatório semanal do Axiom Insights imediatamente. Use quando o usuário pedir 'gerar relatório', 'fazer análise semanal', 'quero meu insight semanal', etc.",
+      parameters: { type: "object", properties: {} }
+    }
   }
 ];
 
@@ -2371,6 +2393,88 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         habits: createdHabits,
         message: `Template "${template.name}" aplicado! Criados ${createdProjects.length} projetos (${createdProjects.join(", ")}) e ${createdHabits.length} hábitos (${createdHabits.join(", ")}).`
       };
+    }
+
+    // WEEKLY REPORTS
+    case "list_weekly_reports": {
+      const limit = args.limit || 5;
+      
+      const { data, error } = await supabaseAdmin
+        .from("messages")
+        .select("id, content, created_at")
+        .eq("user_id", userId)
+        .eq("is_ai", true)
+        .or("content.ilike.%Axiom Insights%,content.ilike.%Relatório Completo da Semana%")
+        .order("created_at", { ascending: false })
+        .limit(limit * 2); // Get more since we have pairs of messages
+
+      if (error) throw error;
+
+      if (!data?.length) {
+        return { 
+          success: true,
+          reports: [],
+          message: "Ainda não há relatórios semanais. Seu primeiro relatório será gerado na próxima segunda-feira às 6h, ou você pode pedir para gerar um agora."
+        };
+      }
+
+      // Extract unique weeks from reports
+      const reports = data
+        .filter((m: any) => m.content.includes("Axiom Insights"))
+        .slice(0, limit)
+        .map((m: any) => {
+          const weekMatch = m.content.match(/Semana\s+(\d{2}\/\d{2})\s+a\s+(\d{2}\/\d{2})/);
+          const scoreMatch = m.content.match(/Score:\s*(\d+)\s*(📈|📉)\s*\(([+-]?\d+)\)/);
+          return {
+            id: m.id,
+            week: weekMatch ? `${weekMatch[1]} - ${weekMatch[2]}` : "N/A",
+            score: scoreMatch ? parseInt(scoreMatch[1]) : null,
+            change: scoreMatch ? parseInt(scoreMatch[3]) : null,
+            date: new Date(m.created_at).toLocaleDateString("pt-BR")
+          };
+        });
+
+      return {
+        success: true,
+        reports,
+        message: `Encontrados ${reports.length} relatórios semanais. ${reports.length > 0 ? `Último: semana de ${reports[0].week}, score ${reports[0].score}.` : ""}`
+      };
+    }
+
+    case "generate_weekly_report": {
+      // Trigger the generate-weekly-report edge function
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      
+      try {
+        const response = await fetch(`${supabaseUrl}/functions/v1/generate-weekly-report`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${Deno.env.get("SUPABASE_ANON_KEY")}`
+          },
+          body: JSON.stringify({ user_id: userId })
+        });
+
+        const result = await response.json();
+        
+        if (result.success && result.generated > 0) {
+          return {
+            success: true,
+            message: "Relatório semanal gerado! Ele aparecerá na conversa em instantes. Role para baixo para ver o Axiom Insights."
+          };
+        } else {
+          return {
+            success: false,
+            message: "Não foi possível gerar o relatório no momento. Tente novamente em alguns minutos."
+          };
+        }
+      } catch (e) {
+        console.error("Error generating weekly report:", e);
+        return {
+          success: false,
+          message: "Erro ao gerar relatório. Tente novamente mais tarde."
+        };
+      }
     }
 
     default:
