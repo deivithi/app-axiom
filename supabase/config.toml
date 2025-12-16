@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.analyze-patterns]
 verify_jwt = false
+
+[functions.calculate-score]
+verify_jwt = false
