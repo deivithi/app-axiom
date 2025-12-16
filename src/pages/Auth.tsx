@@ -69,15 +69,25 @@ export default function Auth() {
         <ThemeToggle />
       </div>
       <Card className="w-full max-w-md relative z-10">
-        <CardHeader className="text-center space-y-2">
+        <CardHeader className="text-center space-y-4">
           <img src={axiomLogo} alt="Axiom Logo" className="w-32 h-auto mx-auto object-contain" />
-          <p className="text-sm text-muted-foreground">Seu assistente pessoal</p>
+          
+          {/* Hero Headline */}
+          <h1 className="text-lg font-bold leading-tight text-foreground">
+            Converse com o Único Estrategista que Conecta Seu Dinheiro, Hábitos e Projetos em Tempo Real
+          </h1>
+          
+          {/* Subheadline */}
+          <p className="text-sm text-muted-foreground">
+            Não preencha formulários. Não clique em menus. Apenas converse. 
+            Axiom entende, executa e te questiona.
+          </p>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="register">Cadastrar</TabsTrigger>
+              <TabsTrigger value="register">Começar Conversa</TabsTrigger>
             </TabsList>
             
             <TabsContent value="login">
@@ -91,7 +101,7 @@ export default function Auth() {
                   <Input id="login-password" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Entrar'}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Continuar Conversa'}
                 </Button>
               </form>
             </TabsContent>
@@ -111,12 +121,17 @@ export default function Auth() {
                   <Input id="register-password" type="password" placeholder="Mínimo 6 caracteres" value={password} onChange={e => setPassword(e.target.value)} minLength={6} required />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar conta'}
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Começar Conversa'}
                 </Button>
               </form>
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
+      
+      {/* Pitch */}
+      <p className="text-xs text-center text-muted-foreground mt-4 max-w-sm relative z-10">
+        Axiom não é um app com chatbot. É um estrategista conversacional que gerencia sua vida enquanto você fala.
+      </p>
     </div>;
 }

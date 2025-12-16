@@ -318,29 +318,39 @@ export default function Chat() {
   return <AppLayout>
       <div className="flex flex-col h-screen">
         <header className="p-4 pl-16 md:pl-4 border-b border-border">
-          <h1 className="text-xl font-semibold text-secondary-foreground">Chat com Axiom</h1>
-          <p className="text-sm text-secondary-foreground">
-            Seu consultor estratégico pessoal - pode criar tarefas, lembretes, registrar finanças e mais
+          <h1 className="text-xl font-semibold text-foreground">Axiom</h1>
+          <p className="text-sm text-muted-foreground">
+            Estrategista conversacional • Diga o que precisa, eu executo
           </p>
+          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground/70">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Online
+            </span>
+            <span>•</span>
+            <span>Atalho: Cmd/Ctrl+K</span>
+          </div>
         </header>
 
         <ScrollArea className="flex-1 p-4">
           <div className="max-w-3xl mx-auto space-y-4">
             {loadingMessages ? <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div> : messages.length === 0 && uiActions.length === 0 ? <div className="text-center py-12 text-muted-foreground">
-                <p className="text-lg font-medium">Olá! Sou o Axiom</p>
-                <p className="text-sm mt-2">Como posso te ajudar hoje?</p>
-                <div className="mt-6 text-left max-w-md mx-auto bg-card rounded-lg p-4 space-y-2">
-                  <p className="text-xs font-medium text-foreground">Experimente:</p>
-                  <ul className="text-xs space-y-1">
-                    <li>• "Cria uma tarefa para estudar React amanhã"</li>
-                    <li>• "Adiciona um lembrete para ligar pro banco às 14h"</li>
-                    <li>• "Registra uma despesa de R$ 50 em alimentação"</li>
-                    <li>• "Quanto gastei esse mês?"</li>
-                    <li>• "Quais são minhas tarefas pendentes?"</li>
-                  </ul>
-                </div>
+              </div> : messages.length === 0 && uiActions.length === 0 ? <div className="py-8">
+                <AxiomMessage 
+                  content={`Olá! Sou Axiom, seu estrategista pessoal. 🎯
+
+Me conte: o que você quer organizar primeiro?
+
+💰 **Dinheiro** — rastreie gastos, receitas e contas
+📋 **Tarefas** — gerencie o que precisa fazer  
+🎯 **Hábitos** — construa rotinas consistentes
+📁 **Projetos** — organize iniciativas maiores
+⏰ **Lembretes** — nunca mais esqueça compromissos
+
+Apenas me diga e eu cuido do resto.`}
+                  timestamp={new Date().toISOString()}
+                />
               </div> : <>
                 {messages.map(msg => msg.is_ai ? <AxiomMessage key={msg.id} content={msg.content} timestamp={msg.created_at} /> : <UserMessage key={msg.id} content={msg.content} timestamp={msg.created_at} avatarUrl={userAvatar} />)}
                 {uiActions.map(action => (
