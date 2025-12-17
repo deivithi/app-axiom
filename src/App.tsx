@@ -18,6 +18,7 @@ import Habits from "./pages/Habits";
 import Finances from "./pages/Finances";
 import Memory from "./pages/Memory";
 import Settings from "./pages/Settings";
+import MemoryValidation from "./pages/MemoryValidation";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import { StarryBackground } from "@/components/ui/starry-background";
@@ -92,6 +93,7 @@ function AppRoutes() {
       <Route path="/habits" element={<ProtectedRoute><Habits /></ProtectedRoute>} />
       <Route path="/finances" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
       <Route path="/memory" element={<ProtectedRoute><Memory /></ProtectedRoute>} />
+      <Route path="/memory-validation" element={<ProtectedRoute><MemoryValidation /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
