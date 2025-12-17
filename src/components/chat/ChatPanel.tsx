@@ -1,16 +1,15 @@
 import { useEffect, useRef, memo } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Send, Loader2, Mic, MicOff, X, Minimize2, Maximize2, Square, ChevronDown } from 'lucide-react';
+import { Loader2, X, Minimize2, Maximize2, Square, ChevronDown } from 'lucide-react';
 import { UserMessage } from '@/components/chat/UserMessage';
 import { AxiomMessage } from '@/components/chat/AxiomMessage';
-import { AxiomTyping } from '@/components/chat/AxiomTyping';
 import { ActionConfirmation } from '@/components/chat/ActionConfirmation';
 import { ProactiveQuestion } from '@/components/chat/ProactiveQuestion';
 import { OnboardingOptions } from '@/components/chat/OnboardingOptions';
 import { WeeklyReportCard } from '@/components/chat/WeeklyReportCard';
+import { ChatInput } from '@/components/chat/ChatInput';
 import { useChatContext } from '@/contexts/ChatContext';
 import { useChatPanelResize } from '@/hooks/useChatPanelResize';
 import { useChatScroll } from '@/hooks/useChatScroll';
@@ -327,7 +326,6 @@ Pra começar rápido, escolha quem você é:`}
               </>
             )}
             
-            {loading && <AxiomTyping />}
             <div ref={messagesEndRef} />
           </div>
         </div>
@@ -349,7 +347,7 @@ Pra começar rápido, escolha quem você é:`}
       </div>
 
       {/* Input Area */}
-      <div className="chat-input-wrapper p-4 border-t border-border/50">
+      <div className="p-4 border-t border-border/50">
         {respondingToQuestion && (
           <div className="flex items-center gap-2 text-primary text-sm mb-3">
             <span className="relative flex h-2 w-2">
@@ -365,55 +363,17 @@ Pra começar rápido, escolha quem você é:`}
           </div>
         )}
         
-        {isRecording && (
-          <div className="flex items-center gap-2 text-destructive text-sm mb-3">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-            </span>
-            Gravando... Clique no microfone para parar
-          </div>
-        )}
-        
-        <div className="chat-input flex gap-2 items-end rounded-xl p-2 bg-background/50 border border-border/50">
-          <Textarea 
-            value={input} 
-            onChange={e => setInput(e.target.value)} 
-            onKeyDown={handleKeyDown} 
-            placeholder="Converse com Axiom..." 
-            className="min-h-[44px] max-h-32 resize-none flex-1 border-0 bg-transparent focus-visible:ring-0" 
-            rows={1} 
-            disabled={loading || isRecording || isTranscribing} 
-          />
-          <div className="flex gap-1">
-            <Button 
-              size="icon" 
-              variant={isRecording ? 'destructive' : 'ghost'}
-              onClick={toggleRecording} 
-              disabled={loading || isTranscribing}
-              className={cn(isRecording && 'animate-pulse')}
-            >
-              {isTranscribing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : isRecording ? (
-                <MicOff className="h-4 w-4" />
-              ) : (
-                <Mic className="h-4 w-4" />
-              )}
-            </Button>
-            <Button 
-              size="icon" 
-              onClick={sendMessage} 
-              disabled={loading || !input.trim() || isRecording}
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-        </div>
+        <ChatInput
+          value={input}
+          onChange={setInput}
+          onSend={sendMessage}
+          onKeyDown={handleKeyDown}
+          onToggleRecording={toggleRecording}
+          isLoading={loading}
+          isRecording={isRecording}
+          isTranscribing={isTranscribing}
+          disabled={loadingMessages}
+        />
       </div>
     </aside>
   );
