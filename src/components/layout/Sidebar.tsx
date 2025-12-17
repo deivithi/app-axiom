@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Target, Wallet, Brain, Settings, LogOut, Menu, Sun, Moon, RefreshCw, Sparkles, CheckSquare, ChevronLeft, ChevronRight, Users, GraduationCap } from 'lucide-react';
+import { Target, Wallet, Brain, Settings, LogOut, Menu, Sun, Moon, RefreshCw, Sparkles, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -46,21 +46,6 @@ const links: SidebarLinkItem[] = [
   },
 ];
 
-// Links secundários (futuro)
-const secondaryLinks: SidebarLinkItem[] = [
-  { 
-    icon: <Users className="h-5 w-5" />, 
-    label: 'Circles', 
-    href: '/circles', 
-    description: 'Comunidade'
-  },
-  { 
-    icon: <GraduationCap className="h-5 w-5" />, 
-    label: 'University', 
-    href: '/university', 
-    description: 'Aprendizado'
-  },
-];
 
 // Footer links
 const footerLinks: SidebarLinkItem[] = [
@@ -134,18 +119,6 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
           ))}
         </nav>
         
-        {/* Divider */}
-        <div 
-          className="my-4 mx-4 h-px" 
-          style={{ background: 'var(--color-border-subtle)' }} 
-        />
-        
-        {/* Links secundários */}
-        <div className={cn("flex flex-col gap-1", collapsed ? "px-2" : "px-4")}>
-          {secondaryLinks.map((link, idx) => (
-            <SidebarLink key={idx} link={link} collapsed={collapsed} onClose={onClose} />
-          ))}
-        </div>
       </div>
       
       {/* Footer */}
