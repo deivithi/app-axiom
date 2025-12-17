@@ -43,7 +43,8 @@ REGRAS:
 8. O PROMPT OTIMIZADO deve ser uma versão reescrita do original aplicando todas as melhorias identificadas
 9. Separe o PROMPT OTIMIZADO com "---" antes e depois para fácil identificação
 10. Limite o diagnóstico a ~150 palavras (sem contar o prompt otimizado)
-11. Fale diretamente com o usuário (use "você")`;
+11. Fale diretamente com o usuário (use "você")
+12. IMPORTANTE: No início da sua resposta, inclua "📊 SCORE: X/10" onde X é sua avaliação numérica do prompt (1-10)`;
     } else if (type === 'journal') {
       typeLabel = 'entrada de diário';
       systemPrompt = `Você é Axiom, um consultor estratégico pessoal com QI 180. Sua missão é analisar ${typeLabel} e fornecer insights profundos e personalizados.
@@ -122,11 +123,19 @@ REGRAS:
     const data = await response.json();
     const fullResponse = data.choices[0].message.content;
 
-    // Parse optimized prompt from response (for prompt type)
+    // Parse optimized prompt and score from response (for prompt type)
     let insights = fullResponse;
     let optimizedPrompt = null;
+    let analysisScore = null;
 
     if (type === 'prompt') {
+      // Extract score from response (format: "📊 SCORE: X/10")
+      const scoreMatch = fullResponse.match(/📊\s*SCORE:\s*(\d+)\/10/i) || fullResponse.match(/(\d+)\/10/);
+      if (scoreMatch) {
+        analysisScore = parseInt(scoreMatch[1]);
+      }
+
+      // Extract optimized prompt
       const optimizedMatch = fullResponse.match(/---\s*\n*✨\s*PROMPT OTIMIZADO[:\s]*\n*([\s\S]*?)(?:\n*---|\s*$)/i);
       if (optimizedMatch) {
         optimizedPrompt = optimizedMatch[1].trim();
@@ -134,9 +143,13 @@ REGRAS:
       }
     }
 
-    console.log("Insights generated successfully");
+    console.log(`Insights generated successfully. Score: ${analysisScore}`);
 
-    return new Response(JSON.stringify({ insights, optimizedPrompt }), {
+    return new Response(JSON.stringify({ 
+      insights, 
+      optimizedPrompt,
+      analysisScore 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {

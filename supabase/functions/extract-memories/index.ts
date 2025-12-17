@@ -7,6 +7,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Generate embedding using OpenAI
+async function generateEmbedding(text: string, openAIApiKey: string): Promise<number[] | null> {
+  try {
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openAIApiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: text,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("Embedding API error:", response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
+  } catch (error) {
+    console.error("Error generating embedding:", error);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -18,6 +46,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY")!;
+    const openAIApiKey = Deno.env.get("OPENAI_API_KEY")!;
     
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -104,7 +133,7 @@ Se não houver memórias relevantes, retorne: {"memories": []}`
         .is("archived_at", null)
         .limit(50);
 
-      // Simple duplicate check - could be enhanced with embeddings
+      // Simple duplicate check
       const isDuplicate = existing?.some((e: any) => 
         e.content.toLowerCase().includes(mem.content.toLowerCase().substring(0, 30)) ||
         mem.content.toLowerCase().includes(e.content.toLowerCase().substring(0, 30))
@@ -115,7 +144,11 @@ Se não houver memórias relevantes, retorne: {"memories": []}`
         continue;
       }
 
-      // Create the memory
+      // Generate embedding for the memory content
+      const embedding = await generateEmbedding(mem.content, openAIApiKey);
+      console.log(`Generated embedding for memory: ${embedding ? 'success' : 'failed'}`);
+
+      // Create the memory with embedding
       const { data: memory, error } = await supabaseAdmin
         .from("memories")
         .insert({
@@ -127,7 +160,8 @@ Se não houver memórias relevantes, retorne: {"memories": []}`
             relatedMemories: [],
             confidence: mem.confidence || 3
           },
-          conversation_id: conversationId || null
+          conversation_id: conversationId || null,
+          embedding: embedding
         })
         .select()
         .single();
@@ -137,7 +171,7 @@ Se não houver memórias relevantes, retorne: {"memories": []}`
         continue;
       }
 
-      console.log(`Created memory: ${mem.type} - ${mem.content.substring(0, 50)}...`);
+      console.log(`Created memory with embedding: ${mem.type} - ${mem.content.substring(0, 50)}...`);
       createdMemories.push(memory);
     }
 
