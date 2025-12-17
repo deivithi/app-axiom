@@ -3916,6 +3916,38 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
             controller.enqueue(encoder.encode(`data: ${JSON.stringify({ actions: executedActions })}\n\n`));
           }
 
+          // Trigger automatic memory extraction in background (non-blocking)
+          if (messages && messages.length >= 4) {
+            // Use last 8 messages for memory extraction context
+            const recentMessages = messages.slice(-8);
+            
+            console.log(`[Memory] Triggering extract-memories for user ${user.id} with ${recentMessages.length} messages`);
+            
+            // Fire and forget - don't await, don't block the response
+            fetch(`${supabaseUrl}/functions/v1/extract-memories`, {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${supabaseServiceKey}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                userId: user.id,
+                conversationId: null,
+                messages: recentMessages
+              })
+            }).then(res => {
+              if (res.ok) {
+                res.json().then(data => {
+                  console.log(`[Memory] Extracted ${data.memories_created || 0} memories for user ${user.id}`);
+                });
+              } else {
+                console.error(`[Memory] Extract failed with status ${res.status}`);
+              }
+            }).catch(err => {
+              console.error("[Memory] Extract error:", err);
+            });
+          }
+
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
         } catch (error) {
