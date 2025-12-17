@@ -144,6 +144,7 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
         "bg-card/95 backdrop-blur-xl",
         "border-l border-border/50",
         "transition-all duration-300",
+        "isolate",
         isExpanded ? "translate-x-0" : "translate-x-full",
         "lg:translate-x-0"
       )}>
@@ -190,6 +191,7 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
       "bg-card/95 backdrop-blur-xl",
       "border-l border-border/50",
       "transition-all duration-300",
+      "isolate",
       // Mobile: always full width
       "w-full sm:w-96",
       // Desktop: respect size setting
