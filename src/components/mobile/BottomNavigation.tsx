@@ -1,8 +1,9 @@
 import { memo, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import { Brain, DollarSign, Target, Repeat, BookOpen, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useHaptics } from '@/hooks/useHaptics';
+import { haptics } from '@/lib/haptics';
 import { useChatContext } from '@/contexts/ChatContext';
 
 interface NavItem {
@@ -10,6 +11,7 @@ interface NavItem {
   icon: React.ElementType;
   label: string;
   isChat?: boolean;
+  badge?: number;
 }
 
 const navItems: NavItem[] = [
@@ -23,7 +25,6 @@ const navItems: NavItem[] = [
 const BottomNavigation = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
-  const haptics = useHaptics();
   const { setChatOpen } = useChatContext();
 
   const handleNavigation = useCallback((path: string, isChat?: boolean) => {
@@ -33,7 +34,7 @@ const BottomNavigation = memo(() => {
     } else {
       navigate(path);
     }
-  }, [navigate, haptics, setChatOpen]);
+  }, [navigate, setChatOpen]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -44,7 +45,7 @@ const BottomNavigation = memo(() => {
         "bg-card/95 backdrop-blur-xl",
         "border-t border-border/50",
         "pb-safe-bottom",
-        "md:hidden" // Hide on desktop
+        "md:hidden"
       )}
     >
       <div className="flex items-center justify-around h-16 px-2">
@@ -57,9 +58,9 @@ const BottomNavigation = memo(() => {
               key={item.path}
               onClick={() => handleNavigation(item.path, item.isChat)}
               className={cn(
-                "flex flex-col items-center justify-center",
+                "relative flex flex-col items-center justify-center",
                 "w-14 h-14 rounded-xl",
-                "transition-all duration-200 ease-out",
+                "transition-colors duration-200 ease-out",
                 "active:scale-95",
                 active 
                   ? "text-primary" 
@@ -68,25 +69,41 @@ const BottomNavigation = memo(() => {
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
             >
-              <div className={cn(
-                "relative flex items-center justify-center",
-                "w-10 h-10 rounded-lg",
-                "transition-all duration-200",
-                active && "bg-primary/10"
-              )}>
+              <div className="relative flex items-center justify-center w-10 h-10 rounded-lg">
+                {/* Animated background pill */}
+                {active && (
+                  <motion.div
+                    layoutId="activeTabBg"
+                    className="absolute inset-0 bg-primary/10 rounded-lg"
+                    transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  />
+                )}
+                
                 <Icon 
                   className={cn(
-                    "w-5 h-5 transition-transform duration-200",
+                    "relative z-10 w-5 h-5 transition-transform duration-200",
                     active && "scale-110"
                   )} 
                 />
-                {active && (
-                  <span 
-                    className="absolute -bottom-1 w-1 h-1 rounded-full bg-primary"
-                    aria-hidden="true"
-                  />
+                
+                {/* Badge */}
+                {item.badge && item.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 z-20 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-destructive-foreground bg-destructive rounded-full">
+                    {item.badge > 99 ? '99+' : item.badge}
+                  </span>
                 )}
               </div>
+              
+              {/* Animated dot indicator */}
+              {active && (
+                <motion.span 
+                  layoutId="activeTabDot"
+                  className="absolute bottom-1.5 w-1 h-1 rounded-full bg-primary"
+                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  aria-hidden="true"
+                />
+              )}
+              
               <span className={cn(
                 "text-[10px] font-medium mt-0.5",
                 "transition-opacity duration-200",
