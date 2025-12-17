@@ -88,22 +88,6 @@ export function ChatInput({
         </div>
       )}
 
-      {/* Recording indicator with timer */}
-      {isRecording && (
-        <div className="chat-recording-indicator">
-          <div className="chat-sound-waves">
-            {[...Array(5)].map((_, i) => (
-              <span 
-                key={i} 
-                className="chat-wave"
-                style={{ animationDelay: `${i * 0.1}s` }}
-              />
-            ))}
-          </div>
-          <span className="chat-recording-timer">{formatTime(recordingTime)}</span>
-          <span className="text-destructive text-sm font-medium">Gravando...</span>
-        </div>
-      )}
 
       {/* Main input container */}
       <div className={cn(
@@ -111,6 +95,7 @@ export function ChatInput({
         isFocused && "chat-input-focused",
         isRecording && "chat-input-recording"
       )}>
+        {/* Microphone button with pulse rings */}
         {/* Microphone button with pulse rings */}
         <button
           type="button"
@@ -121,12 +106,11 @@ export function ChatInput({
             isRecording && "text-destructive"
           )}
         >
-          {/* Pulse rings when recording */}
           {isRecording && (
             <>
               <span className="chat-mic-pulse-ring" />
-              <span className="chat-mic-pulse-ring" style={{ animationDelay: '0.3s' }} />
-              <span className="chat-mic-pulse-ring" style={{ animationDelay: '0.6s' }} />
+              <span className="chat-mic-pulse-ring delay-1" />
+              <span className="chat-mic-pulse-ring delay-2" />
             </>
           )}
           
@@ -139,19 +123,34 @@ export function ChatInput({
           )}
         </button>
 
-        {/* Input field */}
-        <Textarea
-          ref={inputRef}
-          value={value}
-          onChange={e => onChange(e.target.value)}
-          onKeyDown={onKeyDown}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          placeholder={isRecording ? "Gravando áudio..." : "Converse com Axiom..."}
-          className="chat-input-field"
-          rows={1}
-          disabled={isLoading || isRecording || isTranscribing || disabled}
-        />
+        {/* Waveform OR Input (conditional) */}
+        {isRecording ? (
+          <div className="chat-waveform-container">
+            <div className="chat-waveform">
+              {[...Array(5)].map((_, i) => (
+                <span 
+                  key={i} 
+                  className="chat-wave"
+                  style={{ animationDelay: `${i * 0.1}s` }}
+                />
+              ))}
+            </div>
+            <span className="chat-recording-timer">{formatTime(recordingTime)}</span>
+          </div>
+        ) : (
+          <Textarea
+            ref={inputRef}
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            onKeyDown={onKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="Converse com Axiom..."
+            className="chat-input-field"
+            rows={1}
+            disabled={isLoading || isTranscribing || disabled}
+          />
+        )}
 
         {/* Send button with gradient and checkmark feedback */}
         <button
