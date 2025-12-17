@@ -17,9 +17,10 @@ export default {
          TYPOGRAPHY
          ===================================================== */
       fontFamily: {
-        'sans': ['Inter Variable', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
-        'orbitron': ['Orbitron', 'sans-serif'],
-        'mono': ['JetBrains Mono', 'SF Mono', 'Consolas', 'monospace'],
+        'sans': ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        'display': ['var(--font-display)', 'system-ui', 'sans-serif'],
+        'mono': ['var(--font-mono)', 'monospace'],
+        'orbitron': ['Orbitron', 'sans-serif'], // Legacy alias
       },
 
       /* =====================================================
@@ -64,15 +65,19 @@ export default {
       },
 
       /* =====================================================
-         Z-INDEX SCALE
+         Z-INDEX SCALE (using CSS variables)
          ===================================================== */
       zIndex: {
-        'dropdown': '1000',
-        'sticky': '1100',
-        'modal-backdrop': '1200',
-        'modal': '1300',
-        'popover': '1400',
-        'toast': '1500',
+        'base': 'var(--z-base)',
+        'elevated': 'var(--z-elevated)',
+        'dropdown': 'var(--z-dropdown)',
+        'sticky': 'var(--z-sticky)',
+        'fixed': 'var(--z-fixed)',
+        'modal-backdrop': 'var(--z-modal-backdrop)',
+        'modal': 'var(--z-modal)',
+        'popover': 'var(--z-popover)',
+        'toast': 'var(--z-toast)',
+        'tooltip': 'var(--z-tooltip)',
       },
 
       /* =====================================================

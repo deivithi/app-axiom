@@ -85,7 +85,7 @@ const ActionSheet = memo(({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-modal-backdrop bg-black/60 backdrop-blur-sm"
             onClick={onClose}
           />
 
@@ -101,7 +101,7 @@ const ActionSheet = memo(({
             dragElastic={0.2}
             onDragEnd={handleDragEnd}
             className={cn(
-              "fixed bottom-0 left-0 right-0 z-50",
+              "fixed bottom-0 left-0 right-0 z-modal",
               "bg-card rounded-t-3xl",
               "pb-safe-bottom",
               "max-h-[85vh] overflow-hidden"

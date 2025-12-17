@@ -40,7 +40,7 @@ const BottomNavigation = memo(() => {
   return (
     <nav 
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-50",
+        "fixed bottom-0 left-0 right-0 z-fixed",
         "bg-card/95 backdrop-blur-xl",
         "border-t border-border/50",
         "pb-safe-bottom",
