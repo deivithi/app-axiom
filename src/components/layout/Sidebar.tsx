@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Target, Wallet, Brain, Settings, LogOut, Menu, Sun, Moon, RefreshCw, Sparkles, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Target, Wallet, Brain, Settings, LogOut, Menu, Sun, Moon, RefreshCw, Sparkles, CheckSquare, ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -43,6 +43,12 @@ const links: SidebarLinkItem[] = [
     label: 'Segunda Memória', 
     href: '/memory', 
     description: 'Pensamentos e reflexões'
+  },
+  { 
+    icon: <FileText className="h-5 w-5" />, 
+    label: 'Biblioteca de Prompts', 
+    href: '/prompts', 
+    description: 'Seus prompts salvos'
   },
 ];
 
