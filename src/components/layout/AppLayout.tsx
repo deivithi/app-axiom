@@ -17,7 +17,7 @@ interface AppLayoutProps {
 export const AppLayout = ({ children }: AppLayoutProps) => {
   const { chatOpen, setChatOpen } = useChatContext();
   const { marginClass } = useChatPanelResize();
-  const { collapsed } = useSidebar();
+  const { open } = useSidebar();
   
   // Enable keyboard navigation
   useKeyboardNavigation();
@@ -33,7 +33,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       <main className={cn(
         "min-h-screen relative z-10",
         "transition-all duration-200 ease-out",
-        collapsed ? "md:ml-16" : "md:ml-64",
+        open ? "md:ml-64" : "md:ml-16",
         marginClass
       )}>
         {children}

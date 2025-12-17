@@ -1,19 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const STORAGE_KEY = 'axiom-sidebar-collapsed';
+const STORAGE_KEY = 'sidebar-open';
 
 export const useSidebarCollapse = () => {
-  const [collapsed, setCollapsed] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem(STORAGE_KEY) === 'true';
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem(STORAGE_KEY) !== 'false';
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, String(collapsed));
-  }, [collapsed]);
+    localStorage.setItem(STORAGE_KEY, String(open));
+  }, [open]);
 
   const toggle = useCallback(() => {
-    setCollapsed(prev => !prev);
+    setOpen(prev => !prev);
   }, []);
 
   // Keyboard shortcut: [ to toggle
@@ -33,5 +33,5 @@ export const useSidebarCollapse = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggle]);
 
-  return { collapsed, setCollapsed, toggle };
+  return { open, setOpen, toggle };
 };
