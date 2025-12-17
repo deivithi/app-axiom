@@ -31,7 +31,7 @@ export function usePullToRefresh({
   const currentYRef = useRef(0);
   const isPullingRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { haptic } = useHaptics();
+  const haptics = useHaptics();
 
   const canPull = useCallback(() => {
     if (disabled || isRefreshing) return false;
@@ -66,10 +66,10 @@ export function usePullToRefresh({
       
       // Haptic feedback at threshold
       if (progress >= 1 && pullProgress < 1) {
-        haptic('medium');
+        haptics.medium();
       }
     }
-  }, [canPull, maxPull, threshold, haptic, pullProgress]);
+  }, [canPull, maxPull, threshold, haptics, pullProgress]);
 
   const onTouchEnd = useCallback(async () => {
     if (!isPullingRef.current) return;
@@ -78,7 +78,7 @@ export function usePullToRefresh({
     
     if (pullProgress >= 1 && !isRefreshing) {
       setIsRefreshing(true);
-      haptic('success');
+      haptics.success();
       
       try {
         await onRefresh();
@@ -88,7 +88,7 @@ export function usePullToRefresh({
     }
     
     setPullProgress(0);
-  }, [pullProgress, isRefreshing, onRefresh, haptic]);
+  }, [pullProgress, isRefreshing, onRefresh, haptics]);
 
   // Reset on unmount
   useEffect(() => {

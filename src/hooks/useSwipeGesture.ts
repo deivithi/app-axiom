@@ -35,7 +35,7 @@ export function useSwipeGesture({
   const currentXRef = useRef(0);
   const currentYRef = useRef(0);
   const isSwipingRef = useRef(false);
-  const { haptic } = useHaptics();
+  const haptics = useHaptics();
 
   const onTouchStart = useCallback((e: React.TouchEvent) => {
     startXRef.current = e.touches[0].clientX;
@@ -66,7 +66,7 @@ export function useSwipeGesture({
       const direction: SwipeDirection = diffX > 0 ? 'right' : 'left';
       
       if (hapticFeedback) {
-        haptic('light');
+        haptics.light();
       }
       
       onSwipe?.(direction);
@@ -81,7 +81,7 @@ export function useSwipeGesture({
       const direction: SwipeDirection = diffY > 0 ? 'down' : 'up';
       
       if (hapticFeedback) {
-        haptic('light');
+        haptics.light();
       }
       
       onSwipe?.(direction);
@@ -98,7 +98,7 @@ export function useSwipeGesture({
     startYRef.current = 0;
     currentXRef.current = 0;
     currentYRef.current = 0;
-  }, [threshold, hapticFeedback, haptic, onSwipe, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown]);
+  }, [threshold, hapticFeedback, haptics, onSwipe, onSwipeLeft, onSwipeRight, onSwipeUp, onSwipeDown]);
 
   return {
     handlers: {

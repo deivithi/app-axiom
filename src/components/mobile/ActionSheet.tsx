@@ -29,7 +29,7 @@ const ActionSheet = memo(({
   options,
   cancelLabel = 'Cancelar',
 }: ActionSheetProps) => {
-  const { haptic } = useHaptics();
+  const haptics = useHaptics();
   const sheetRef = useRef<HTMLDivElement>(null);
 
   // Close on escape key
@@ -65,15 +65,15 @@ const ActionSheet = memo(({
   const handleOptionClick = useCallback((option: ActionSheetOption) => {
     if (option.disabled) return;
     
-    haptic(option.destructive ? 'warning' : 'light');
+    option.destructive ? haptics.warning() : haptics.light();
     option.onClick();
     onClose();
-  }, [haptic, onClose]);
+  }, [haptics, onClose]);
 
   const handleCancel = useCallback(() => {
-    haptic('light');
+    haptics.light();
     onClose();
-  }, [haptic, onClose]);
+  }, [haptics, onClose]);
 
   return (
     <AnimatePresence>
