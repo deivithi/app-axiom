@@ -21,10 +21,10 @@ const formatTimestamp = (timestamp: string) => {
 
 export function UserMessage({ content, timestamp, avatarUrl }: UserMessageProps) {
   return (
-    <div className="flex items-end gap-3 justify-end animate-fade-in">
+    <div className="chat-message user flex items-end gap-3 justify-end animate-fade-in">
       <div className="flex flex-col items-end max-w-[80%]">
         <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-md px-4 py-3">
-          <p className="whitespace-pre-wrap text-sm">{content}</p>
+          <div className="message-content whitespace-pre-wrap">{content}</div>
         </div>
         <span className="text-[10px] text-muted-foreground mt-1 mr-1">
           {formatTimestamp(timestamp)}
