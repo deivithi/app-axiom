@@ -19,7 +19,7 @@ const navItems = [
   { icon: Brain, label: 'Segunda Memória', path: '/memory', description: 'Pensamentos e reflexões', badge: 0 },
 ];
 
-const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; collapsed?: boolean }) => {
+const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => void; collapsed?: boolean; onToggle?: () => void }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { signOut } = useAuth();
@@ -56,32 +56,58 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header com logo + glassmorphism */}
-      <div className={cn(
-        "p-4 text-center border-b border-border-subtle",
-        "bg-glass backdrop-blur-[var(--glass-blur)]",
-        collapsed && "px-2"
-      )}>
-        <img 
-          src={axiomLogo} 
-          alt="Axiom Logo" 
-          className={cn(
-            "mx-auto mb-2 object-contain",
-            "transition-all duration-[var(--duration-base)] ease-[var(--ease-smooth)]",
-            collapsed ? "w-10 h-10" : "w-28 h-auto"
-          )} 
-        />
-        {!collapsed && (
-          <p className="text-xs text-muted-foreground">Estrategista conversacional</p>
+      {/* Header com logo + toggle interno */}
+      <div 
+        className={cn("p-4 flex items-center", collapsed ? "px-2 flex-col gap-2" : "justify-between")}
+        style={{
+          borderBottom: '1px solid var(--color-border-subtle)',
+          background: 'var(--color-glass-bg)',
+          backdropFilter: 'blur(var(--glass-blur))'
+        }}
+      >
+        <div className={cn("flex items-center gap-2", collapsed && "flex-col")}>
+          <img 
+            src={axiomLogo} 
+            alt="Axiom Logo" 
+            className={cn(
+              "object-contain transition-all duration-[var(--duration-base)] ease-[var(--ease-smooth)]",
+              collapsed ? "w-10 h-10" : "w-12 h-12"
+            )} 
+          />
+          {!collapsed && (
+            <div>
+              <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>Axiom</span>
+              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Estrategista pessoal</p>
+            </div>
+          )}
+        </div>
+        
+        {/* Toggle button interno simplificado */}
+        {onToggle && (
+          <button 
+            onClick={onToggle}
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: 'var(--color-text-secondary)' }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'var(--color-bg-elevated-2)';
+              e.currentTarget.style.color = 'var(--color-text-primary)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = 'var(--color-text-secondary)';
+            }}
+            aria-label={collapsed ? "Expandir menu" : "Colapsar menu"}
+            aria-expanded={!collapsed}
+            aria-controls="sidebar-nav"
+          >
+            {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
         )}
       </div>
       
       {/* Navigation */}
       <nav 
-        className={cn(
-          "flex-1 p-4 space-y-2 overflow-y-auto",
-          collapsed && "p-2"
-        )}
+        className={cn("flex-1 p-4 space-y-2 overflow-y-auto", collapsed && "p-2")}
         role="navigation"
         aria-label="Navegação principal"
         id="sidebar-nav"
@@ -96,26 +122,33 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
                 onClick={onClose}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex items-center gap-4 rounded-lg',
-                  'transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
-                  collapsed ? 'justify-center p-2' : 'px-3 py-2.5',
-                  isActive 
-                    ? 'text-primary' 
-                    : 'text-muted-foreground hover:text-foreground'
+                  'flex items-center gap-4 rounded-lg transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
+                  collapsed ? 'justify-center p-2' : 'px-3 py-2.5'
                 )}
+                style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
+                onMouseOver={(e) => !isActive && (e.currentTarget.style.color = 'var(--color-text-primary)')}
+                onMouseOut={(e) => !isActive && (e.currentTarget.style.color = 'var(--color-text-secondary)')}
               >
-                <div className={cn(
-                  'relative w-10 h-10 rounded-full flex items-center justify-center border-2',
-                  'transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
-                  isActive 
-                    ? 'bg-primary border-primary text-primary-foreground shadow-glow-primary' 
-                    : 'border-border-medium text-muted-foreground hover:border-primary/50 hover:text-primary/70'
-                )}>
+                <div 
+                  className="relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]"
+                  style={{
+                    background: isActive ? 'var(--color-primary)' : 'transparent',
+                    borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border-medium)',
+                    color: isActive ? 'var(--color-primary-foreground)' : 'inherit',
+                    boxShadow: isActive ? 'var(--shadow-glow)' : 'none'
+                  }}
+                >
                   <item.icon className="h-5 w-5" />
                   
                   {/* Badge de notificação */}
                   {item.badge > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-[10px] font-bold flex items-center justify-center text-destructive-foreground shadow-sm">
+                    <span 
+                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shadow-sm"
+                      style={{ 
+                        background: 'var(--color-destructive)', 
+                        color: 'var(--color-primary-foreground)' 
+                      }}
+                    >
                       {item.badge > 9 ? '9+' : item.badge}
                     </span>
                   )}
@@ -123,7 +156,7 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
                 {!collapsed && (
                   <div>
                     <span className="font-medium block">{item.label}</span>
-                    <p className="text-xs text-muted-foreground">{item.description}</p>
+                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{item.description}</p>
                   </div>
                 )}
               </Link>
@@ -131,8 +164,8 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
           );
         })}
 
-        {/* Separador com token semântico */}
-        <div className="border-t border-border-subtle my-2" />
+        {/* Separador */}
+        <div style={{ borderTop: '1px solid var(--color-border-subtle)', margin: '0.5rem 0' }} />
 
         {/* Configurações */}
         <NavItemWrapper label="Configurações">
@@ -141,21 +174,20 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             onClick={onClose}
             aria-current={location.pathname === '/settings' ? 'page' : undefined}
             className={cn(
-              'flex items-center gap-4 rounded-lg',
-              'transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
-              collapsed ? 'justify-center p-2' : 'px-3 py-2.5',
-              location.pathname === '/settings' 
-                ? 'text-primary' 
-                : 'text-muted-foreground hover:text-foreground'
+              'flex items-center gap-4 rounded-lg transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
+              collapsed ? 'justify-center p-2' : 'px-3 py-2.5'
             )}
+            style={{ color: location.pathname === '/settings' ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
           >
-            <div className={cn(
-              'w-10 h-10 rounded-full flex items-center justify-center border-2',
-              'transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
-              location.pathname === '/settings' 
-                ? 'bg-primary border-primary text-primary-foreground shadow-glow-primary' 
-                : 'border-border-medium text-muted-foreground hover:border-primary/50 hover:text-primary/70'
-            )}>
+            <div 
+              className="w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]"
+              style={{
+                background: location.pathname === '/settings' ? 'var(--color-primary)' : 'transparent',
+                borderColor: location.pathname === '/settings' ? 'var(--color-primary)' : 'var(--color-border-medium)',
+                color: location.pathname === '/settings' ? 'var(--color-primary-foreground)' : 'inherit',
+                boxShadow: location.pathname === '/settings' ? 'var(--shadow-glow)' : 'none'
+              }}
+            >
               <Settings className="h-5 w-5" />
             </div>
             {!collapsed && <span className="font-medium">Configurações</span>}
@@ -163,18 +195,22 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
         </NavItemWrapper>
       </nav>
 
-      {/* Bottom bar com glassmorphism */}
-      <div className={cn(
-        "p-4 border-t border-border-subtle flex items-center",
-        "bg-glass backdrop-blur-[var(--glass-blur)]",
-        collapsed ? "flex-col gap-2 p-2" : "justify-around"
-      )}>
+      {/* Bottom bar */}
+      <div 
+        className={cn("p-4 flex items-center", collapsed ? "flex-col gap-2 p-2" : "justify-around")}
+        style={{
+          borderTop: '1px solid var(--color-border-subtle)',
+          background: 'var(--color-glass-bg)',
+          backdropFilter: 'blur(var(--glass-blur))'
+        }}
+      >
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-[var(--duration-fast)]"
+              className="transition-colors duration-[var(--duration-fast)]"
+              style={{ color: 'var(--color-text-secondary)' }}
               onClick={handleUserClick}
               aria-label="Configurações de usuário"
             >
@@ -189,7 +225,8 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-[var(--duration-fast)]"
+              className="transition-colors duration-[var(--duration-fast)]"
+              style={{ color: 'var(--color-text-secondary)' }}
               onClick={handleThemeToggle}
               aria-label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
             >
@@ -204,7 +241,8 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-muted-foreground hover:text-foreground transition-colors duration-[var(--duration-fast)]"
+              className="transition-colors duration-[var(--duration-fast)]"
+              style={{ color: 'var(--color-text-secondary)' }}
               onClick={handleRefresh}
               aria-label="Atualizar página"
             >
@@ -219,7 +257,8 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-muted-foreground hover:text-destructive transition-colors duration-[var(--duration-fast)]"
+              className="transition-colors duration-[var(--duration-fast)] hover:text-destructive"
+              style={{ color: 'var(--color-text-secondary)' }}
               onClick={signOut}
               aria-label="Sair da conta"
             >
@@ -246,7 +285,11 @@ export const Sidebar = () => {
             <Button 
               variant="outline" 
               size="icon" 
-              className="bg-card/80 backdrop-blur-sm border-border-subtle shadow-md"
+              className="backdrop-blur-sm shadow-md"
+              style={{ 
+                background: 'var(--color-bg-elevated)', 
+                borderColor: 'var(--color-border-subtle)' 
+              }}
               aria-label="Abrir menu de navegação"
             >
               <Menu className="h-5 w-5" />
@@ -254,61 +297,34 @@ export const Sidebar = () => {
           </SheetTrigger>
           <SheetContent 
             side="left" 
-            className={cn(
-              "w-64 p-0",
-              "bg-glass backdrop-blur-[var(--glass-blur)]",
-              "border-r border-glass-border"
-            )}
+            className="w-64 p-0"
+            style={{
+              background: 'var(--color-glass-bg)',
+              backdropFilter: 'blur(var(--glass-blur))',
+              borderRight: '1px solid var(--color-glass-border)'
+            }}
           >
             <NavContent onClose={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* Desktop Sidebar com glassmorphism */}
+      {/* Desktop Sidebar */}
       <aside 
         className={cn(
           "hidden md:flex flex-col h-screen fixed left-0 top-0",
           "transition-[width] duration-[var(--duration-base)] ease-[var(--ease-smooth)] will-change-[width]",
-          // Glassmorphism
-          "bg-glass backdrop-blur-[var(--glass-blur)]",
-          "border-r border-glass-border",
-          "shadow-lg",
           collapsed ? "w-16" : "w-64"
         )}
+        style={{
+          background: 'var(--color-glass-bg)',
+          backdropFilter: 'blur(var(--glass-blur))',
+          borderRight: '1px solid var(--color-glass-border)',
+          boxShadow: 'var(--shadow-lg)'
+        }}
         aria-label="Barra lateral de navegação"
       >
-        <NavContent collapsed={collapsed} />
-        
-        {/* Toggle Button refinado */}
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggle}
-              aria-expanded={!collapsed}
-              aria-controls="sidebar-nav"
-              aria-label={collapsed ? "Expandir menu" : "Colapsar menu"}
-              className={cn(
-                "absolute -right-3 top-20 h-6 w-6 rounded-full",
-                "bg-elevated-3 border border-border-medium",
-                "shadow-md hover:shadow-lg",
-                "text-muted-foreground hover:text-primary",
-                "transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]"
-              )}
-            >
-              {collapsed ? (
-                <ChevronRight className="h-3 w-3" />
-              ) : (
-                <ChevronLeft className="h-3 w-3" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {collapsed ? "Expandir [" : "Colapsar ["}
-          </TooltipContent>
-        </Tooltip>
+        <NavContent collapsed={collapsed} onToggle={toggle} />
       </aside>
     </>
   );

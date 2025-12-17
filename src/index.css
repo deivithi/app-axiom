@@ -69,6 +69,51 @@
   --radius-xl: 1rem;      /* 16px */
   --radius-2xl: 1.5rem;   /* 24px */
   --radius-full: 9999px;
+
+  /* =====================================================
+     CONVENÇÃO --color-* (Aliases Semânticos)
+     Para uso direto com var() em inline styles
+     ===================================================== */
+  
+  /* Backgrounds */
+  --color-bg-base: hsl(var(--background));
+  --color-bg-elevated: hsl(var(--card));
+  --color-bg-elevated-2: hsl(var(--popover));
+  --color-bg-elevated-3: hsl(var(--elevated-3));
+  
+  /* Text */
+  --color-text-primary: hsl(var(--foreground));
+  --color-text-secondary: hsl(var(--muted-foreground));
+  --color-text-tertiary: hsl(240 5% 55%);
+  
+  /* Primary */
+  --color-primary: hsl(var(--primary));
+  --color-primary-hover: hsl(var(--primary-hover));
+  --color-primary-active: hsl(var(--primary-active));
+  --color-primary-glow: hsl(var(--primary) / 0.3);
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  
+  /* Semantic */
+  --color-success: hsl(var(--success));
+  --color-warning: hsl(var(--warning));
+  --color-error: hsl(var(--error));
+  --color-destructive: hsl(var(--destructive));
+  
+  /* Borders */
+  --color-border: hsl(var(--border));
+  --color-border-subtle: hsl(var(--border-subtle));
+  --color-border-medium: hsl(var(--border-medium));
+  --color-border-strong: hsl(var(--border-strong));
+  
+  /* Glass */
+  --color-glass-bg: hsl(var(--glass-bg));
+  --color-glass-border: hsl(var(--glass-border));
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 30px var(--color-primary-glow);
 }
 
 /* =====================================================
