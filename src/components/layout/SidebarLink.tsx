@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -14,9 +15,10 @@ interface SidebarLinkProps {
   link: SidebarLinkItem;
   collapsed?: boolean;
   onClose?: () => void;
+  className?: string;
 }
 
-export const SidebarLink = ({ link, collapsed, onClose }: SidebarLinkProps) => {
+export const SidebarLink = memo(({ link, collapsed, onClose, className }: SidebarLinkProps) => {
   const location = useLocation();
   const isActive = location.pathname === link.href;
 
@@ -102,4 +104,6 @@ export const SidebarLink = ({ link, collapsed, onClose }: SidebarLinkProps) => {
   }
 
   return content;
-};
+});
+
+SidebarLink.displayName = 'SidebarLink';
