@@ -3642,6 +3642,75 @@ serve(async (req) => {
     const userContext = profile?.user_context || null;
     const personalityMode = profile?.personality_mode || "direto";
 
+    // Create or update conversation record
+    let conversationId: string | null = null;
+    try {
+      // Extract topics from the last user message
+      const lastUserMessage = messages.filter((m: any) => m.role === "user").pop();
+      const messageContent = lastUserMessage?.content || "";
+      
+      // Extract simple keywords as topics (first 5 significant words)
+      const topics = messageContent
+        .toLowerCase()
+        .replace(/[^\w\sàáâãéêíóôõúç]/g, '')
+        .split(/\s+/)
+        .filter((w: string) => w.length > 3)
+        .slice(0, 5);
+
+      // Generate a title from the first user message if this is a new conversation
+      const firstUserMessage = messages.find((m: any) => m.role === "user")?.content || "Nova conversa";
+      const title = firstUserMessage.substring(0, 100) + (firstUserMessage.length > 100 ? "..." : "");
+
+      // Check if there's an existing recent conversation (within last 30 minutes)
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      const { data: existingConv } = await supabaseAdmin
+        .from("conversations")
+        .select("id, message_count, context_topics")
+        .eq("user_id", user.id)
+        .gte("updated_at", thirtyMinutesAgo)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingConv) {
+        // Update existing conversation
+        const existingTopics = existingConv.context_topics || [];
+        const mergedTopics = [...new Set([...existingTopics, ...topics])].slice(0, 10);
+        
+        await supabaseAdmin
+          .from("conversations")
+          .update({
+            message_count: (existingConv.message_count || 0) + 1,
+            context_topics: mergedTopics,
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existingConv.id);
+        
+        conversationId = existingConv.id;
+        console.log(`[Conversation] Updated existing: ${conversationId}`);
+      } else {
+        // Create new conversation
+        const { data: newConv, error: convError } = await supabaseAdmin
+          .from("conversations")
+          .insert({
+            user_id: user.id,
+            title,
+            context_topics: topics,
+            message_count: 1
+          })
+          .select("id")
+          .single();
+
+        if (!convError && newConv) {
+          conversationId = newConv.id;
+          console.log(`[Conversation] Created new: ${conversationId}`);
+        }
+      }
+    } catch (convErr) {
+      console.error("[Conversation] Tracking error:", convErr);
+      // Don't fail the request if conversation tracking fails
+    }
+
     // Personality mode templates
     const personalityPrompts: Record<string, string> = {
       direto: `PERSONALIDADE: DIRETO 🎯
@@ -4090,7 +4159,7 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
               },
               body: JSON.stringify({
                 userId: user.id,
-                conversationId: null,
+                conversationId: conversationId,
                 messages: recentMessages
               })
             }).then(res => {

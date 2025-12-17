@@ -115,10 +115,8 @@ export default function PromptLibrary() {
 
       if (error) throw error;
 
-      // Parse score from diagnosis (extract number from text)
-      let score = null;
-      const scoreMatch = data.insights?.match(/(\d+)\/10/);
-      if (scoreMatch) score = parseInt(scoreMatch[1]);
+      // Use the score directly from the API response
+      const score = data.analysisScore || null;
 
       await supabase
         .from("prompt_library")
