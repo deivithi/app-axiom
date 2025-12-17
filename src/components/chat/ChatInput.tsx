@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Mic, MicOff, Loader2, Check, Square } from 'lucide-react';
 
@@ -61,11 +60,11 @@ export function ChatInput({
       setIsSending(true);
       onSend();
       
-      // Show checkmark for 600ms
+      // Show checkmark for 500ms
       setTimeout(() => {
         setIsSending(false);
         inputRef.current?.focus();
-      }, 600);
+      }, 500);
     }
   }, [value, isLoading, isRecording, onSend]);
 
@@ -102,7 +101,7 @@ export function ChatInput({
             ))}
           </div>
           <span className="chat-recording-timer">{formatTime(recordingTime)}</span>
-          <span className="text-destructive text-sm ml-2">Gravando...</span>
+          <span className="text-destructive text-sm font-medium">Gravando...</span>
         </div>
       )}
 
@@ -112,26 +111,33 @@ export function ChatInput({
         isFocused && "chat-input-focused",
         isRecording && "chat-input-recording"
       )}>
-        {/* Microphone button */}
-        <Button
+        {/* Microphone button with pulse rings */}
+        <button
           type="button"
-          size="icon"
-          variant={isRecording ? 'destructive' : 'ghost'}
           onClick={onToggleRecording}
           disabled={isLoading || isTranscribing || disabled}
           className={cn(
-            "h-9 w-9 shrink-0 transition-all",
-            isRecording && "animate-pulse"
+            "chat-mic-button",
+            isRecording && "text-destructive"
           )}
         >
-          {isTranscribing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : isRecording ? (
-            <Square className="h-4 w-4" />
-          ) : (
-            <Mic className="h-4 w-4" />
+          {/* Pulse rings when recording */}
+          {isRecording && (
+            <>
+              <span className="chat-mic-pulse-ring" />
+              <span className="chat-mic-pulse-ring" style={{ animationDelay: '0.3s' }} />
+              <span className="chat-mic-pulse-ring" style={{ animationDelay: '0.6s' }} />
+            </>
           )}
-        </Button>
+          
+          {isTranscribing ? (
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          ) : isRecording ? (
+            <Square className="h-5 w-5 fill-current" />
+          ) : (
+            <Mic className="h-5 w-5 text-muted-foreground" />
+          )}
+        </button>
 
         {/* Input field */}
         <Textarea
@@ -147,25 +153,24 @@ export function ChatInput({
           disabled={isLoading || isRecording || isTranscribing || disabled}
         />
 
-        {/* Send button with checkmark feedback */}
-        <Button
+        {/* Send button with gradient and checkmark feedback */}
+        <button
           type="button"
-          size="icon"
           onClick={handleSend}
           disabled={isLoading || !value.trim() || isRecording || disabled}
           className={cn(
-            "h-9 w-9 shrink-0 transition-all",
-            isSending && "bg-emerald-500 hover:bg-emerald-500"
+            "chat-send-button",
+            isSending && "sending"
           )}
         >
           {isSending ? (
-            <Check className="h-4 w-4 text-white animate-scale-in" />
+            <Check className="h-4 w-4 text-white" />
           ) : isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin text-white" />
           ) : (
-            <Send className="h-4 w-4" />
+            <Send className="h-4 w-4 text-white" />
           )}
-        </Button>
+        </button>
       </div>
     </div>
   );
