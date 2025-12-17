@@ -50,7 +50,7 @@ const BottomNavigation = memo(() => {
         "md:hidden"
       )}
     >
-      <div className="flex items-center justify-around h-16 px-2">
+      <div className="flex items-center justify-between h-16 px-1 gap-0.5">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
@@ -61,7 +61,7 @@ const BottomNavigation = memo(() => {
               onClick={() => handleNavigation(item.path, item.isChat)}
               className={cn(
                 "relative flex flex-col items-center justify-center",
-                "w-14 h-14 rounded-xl",
+                "flex-1 min-w-0 h-14 rounded-xl",
                 "transition-colors duration-200 ease-out",
                 "active:scale-95",
                 active 
@@ -71,7 +71,7 @@ const BottomNavigation = memo(() => {
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
             >
-              <div className="relative flex items-center justify-center w-10 h-10 rounded-lg">
+              <div className="relative flex items-center justify-center w-8 h-8 rounded-lg">
                 {/* Animated background pill */}
                 {active && (
                   <motion.div
@@ -108,6 +108,7 @@ const BottomNavigation = memo(() => {
               
               <span className={cn(
                 "text-[10px] font-medium mt-0.5",
+                "max-w-full truncate px-0.5 leading-tight",
                 "transition-opacity duration-200",
                 active ? "opacity-100" : "opacity-70"
               )}>
@@ -122,7 +123,7 @@ const BottomNavigation = memo(() => {
           onClick={() => handleNavigation('', true)}
           className={cn(
             "flex flex-col items-center justify-center",
-            "w-14 h-14 -mt-4",
+            "w-12 h-14 -mt-4 flex-shrink-0",
             "transition-all duration-200 ease-out",
             "active:scale-95"
           )}
@@ -130,7 +131,7 @@ const BottomNavigation = memo(() => {
         >
           <div className={cn(
             "flex items-center justify-center",
-            "w-12 h-12 rounded-full",
+            "w-11 h-11 rounded-full",
             "bg-primary text-primary-foreground",
             "shadow-lg shadow-primary/30"
           )}>
