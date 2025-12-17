@@ -1152,6 +1152,78 @@ const tools = [
         }
       }
     }
+  },
+  // MEMORY SYSTEM
+  {
+    type: "function",
+    function: {
+      name: "search_memories",
+      description: "Busca nas memórias de longo prazo do usuário. Use quando precisar relembrar preferências, metas, padrões comportamentais ou fatos sobre o usuário. Exemplo: 'o que sei sobre as metas dele?', 'quais são os padrões de comportamento?'",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Termo de busca nas memórias" },
+          types: { 
+            type: "array", 
+            items: { type: "string", enum: ["personality", "routine", "goal", "pattern", "preference", "fact", "insight"] },
+            description: "Tipos de memória para filtrar (opcional)" 
+          },
+          limit: { type: "number", description: "Número máximo de memórias (default: 5)" }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "save_memory",
+      description: "Salva explicitamente uma informação importante sobre o usuário na memória de longo prazo. Use quando o usuário compartilhar algo significativo que deve ser lembrado em conversas futuras.",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { 
+            type: "string", 
+            enum: ["personality", "routine", "goal", "pattern", "preference", "fact", "insight"],
+            description: "Tipo da memória: personality (preferências de comunicação), routine (padrões de rotina), goal (metas), pattern (comportamentos recorrentes), preference (preferências gerais), fact (fatos sobre o usuário), insight (descobertas comportamentais)"
+          },
+          content: { type: "string", description: "Conteúdo da memória (frase clara e autossuficiente)" },
+          topics: { type: "array", items: { type: "string" }, description: "Tópicos relacionados (ex: ['Score', 'Hábitos'])" },
+          confidence: { type: "number", description: "Nível de confiança 1-5 (5 = muito certo)" }
+        },
+        required: ["type", "content"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_learning_insights",
+      description: "Lista o que o Axiom aprendeu sobre o usuário, organizado por categoria. Use quando perguntarem 'o que você sabe sobre mim?', 'suas memórias', 'o que aprendeu?'",
+      parameters: {
+        type: "object",
+        properties: {
+          type: { 
+            type: "string", 
+            enum: ["personality", "routine", "goal", "pattern", "preference", "fact", "insight"],
+            description: "Filtrar por tipo específico (opcional)" 
+          }
+        }
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "archive_memory",
+      description: "Arquiva uma memória que não é mais relevante. Use quando o usuário disser que uma informação mudou ou não é mais válida.",
+      parameters: {
+        type: "object",
+        properties: {
+          memory_id: { type: "string", description: "UUID da memória (obtenha de list_learning_insights primeiro)" }
+        },
+        required: ["memory_id"]
+      }
+    }
   }
 ];
 
@@ -3199,6 +3271,178 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         message: bills.length > 0 
           ? `📅 ${bills.length} contas vencendo em ${days} dias: R$${Math.round(total)} total. ${willCover ? "✅ Saldo suficiente." : `⚠️ Faltam R$${Math.round(total - currentBalance)}!`}`
           : `✅ Nenhuma conta vencendo nos próximos ${days} dias.`
+      };
+    }
+
+    // MEMORY SYSTEM TOOLS
+    case "search_memories": {
+      const limit = args.limit || 5;
+      
+      let query = supabaseAdmin
+        .from("memories")
+        .select("*")
+        .eq("user_id", userId)
+        .is("archived_at", null);
+
+      if (args.types && args.types.length > 0) {
+        query = query.in("type", args.types);
+      }
+
+      if (args.query) {
+        query = query.ilike("content", `%${args.query}%`);
+      }
+
+      const { data: memories, error } = await query
+        .order("usage_count", { ascending: false })
+        .order("last_used_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      // Update usage count for found memories
+      if (memories && memories.length > 0) {
+        for (const mem of memories) {
+          await supabaseAdmin
+            .from("memories")
+            .update({ 
+              usage_count: (mem.usage_count || 0) + 1,
+              last_used_at: new Date().toISOString()
+            })
+            .eq("id", mem.id);
+        }
+      }
+
+      return { 
+        success: true, 
+        memories: memories?.map((m: any) => ({
+          id: m.id,
+          type: m.type,
+          content: m.content,
+          topics: m.context?.topics || [],
+          confidence: m.context?.confidence || 3,
+          usage_count: m.usage_count
+        })) || [],
+        message: memories && memories.length > 0 
+          ? `🧠 Encontrei ${memories.length} memória(s) relevante(s)` 
+          : "Nenhuma memória encontrada para essa busca"
+      };
+    }
+
+    case "save_memory": {
+      // Check for duplicates
+      const { data: existing } = await supabaseAdmin
+        .from("memories")
+        .select("id, content")
+        .eq("user_id", userId)
+        .eq("type", args.type)
+        .is("archived_at", null)
+        .limit(50);
+
+      const isDuplicate = existing?.some((e: any) => 
+        e.content.toLowerCase().includes(args.content.toLowerCase().substring(0, 30)) ||
+        args.content.toLowerCase().includes(e.content.toLowerCase().substring(0, 30))
+      );
+
+      if (isDuplicate) {
+        return { 
+          success: false, 
+          message: "Esta memória já existe ou é muito similar a uma existente" 
+        };
+      }
+
+      const { data: memory, error } = await supabaseAdmin
+        .from("memories")
+        .insert({
+          user_id: userId,
+          type: args.type,
+          content: args.content,
+          context: {
+            topics: args.topics || [],
+            relatedMemories: [],
+            confidence: args.confidence || 3
+          }
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return { 
+        success: true, 
+        memory: {
+          id: memory.id,
+          type: memory.type,
+          content: memory.content
+        },
+        message: `🧠 Memória salva: "${args.content.substring(0, 50)}..."`
+      };
+    }
+
+    case "list_learning_insights": {
+      let query = supabaseAdmin
+        .from("memories")
+        .select("*")
+        .eq("user_id", userId)
+        .is("archived_at", null);
+
+      if (args.type) {
+        query = query.eq("type", args.type);
+      }
+
+      const { data: memories, error } = await query
+        .order("type")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Group by type
+      const grouped: Record<string, any[]> = {};
+      memories?.forEach((m: any) => {
+        if (!grouped[m.type]) grouped[m.type] = [];
+        grouped[m.type].push({
+          id: m.id,
+          content: m.content,
+          topics: m.context?.topics || [],
+          confidence: m.context?.confidence || 3
+        });
+      });
+
+      const typeLabels: Record<string, string> = {
+        personality: "🎭 Personalidade",
+        routine: "📅 Rotinas",
+        goal: "🎯 Metas",
+        pattern: "📊 Padrões",
+        preference: "⚡ Preferências",
+        fact: "📌 Fatos",
+        insight: "💡 Insights"
+      };
+
+      return { 
+        success: true, 
+        insights: grouped,
+        total: memories?.length || 0,
+        summary: Object.entries(grouped).map(([type, mems]) => 
+          `${typeLabels[type] || type}: ${mems.length} memória(s)`
+        ).join(", "),
+        message: memories && memories.length > 0 
+          ? `🧠 Total de ${memories.length} memória(s) em ${Object.keys(grouped).length} categoria(s)` 
+          : "Ainda não aprendi nada sobre você. Vamos conversar!"
+      };
+    }
+
+    case "archive_memory": {
+      const { error } = await supabaseAdmin
+        .from("memories")
+        .update({ archived_at: new Date().toISOString() })
+        .eq("id", args.memory_id)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+
+      return { 
+        success: true, 
+        message: "🗑️ Memória arquivada com sucesso"
       };
     }
 

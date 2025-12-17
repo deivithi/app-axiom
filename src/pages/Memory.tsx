@@ -12,7 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
-import { Plus, Loader2, Trash2, Pin, PinOff, Search, Sparkles, Brain, BookOpen, Save, MessageSquare, Lightbulb } from 'lucide-react';
+import { Plus, Loader2, Trash2, Pin, PinOff, Search, Sparkles, Brain, BookOpen, Save, MessageSquare, Lightbulb, Cpu } from 'lucide-react';
+import MemoryDashboard from '@/components/memory/MemoryDashboard';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useNavigate } from 'react-router-dom';
@@ -238,8 +239,12 @@ export default function Memory() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <Tabs defaultValue="thoughts" className="space-y-6">
+          <Tabs defaultValue="axiom-memory" className="space-y-6">
             <TabsList>
+              <TabsTrigger value="axiom-memory" className="gap-2">
+                <Cpu className="h-4 w-4" />
+                Axiom Memory
+              </TabsTrigger>
               <TabsTrigger value="thoughts" className="gap-2">
                 <Brain className="h-4 w-4" />
                 Pensamentos ({notes.length})
@@ -249,6 +254,11 @@ export default function Memory() {
                 Diário ({entries.length})
               </TabsTrigger>
             </TabsList>
+
+            {/* AXIOM MEMORY DASHBOARD */}
+            <TabsContent value="axiom-memory" className="space-y-4">
+              <MemoryDashboard />
+            </TabsContent>
 
             {/* PENSAMENTOS */}
             <TabsContent value="thoughts" className="space-y-4">

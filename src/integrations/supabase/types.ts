@@ -86,6 +86,39 @@ export type Database = {
         }
         Relationships: []
       }
+      conversations: {
+        Row: {
+          context_topics: string[] | null
+          created_at: string | null
+          id: string
+          message_count: number | null
+          summary: string | null
+          title: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          context_topics?: string[] | null
+          created_at?: string | null
+          id?: string
+          message_count?: number | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          context_topics?: string[] | null
+          created_at?: string | null
+          id?: string
+          message_count?: number | null
+          summary?: string | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       financial_goals: {
         Row: {
           action_plan: Json | null
@@ -222,6 +255,51 @@ export type Database = {
           mood?: string | null
           tags?: string[] | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      memories: {
+        Row: {
+          archived_at: string | null
+          content: string
+          context: Json | null
+          conversation_id: string | null
+          created_at: string | null
+          embedding: string | null
+          id: string
+          last_used_at: string | null
+          type: Database["public"]["Enums"]["memory_type"]
+          updated_at: string | null
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string | null
+          content: string
+          context?: Json | null
+          conversation_id?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          last_used_at?: string | null
+          type: Database["public"]["Enums"]["memory_type"]
+          updated_at?: string | null
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          archived_at?: string | null
+          content?: string
+          context?: Json | null
+          conversation_id?: string | null
+          created_at?: string | null
+          embedding?: string | null
+          id?: string
+          last_used_at?: string | null
+          type?: Database["public"]["Enums"]["memory_type"]
+          updated_at?: string | null
+          usage_count?: number | null
           user_id?: string
         }
         Relationships: []
@@ -698,7 +776,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      memory_type:
+        | "personality"
+        | "routine"
+        | "goal"
+        | "pattern"
+        | "preference"
+        | "fact"
+        | "insight"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -825,6 +910,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      memory_type: [
+        "personality",
+        "routine",
+        "goal",
+        "pattern",
+        "preference",
+        "fact",
+        "insight",
+      ],
+    },
   },
 } as const
