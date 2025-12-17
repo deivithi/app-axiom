@@ -14,7 +14,7 @@ export const useSidebarCollapse = () => {
 
   const toggle = useCallback(() => {
     setOpen(prev => !prev);
-  }, []);
+  }, [setOpen]);
 
   // Keyboard shortcut: [ to toggle
   useEffect(() => {
