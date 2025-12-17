@@ -14,3 +14,4 @@ export {
   SkeletonScoreCard,
   SkeletonTransaction 
 } from './Skeleton';
+export { EmptyState } from './EmptyState';
