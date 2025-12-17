@@ -2,10 +2,78 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* =====================================================
+   AXIOM DESIGN SYSTEM - Design Tokens v2.0
+   =====================================================
+   
+   CORES:
+   - Primary: Indigo (#6366F1 / hsl 239 84% 67%) - Identidade da marca
+   - Background: 3 níveis de elevação (base → card → popover → elevated-3)
+   - Semânticas: success, warning, error com variantes subtle
+   
+   TIPOGRAFIA:
+   - Sans: Inter (UI)
+   - Display: Orbitron (Branding)
+   - Mono: JetBrains Mono (Code)
+   
+   MOTION:
+   - ease-smooth: Transições gerais
+   - ease-spring: Feedback tátil
+   - ease-expo: Modais/overlays
+   
+   ESPAÇAMENTO:
+   - 8pt grid system
+   - space-1 (4px) até space-16 (64px)
+   
+   GLASSMORPHISM:
+   - glass-sm, glass-md, glass-lg
+   - Blur + bg translúcido + border sutil
+   
+   ===================================================== */
 
+/* =====================================================
+   MOTION & SPACING TOKENS (Light/Dark agnostic)
+   ===================================================== */
+:root {
+  /* === MOTION TOKENS === */
+  --ease-smooth: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-base: 250ms;
+  --duration-slow: 350ms;
+  --duration-slower: 500ms;
+  
+  /* === SPACING SCALE (8pt grid) === */
+  --space-0: 0;
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+  --space-24: 6rem;     /* 96px */
+  
+  /* === RADIUS SCALE === */
+  --radius-none: 0;
+  --radius-sm: 0.25rem;   /* 4px */
+  --radius-md: 0.5rem;    /* 8px - default */
+  --radius-lg: 0.75rem;   /* 12px */
+  --radius-xl: 1rem;      /* 16px */
+  --radius-2xl: 1.5rem;   /* 24px */
+  --radius-full: 9999px;
+}
+
+/* =====================================================
+   LIGHT MODE TOKENS
+   ===================================================== */
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -17,8 +85,12 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
+    /* === PRIMARY (Indigo) === */
     --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
+    --primary-hover: 239 84% 57%;
+    --primary-active: 239 84% 47%;
+    --primary-subtle: 239 40% 95%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -32,12 +104,34 @@ All colors MUST be HSL.
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
+    /* === SEMANTIC COLORS === */
+    --success: 160 84% 39%;
+    --success-subtle: 160 40% 95%;
+    --warning: 38 92% 50%;
+    --warning-subtle: 38 40% 95%;
+    --error: 0 72% 50%;
+    --error-subtle: 0 40% 95%;
+
+    /* === BORDERS === */
     --border: 214.3 31.8% 91.4%;
+    --border-subtle: 214 32% 96%;
+    --border-medium: 214.3 31.8% 91.4%;
+    --border-strong: 214 32% 85%;
+    
     --input: 214.3 31.8% 91.4%;
     --ring: 239 84% 67%;
 
     --radius: 0.5rem;
 
+    /* === ELEVATED BACKGROUNDS === */
+    --elevated-3: 210 40% 98%;
+
+    /* === GLASSMORPHISM === */
+    --glass-bg: 0 0% 100% / 0.8;
+    --glass-border: 0 0% 0% / 0.08;
+    --glass-blur: 20px;
+
+    /* === SIDEBAR === */
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5.3% 26.1%;
     --sidebar-primary: 239 84% 67%;
@@ -48,6 +142,9 @@ All colors MUST be HSL.
     --sidebar-ring: 239 84% 67%;
   }
 
+  /* =====================================================
+     DARK MODE TOKENS
+     ===================================================== */
   .dark {
     /* ===== BASE LAYERS (Preto Profundo) ===== */
     --background: 240 10% 4%;
@@ -61,9 +158,15 @@ All colors MUST be HSL.
     --popover: 222 11% 13%;
     --popover-foreground: 0 0% 100%;
 
+    /* ===== ELEVATED-3 (Elevação +3) ===== */
+    --elevated-3: 222 11% 17%;
+
     /* ===== PRIMARY (Indigo - Premium Identity) ===== */
     --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
+    --primary-hover: 239 84% 57%;
+    --primary-active: 239 84% 47%;
+    --primary-subtle: 239 40% 15%;
 
     /* ===== SECONDARY ===== */
     --secondary: 222 14% 9%;
@@ -81,10 +184,27 @@ All colors MUST be HSL.
     --destructive: 0 72% 45%;
     --destructive-foreground: 0 0% 98%;
 
+    /* ===== SEMANTIC COLORS ===== */
+    --success: 160 84% 39%;
+    --success-subtle: 160 40% 15%;
+    --warning: 38 92% 50%;
+    --warning-subtle: 38 40% 15%;
+    --error: 0 72% 45%;
+    --error-subtle: 0 40% 15%;
+
     /* ===== BORDERS & INPUTS ===== */
     --border: 240 6% 10%;
+    --border-subtle: 0 0% 100% / 0.04;
+    --border-medium: 0 0% 100% / 0.08;
+    --border-strong: 0 0% 100% / 0.12;
+    
     --input: 222 14% 9%;
     --ring: 239 84% 67%;
+
+    /* ===== GLASSMORPHISM ===== */
+    --glass-bg: 0 0% 100% / 0.03;
+    --glass-border: 0 0% 100% / 0.08;
+    --glass-blur: 20px;
 
     /* ===== SIDEBAR ===== */
     --sidebar-background: 240 10% 5%;
@@ -98,8 +218,11 @@ All colors MUST be HSL.
   }
 }
 
+/* =====================================================
+   COMPONENT STYLES
+   ===================================================== */
 @layer components {
-  /* ===== GLASSMORPHISM ===== */
+  /* ===== GLASSMORPHISM VARIANTS ===== */
   .glass {
     @apply backdrop-blur-md border border-white/10;
     background: hsla(222, 30%, 8%, 0.75);
@@ -108,9 +231,53 @@ All colors MUST be HSL.
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
+  .glass-sm {
+    @apply backdrop-blur-sm;
+    background: hsl(var(--glass-bg));
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  .glass-md {
+    @apply backdrop-blur-md;
+    background: hsl(var(--glass-bg));
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  .glass-lg {
+    @apply backdrop-blur-lg;
+    background: hsl(var(--glass-bg));
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  /* ===== GLOW EFFECTS ===== */
+  .glow-primary {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.3);
+  }
+
+  .glow-primary-sm {
+    box-shadow: 0 0 15px hsl(var(--primary) / 0.3);
+  }
+
+  .glow-primary-lg {
+    box-shadow: 0 0 50px hsl(var(--primary) / 0.4);
+  }
+
+  .glow-success {
+    box-shadow: 0 0 30px hsl(var(--success) / 0.3);
+  }
+
+  .glow-warning {
+    box-shadow: 0 0 30px hsl(var(--warning) / 0.3);
+  }
+
+  .glow-error {
+    box-shadow: 0 0 30px hsl(var(--error) / 0.3);
+  }
+
   /* ===== CHAT PANEL STYLES ===== */
   .chat-panel {
-    transition-timing-function: cubic-bezier(0.76, 0, 0.24, 1);
+    transition-timing-function: var(--ease-smooth);
+    transition-duration: var(--duration-base);
   }
 
   .chat-header {
@@ -196,12 +363,12 @@ All colors MUST be HSL.
     @apply w-full px-4 py-3 rounded-lg;
     @apply bg-background/50 border border-border/50;
     @apply text-foreground placeholder:text-muted-foreground;
-    @apply transition-all duration-300;
+    transition: all var(--duration-base) var(--ease-smooth);
   }
 
   .input-premium:focus {
     @apply outline-none border-primary;
-    box-shadow: 0 0 0 4px hsl(239 84% 67% / 0.15);
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.15);
     @apply bg-background/80;
   }
 
@@ -209,15 +376,15 @@ All colors MUST be HSL.
   .btn-gradient {
     @apply w-full py-3 px-4 rounded-lg font-semibold;
     @apply flex items-center justify-center gap-2;
-    background: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(280 70% 60%) 100%);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280 70% 60%) 100%);
     @apply text-white border-0;
-    @apply transition-all duration-300;
-    box-shadow: 0 0 20px hsl(239 84% 67% / 0.3);
+    transition: all var(--duration-base) var(--ease-smooth);
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
   }
 
   .btn-gradient:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 0 30px hsl(239 84% 67% / 0.5), 0 10px 40px rgba(0,0,0,0.2);
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.5), 0 10px 40px rgba(0,0,0,0.2);
   }
 
   .btn-gradient:active:not(:disabled) {
@@ -234,7 +401,7 @@ All colors MUST be HSL.
     @apply py-3 px-4 rounded-lg font-medium;
     @apply bg-card/50 border border-border/50;
     @apply text-foreground;
-    @apply transition-all duration-300;
+    transition: all var(--duration-base) var(--ease-smooth);
   }
 
   .btn-social:hover {
@@ -244,7 +411,7 @@ All colors MUST be HSL.
 
   /* ===== GRADIENT TEXT ===== */
   .gradient-text {
-    background: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(280 70% 60%) 100%);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280 70% 60%) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -264,8 +431,24 @@ All colors MUST be HSL.
   .divider-text span {
     @apply px-4 text-sm text-muted-foreground;
   }
+
+  /* ===== ELEVATION UTILITIES ===== */
+  .elevated-1 {
+    @apply bg-card;
+  }
+
+  .elevated-2 {
+    @apply bg-popover;
+  }
+
+  .elevated-3 {
+    background: hsl(var(--elevated-3));
+  }
 }
 
+/* =====================================================
+   KEYFRAME ANIMATIONS
+   ===================================================== */
 @keyframes twinkle {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.6; }
@@ -277,6 +460,9 @@ All colors MUST be HSL.
   66% { transform: translate(-20px, 20px) scale(0.9); }
 }
 
+/* =====================================================
+   BASE ELEMENT STYLES
+   ===================================================== */
 @layer base {
   * {
     @apply border-border;
@@ -287,7 +473,27 @@ All colors MUST be HSL.
   }
 }
 
-/* Chat scroll optimizations */
+/* =====================================================
+   ACCESSIBILITY: Reduced Motion
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .gradient-orb,
+  .stars {
+    animation: none;
+  }
+}
+
+/* =====================================================
+   CHAT SCROLL OPTIMIZATIONS
+   ===================================================== */
 .messages-container {
   scroll-behavior: smooth;
   will-change: scroll-position;
