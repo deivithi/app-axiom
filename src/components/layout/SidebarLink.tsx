@@ -28,7 +28,7 @@ export const SidebarLink = memo(({ link, collapsed, onClose, className }: Sideba
       onClick={onClose}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-4 rounded-lg transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
+        'flex items-center gap-3 rounded-lg transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
         collapsed ? 'justify-center p-2' : 'px-3 py-2.5'
       )}
       style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
@@ -37,7 +37,7 @@ export const SidebarLink = memo(({ link, collapsed, onClose, className }: Sideba
     >
       {/* Ícone circular */}
       <div 
-        className="relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)] flex-shrink-0"
+        className="relative w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)] flex-shrink-0"
         style={{
           background: isActive ? 'var(--color-primary)' : 'transparent',
           borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border-medium)',
@@ -65,7 +65,7 @@ export const SidebarLink = memo(({ link, collapsed, onClose, className }: Sideba
       {!collapsed && (
         <>
           <div className="flex-1 min-w-0">
-            <span className="font-medium block truncate">{link.label}</span>
+            <span className="font-medium sidebar-label-clamp">{link.label}</span>
             {link.description && (
               <p className="text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>
                 {link.description}
