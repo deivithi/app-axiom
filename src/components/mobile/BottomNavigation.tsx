@@ -23,17 +23,17 @@ const navItems: NavItem[] = [
 const BottomNavigation = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { haptic } = useHaptics();
+  const haptics = useHaptics();
   const { setChatOpen } = useChatContext();
 
   const handleNavigation = useCallback((path: string, isChat?: boolean) => {
-    haptic('light');
+    haptics.light();
     if (isChat) {
       setChatOpen(true);
     } else {
       navigate(path);
     }
-  }, [navigate, haptic, setChatOpen]);
+  }, [navigate, haptics, setChatOpen]);
 
   const isActive = (path: string) => location.pathname === path;
 
