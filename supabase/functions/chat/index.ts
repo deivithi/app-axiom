@@ -1121,8 +1121,41 @@ const tools = [
     type: "function",
     function: {
       name: "list_financial_goals",
-      description: "Lista as metas financeiras do usuário. SEMPRE use primeiro para obter IDs antes de track_financial_goal.",
+      description: "Lista as metas financeiras do usuário. SEMPRE use primeiro para obter IDs antes de update, delete ou track.",
       parameters: { type: "object", properties: {} }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_financial_goal",
+      description: "Atualiza uma meta financeira existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_financial_goals.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID da meta (obtenha de list_financial_goals primeiro)" },
+          title: { type: "string", description: "Novo título da meta" },
+          target_amount: { type: "number", description: "Novo valor alvo em reais" },
+          current_amount: { type: "number", description: "Atualizar valor atual acumulado" },
+          deadline: { type: "string", description: "Nova data limite (YYYY-MM-DD)" },
+          status: { type: "string", enum: ["active", "completed", "cancelled"], description: "Novo status" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_financial_goal",
+      description: "Exclui uma meta financeira. IMPORTANTE: O ID deve ser um UUID real obtido de list_financial_goals.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID da meta (obtenha de list_financial_goals primeiro)" }
+        },
+        required: ["id"]
+      }
     }
   },
   {
@@ -3240,6 +3273,50 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         goals: goalsWithProgress,
         message: `${goalsWithProgress.length} metas financeiras encontradas. Use os IDs para acompanhar progresso.`
       };
+    }
+
+    case "update_financial_goal": {
+      const updateData: any = {};
+      if (args.title) updateData.title = args.title;
+      if (args.target_amount !== undefined) updateData.target_amount = args.target_amount;
+      if (args.current_amount !== undefined) updateData.current_amount = args.current_amount;
+      if (args.deadline) updateData.deadline = args.deadline;
+      if (args.status) updateData.status = args.status;
+
+      const { data, error } = await supabaseAdmin
+        .from("financial_goals")
+        .update(updateData)
+        .eq("id", args.id)
+        .eq("user_id", userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const percentComplete = Math.round((Number(data.current_amount) / Number(data.target_amount)) * 100);
+      return {
+        success: true,
+        goal: { ...data, percent_complete: percentComplete },
+        message: `Meta "${data.title}" atualizada! ${percentComplete}% do objetivo alcançado.`
+      };
+    }
+
+    case "delete_financial_goal": {
+      const { data: goal } = await supabaseAdmin
+        .from("financial_goals")
+        .select("title")
+        .eq("id", args.id)
+        .eq("user_id", userId)
+        .single();
+
+      const { error } = await supabaseAdmin
+        .from("financial_goals")
+        .delete()
+        .eq("id", args.id)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      return { success: true, message: `Meta "${goal?.title || "financeira"}" excluída com sucesso!` };
     }
 
     case "suggest_transaction_category": {
