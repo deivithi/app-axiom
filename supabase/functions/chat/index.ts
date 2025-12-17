@@ -1224,6 +1224,22 @@ const tools = [
         required: ["memory_id"]
       }
     }
+  },
+  // EXECUTE PROMPT WITH VARIABLES
+  {
+    type: "function",
+    function: {
+      name: "execute_prompt",
+      description: "Executa um prompt salvo na biblioteca, injetando variáveis dinâmicas do usuário (como {{axiom_score}}, {{saldo_total}}, etc). Use quando o usuário pedir 'usa o prompt X', 'executa o prompt Y', 'roda o prompt Z'. Retorna o prompt processado para você usar como contexto na resposta.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID do prompt (obtenha de list_prompts primeiro)" },
+          use_optimized: { type: "boolean", description: "Se true, usa a versão otimizada do prompt (se disponível). Default: true" }
+        },
+        required: ["id"]
+      }
+    }
   }
 ];
 
@@ -2190,6 +2206,71 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       const { data, error } = await supabaseAdmin.from("prompt_library").select("title, prompt_text").eq("id", args.id).eq("user_id", userId).single();
       if (error) throw error;
       return { success: true, title: data.title, prompt_text: data.prompt_text, message: `Aqui está o prompt "${data.title}"` };
+    }
+
+    case "execute_prompt": {
+      // 1. Fetch the prompt
+      const { data: prompt, error: promptError } = await supabaseAdmin
+        .from("prompt_library")
+        .select("*")
+        .eq("id", args.id)
+        .eq("user_id", userId)
+        .single();
+      
+      if (promptError || !prompt) {
+        return { success: false, message: "Prompt não encontrado. Use list_prompts primeiro para obter o ID correto." };
+      }
+
+      // 2. Choose version (optimized if available and requested)
+      const useOptimized = args.use_optimized !== false;
+      const promptTemplate = useOptimized && prompt.optimized_prompt 
+        ? prompt.optimized_prompt 
+        : prompt.prompt_text;
+
+      // 3. Inject variables by calling the inject-variables edge function
+      let processedPrompt = promptTemplate;
+      let variablesUsed: string[] = [];
+
+      try {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL");
+        const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+        
+        const injectResponse = await fetch(`${supabaseUrl}/functions/v1/inject-variables`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${supabaseKey}`
+          },
+          body: JSON.stringify({ promptTemplate, userId })
+        });
+
+        if (injectResponse.ok) {
+          const injectData = await injectResponse.json();
+          processedPrompt = injectData.processedPrompt || promptTemplate;
+          variablesUsed = injectData.variablesUsed || [];
+        }
+      } catch (e) {
+        console.error("Error injecting variables:", e);
+        // Continue with template without injection
+      }
+
+      // 4. Update usage count
+      await supabaseAdmin
+        .from("prompt_library")
+        .update({
+          usage_count: (prompt.usage_count || 0) + 1,
+          last_used_at: new Date().toISOString()
+        })
+        .eq("id", args.id);
+
+      return {
+        success: true,
+        prompt_name: prompt.title,
+        processed_prompt: processedPrompt,
+        variables_injected: variablesUsed.length,
+        used_optimized: useOptimized && !!prompt.optimized_prompt,
+        message: `Prompt "${prompt.title}" carregado! ${variablesUsed.length > 0 ? `${variablesUsed.length} variáveis injetadas.` : ''} Use o processed_prompt como contexto para sua resposta.`
+      };
     }
 
     // SAVED SITES

@@ -19,6 +19,8 @@ import Finances from "./pages/Finances";
 import Memory from "./pages/Memory";
 import Settings from "./pages/Settings";
 import MemoryValidation from "./pages/MemoryValidation";
+import PromptLibrary from "./pages/PromptLibrary";
+import PromptAnalysis from "./pages/PromptAnalysis";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import { StarryBackground } from "@/components/ui/starry-background";
@@ -85,7 +87,7 @@ function AppRoutes() {
   
   return (
     <Routes>
-<Route path="/" element={<Navigate to="/intelligence" replace />} />
+      <Route path="/" element={<Navigate to="/intelligence" replace />} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
       <Route path="/chat" element={<Navigate to="/intelligence" replace />} />
       <Route path="/intelligence" element={<ProtectedRoute><Intelligence /></ProtectedRoute>} />
@@ -94,6 +96,8 @@ function AppRoutes() {
       <Route path="/finances" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
       <Route path="/memory" element={<ProtectedRoute><Memory /></ProtectedRoute>} />
       <Route path="/memory-validation" element={<ProtectedRoute><MemoryValidation /></ProtectedRoute>} />
+      <Route path="/prompts" element={<ProtectedRoute><PromptLibrary /></ProtectedRoute>} />
+      <Route path="/prompts/:id" element={<ProtectedRoute><PromptAnalysis /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

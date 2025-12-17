@@ -510,38 +510,59 @@ export type Database = {
       prompt_library: {
         Row: {
           ai_diagnosis: string | null
+          analysis_problems: string[] | null
+          analysis_score: number | null
+          analysis_status: string | null
+          analysis_strengths: string[] | null
           category: string
           created_at: string
           id: string
+          improvements: Json | null
           is_pinned: boolean
+          last_used_at: string | null
           optimized_prompt: string | null
           prompt_text: string
           title: string
           updated_at: string
+          usage_count: number | null
           user_id: string
         }
         Insert: {
           ai_diagnosis?: string | null
+          analysis_problems?: string[] | null
+          analysis_score?: number | null
+          analysis_status?: string | null
+          analysis_strengths?: string[] | null
           category?: string
           created_at?: string
           id?: string
+          improvements?: Json | null
           is_pinned?: boolean
+          last_used_at?: string | null
           optimized_prompt?: string | null
           prompt_text: string
           title: string
           updated_at?: string
+          usage_count?: number | null
           user_id: string
         }
         Update: {
           ai_diagnosis?: string | null
+          analysis_problems?: string[] | null
+          analysis_score?: number | null
+          analysis_status?: string | null
+          analysis_strengths?: string[] | null
           category?: string
           created_at?: string
           id?: string
+          improvements?: Json | null
           is_pinned?: boolean
+          last_used_at?: string | null
           optimized_prompt?: string | null
           prompt_text?: string
           title?: string
           updated_at?: string
+          usage_count?: number | null
           user_id?: string
         }
         Relationships: []
