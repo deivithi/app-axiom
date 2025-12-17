@@ -2,6 +2,7 @@ import { AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { haptics } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+import { fadeInScale, pulse } from "@/lib/animations";
 
 interface ErrorStateProps {
   title?: string;
@@ -25,9 +26,9 @@ export function ErrorState({
 
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+      variants={fadeInScale}
+      initial="initial"
+      animate="animate"
       className={cn(
         "flex flex-col items-center justify-center py-16 px-8 text-center",
         className
@@ -35,12 +36,8 @@ export function ErrorState({
     >
       <motion.div 
         className="w-24 h-24 rounded-full bg-destructive/10 flex items-center justify-center mb-6"
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ 
-          duration: 2, 
-          repeat: Infinity, 
-          ease: "easeInOut" 
-        }}
+        variants={pulse}
+        animate="animate"
       >
         <AlertCircle className="w-12 h-12 text-destructive" />
       </motion.div>
