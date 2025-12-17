@@ -81,11 +81,11 @@ const ActionSheet = memo(({
         <>
           {/* Backdrop */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0, scaleY: 0.95 }}
+            animate={{ opacity: 1, scaleY: 1 }}
+            exit={{ opacity: 0, scaleY: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-modal-backdrop bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-modal-backdrop bg-black/60 backdrop-blur-sm origin-bottom"
             onClick={onClose}
           />
 
@@ -102,7 +102,7 @@ const ActionSheet = memo(({
             onDragEnd={handleDragEnd}
             className={cn(
               "fixed bottom-0 left-0 right-0 z-modal",
-              "bg-card rounded-t-3xl",
+              "bg-card/95 backdrop-blur-xl rounded-t-3xl",
               "pb-safe-bottom",
               "max-h-[85vh] overflow-hidden"
             )}
@@ -114,7 +114,7 @@ const ActionSheet = memo(({
 
             {/* Header */}
             {(title || description) && (
-              <div className="px-6 pb-4 text-center">
+              <div className="px-6 pb-4 text-center border-b border-white/10">
                 {title && (
                   <h3 className="text-lg font-semibold text-foreground">
                     {title}
@@ -144,7 +144,7 @@ const ActionSheet = memo(({
                       ? "opacity-50 cursor-not-allowed"
                       : option.destructive
                         ? "text-destructive hover:bg-destructive/10"
-                        : "text-foreground hover:bg-muted"
+                        : "text-primary hover:bg-white/5 active:bg-white/10"
                   )}
                 >
                   {option.icon && (
