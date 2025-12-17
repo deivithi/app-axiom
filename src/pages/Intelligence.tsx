@@ -288,7 +288,7 @@ export default function Intelligence() {
 
             {/* Cards de resumo */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card>
+              <Card className="tap-card" onClick={() => navigate('/execution')}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <CheckSquare className="h-4 w-4" />
@@ -299,7 +299,7 @@ export default function Intelligence() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="tap-card" onClick={() => navigate('/habits')}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <Target className="h-4 w-4" />
@@ -310,7 +310,7 @@ export default function Intelligence() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="tap-card" onClick={() => navigate('/finances')}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <Wallet className="h-4 w-4" />
@@ -323,7 +323,7 @@ export default function Intelligence() {
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className="tap-card" onClick={() => navigate('/memory')}>
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <Brain className="h-4 w-4" />

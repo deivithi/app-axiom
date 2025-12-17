@@ -414,6 +414,15 @@
     box-shadow: 0 0 30px hsl(var(--error) / 0.3);
   }
 
+  /* ===== TAP FEEDBACK FOR INTERACTIVE CARDS ===== */
+  .tap-card {
+    @apply cursor-pointer transition-transform duration-150 active:scale-[0.98];
+  }
+
+  .tap-card-strong {
+    @apply cursor-pointer transition-transform duration-150 active:scale-95;
+  }
+
   /* ===== CHAT PANEL STYLES ===== */
   .chat-panel {
     transition-timing-function: var(--ease-smooth);

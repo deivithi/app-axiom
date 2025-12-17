@@ -717,7 +717,7 @@ export default function Finances() {
 
         {/* Cards de Resumo com Emojis */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="bg-emerald-500/10 border-emerald-500/30">
+          <Card className="tap-card bg-emerald-500/10 border-emerald-500/30">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <span className="text-4xl">💰</span>
@@ -731,7 +731,7 @@ export default function Finances() {
             </CardContent>
           </Card>
 
-          <Card className="bg-red-500/10 border-red-500/30">
+          <Card className="tap-card bg-red-500/10 border-red-500/30">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <span className="text-4xl">💸</span>
@@ -745,7 +745,7 @@ export default function Finances() {
             </CardContent>
           </Card>
 
-          <Card className="bg-yellow-500/10 border-yellow-500/30">
+          <Card className="tap-card bg-yellow-500/10 border-yellow-500/30">
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <span className="text-4xl">⏳</span>
@@ -759,7 +759,7 @@ export default function Finances() {
             </CardContent>
           </Card>
 
-          <Card className={`${balance >= 0 ? "bg-violet-500/10 border-violet-500/30" : "bg-orange-500/10 border-orange-500/30"}`}>
+          <Card className={`tap-card ${balance >= 0 ? "bg-violet-500/10 border-violet-500/30" : "bg-orange-500/10 border-orange-500/30"}`}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
                 <span className="text-4xl">🎯</span>
