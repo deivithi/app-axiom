@@ -872,9 +872,8 @@
   gap: 12px;
   padding: 12px 16px;
   padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 12px);
-  background: hsl(var(--background) / 0.85);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: hsl(var(--background));
+  /* backdrop-filter removed to prevent shooting stars bleeding through */
   border-top: 1px solid hsl(var(--primary) / 0.05);
 }
 
