@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.search-memories]
 verify_jwt = false
+
+[functions.validate-memory-system]
+verify_jwt = false
