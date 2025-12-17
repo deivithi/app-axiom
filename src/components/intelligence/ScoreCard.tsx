@@ -90,7 +90,7 @@ export function ScoreCard({ breakdown, loading }: ScoreCardProps) {
               <button
                 key={key}
                 onClick={() => handlePillarClick(query)}
-                className="w-full flex items-center gap-3 group hover:bg-muted/50 rounded-lg p-1 -m-1 transition-colors"
+                className="w-full flex items-center gap-3 group hover:bg-muted/50 rounded-lg p-1 -m-1 transition-colors tap-card"
               >
                 <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="text-xs w-20 text-left text-muted-foreground group-hover:text-foreground transition-colors">
