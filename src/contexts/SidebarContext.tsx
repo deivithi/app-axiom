@@ -2,8 +2,8 @@ import { createContext, useContext, ReactNode } from 'react';
 import { useSidebarCollapse } from '@/hooks/useSidebarCollapse';
 
 interface SidebarContextType {
-  collapsed: boolean;
-  setCollapsed: (value: boolean) => void;
+  open: boolean;
+  setOpen: (value: boolean) => void;
   toggle: () => void;
 }
 

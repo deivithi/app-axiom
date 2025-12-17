@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Target, Wallet, Brain, Settings, LogOut, Menu, User, Sun, Moon, RefreshCw, Sparkles, CheckSquare, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Target, Wallet, Brain, Settings, LogOut, Menu, User, Sun, Moon, RefreshCw, Sparkles, CheckSquare, ChevronLeft, ChevronRight, LucideIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -10,8 +10,21 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useSidebar } from '@/contexts/SidebarContext';
 import axiomLogo from '@/assets/axiom-logo.png';
 
+// === INTERFACES ===
+interface NavItem {
+  label: string;
+  path: string;
+  href?: string; // Link externo opcional
+  icon: LucideIcon;
+  description?: string;
+  badge?: number | string;
+}
+
+// Type alias para compatibilidade
+type Links = NavItem;
+
 // 5 módulos core com suporte a badges
-const navItems = [
+const navItems: NavItem[] = [
   { icon: Sparkles, label: 'Motor de Inteligência', path: '/intelligence', description: 'Análise e insights', badge: 0 },
   { icon: Wallet, label: 'CFO Pessoal', path: '/finances', description: 'Controle financeiro', badge: 0 },
   { icon: CheckSquare, label: 'Sistema de Execução', path: '/execution', description: 'Tarefas e projetos', badge: 0 },
@@ -141,7 +154,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
                   <item.icon className="h-5 w-5" />
                   
                   {/* Badge de notificação */}
-                  {item.badge > 0 && (
+                  {item.badge !== undefined && item.badge !== 0 && (
                     <span 
                       className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shadow-sm"
                       style={{ 
@@ -149,7 +162,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
                         color: 'var(--color-primary-foreground)' 
                       }}
                     >
-                      {item.badge > 9 ? '9+' : item.badge}
+                      {typeof item.badge === 'number' && item.badge > 9 ? '9+' : item.badge}
                     </span>
                   )}
                 </div>
@@ -274,7 +287,8 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
 
 export const Sidebar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { collapsed, toggle } = useSidebar();
+  const { open, toggle } = useSidebar();
+  const collapsed = !open;
 
   return (
     <>
