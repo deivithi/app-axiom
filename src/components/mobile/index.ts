@@ -3,3 +3,4 @@ export { BottomNavigation } from './BottomNavigation';
 export { ActionSheet } from './ActionSheet';
 export type { ActionSheetOption, ActionSheetProps } from './ActionSheet';
 export { PullToRefresh } from './PullToRefresh';
+export { SwipeableView } from './SwipeableView';
