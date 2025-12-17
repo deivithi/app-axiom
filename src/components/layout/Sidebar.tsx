@@ -142,8 +142,9 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
                 onMouseOver={(e) => !isActive && (e.currentTarget.style.color = 'var(--color-text-primary)')}
                 onMouseOut={(e) => !isActive && (e.currentTarget.style.color = 'var(--color-text-secondary)')}
               >
+                {/* Ícone circular */}
                 <div 
-                  className="relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]"
+                  className="relative w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)] flex-shrink-0"
                   style={{
                     background: isActive ? 'var(--color-primary)' : 'transparent',
                     borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border-medium)',
@@ -153,24 +154,41 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
                 >
                   <item.icon className="h-5 w-5" />
                   
-                  {/* Badge de notificação */}
-                  {item.badge !== undefined && item.badge !== 0 && (
+                  {/* Mini badge quando colapsado */}
+                  {collapsed && item.badge !== undefined && item.badge !== 0 && (
                     <span 
-                      className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center shadow-sm"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center"
                       style={{ 
-                        background: 'var(--color-destructive)', 
-                        color: 'var(--color-primary-foreground)' 
+                        background: 'var(--color-primary)', 
+                        color: 'white' 
                       }}
                     >
-                      {typeof item.badge === 'number' && item.badge > 9 ? '9+' : item.badge}
+                      {typeof item.badge === 'number' && item.badge > 9 ? '•' : item.badge}
                     </span>
                   )}
                 </div>
+                
+                {/* Label + Badge inline quando expandido */}
                 {!collapsed && (
-                  <div>
-                    <span className="font-medium block">{item.label}</span>
-                    <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>{item.description}</p>
-                  </div>
+                  <>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium block truncate">{item.label}</span>
+                      <p className="text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>{item.description}</p>
+                    </div>
+                    
+                    {/* Badge pill inline */}
+                    {item.badge !== undefined && item.badge !== 0 && (
+                      <span 
+                        className="ml-auto px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0 transition-all duration-[var(--duration-fast)]"
+                        style={{ 
+                          background: 'var(--color-primary)', 
+                          color: 'white' 
+                        }}
+                      >
+                        {typeof item.badge === 'number' && item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </>
                 )}
               </Link>
             </NavItemWrapper>
