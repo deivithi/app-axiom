@@ -1,10 +1,11 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Brain, DollarSign, Target, Repeat, BookOpen, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { haptics } from '@/lib/haptics';
 import { useChatContext } from '@/contexts/ChatContext';
+import { useNavBadges } from '@/hooks/useNavBadges';
 
 interface NavItem {
   path: string;
@@ -14,18 +15,19 @@ interface NavItem {
   badge?: number;
 }
 
-const navItems: NavItem[] = [
-  { path: '/intelligence', icon: Brain, label: 'Score' },
-  { path: '/execution', icon: Target, label: 'Execução' },
-  { path: '/habits', icon: Repeat, label: 'Hábitos' },
-  { path: '/finances', icon: DollarSign, label: 'Finanças' },
-  { path: '/memory', icon: BookOpen, label: 'Memória' },
-];
-
 const BottomNavigation = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
   const { setChatOpen } = useChatContext();
+  const badges = useNavBadges();
+
+  const navItems: NavItem[] = useMemo(() => [
+    { path: '/intelligence', icon: Brain, label: 'Score' },
+    { path: '/execution', icon: Target, label: 'Execução', badge: badges.execution },
+    { path: '/habits', icon: Repeat, label: 'Hábitos', badge: badges.habits },
+    { path: '/finances', icon: DollarSign, label: 'Finanças', badge: badges.finances },
+    { path: '/memory', icon: BookOpen, label: 'Memória' },
+  ], [badges]);
 
   const handleNavigation = useCallback((path: string, isChat?: boolean) => {
     haptics.light();
