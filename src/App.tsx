@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AxiomSyncProvider } from "@/contexts/AxiomSyncContext";
 import { ChatProvider } from "@/contexts/ChatContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
+import { MobileToastProvider } from "@/components/mobile/Toast";
 import Auth from "./pages/Auth";
 import Intelligence from "./pages/Intelligence";
 import Execution from "./pages/Execution";
@@ -107,7 +108,9 @@ const App = () => (
             <SidebarProvider>
               <AxiomSyncProvider>
                 <ChatProvider>
-                  <AppRoutes />
+                  <MobileToastProvider>
+                    <AppRoutes />
+                  </MobileToastProvider>
                 </ChatProvider>
               </AxiomSyncProvider>
             </SidebarProvider>
