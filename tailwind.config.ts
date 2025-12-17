@@ -17,25 +17,32 @@ export default {
          TYPOGRAPHY
          ===================================================== */
       fontFamily: {
-        'sans': ['Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        'sans': ['Inter Variable', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
         'orbitron': ['Orbitron', 'sans-serif'],
         'mono': ['JetBrains Mono', 'SF Mono', 'Consolas', 'monospace'],
       },
 
       /* =====================================================
-         SHADOWS (Dark-first optimized)
+         SHADOWS (Dark-first optimized + colored)
          ===================================================== */
       boxShadow: {
-        'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
+        'xs': '0 1px 2px 0 rgba(0, 0, 0, 0.25)',
+        'sm': '0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.3)',
         'md': '0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3)',
         'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4)',
         'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5)',
+        '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+        // Glow effects
         'glow': '0 0 30px hsl(var(--primary) / 0.3)',
         'glow-sm': '0 0 15px hsl(var(--primary) / 0.3)',
         'glow-lg': '0 0 50px hsl(var(--primary) / 0.4)',
         'glow-success': '0 0 30px hsl(var(--success) / 0.3)',
         'glow-warning': '0 0 30px hsl(var(--warning) / 0.3)',
         'glow-error': '0 0 30px hsl(var(--error) / 0.3)',
+        // Colored shadows for CTAs
+        'primary': '0 8px 16px -4px rgba(37, 99, 235, 0.3)',
+        'secondary': '0 8px 16px -4px rgba(6, 182, 212, 0.3)',
+        'accent': '0 8px 16px -4px rgba(124, 58, 237, 0.3)',
       },
 
       /* =====================================================
@@ -98,7 +105,8 @@ export default {
           foreground: 'hsl(0 0% 100%)',
         },
         info: {
-          DEFAULT: 'hsl(217 91% 60%)',
+          DEFAULT: 'hsl(var(--info))',
+          subtle: 'hsl(var(--info-subtle))',
           foreground: 'hsl(0 0% 100%)',
         },
 
@@ -116,17 +124,30 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
 
-        // Primary with states
+        // Primary (Blue) with states
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
           hover: "hsl(var(--primary-hover))",
           active: "hsl(var(--primary-active))",
+          light: "hsl(var(--primary-light))",
           subtle: "hsl(var(--primary-subtle))",
         },
+        // Secondary (Cyan) with states
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
+          hover: "hsl(var(--secondary-hover))",
+          light: "hsl(var(--secondary-light))",
+          subtle: "hsl(var(--secondary-subtle))",
+        },
+        // Accent (Purple) with states
+        accent: {
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))",
+          hover: "hsl(var(--accent-hover))",
+          light: "hsl(var(--accent-light))",
+          subtle: "hsl(var(--accent-subtle))",
         },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
@@ -135,10 +156,6 @@ export default {
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -180,12 +197,26 @@ export default {
          ===================================================== */
       borderRadius: {
         'none': 'var(--radius-none)',
+        'xs': 'var(--radius-xs)',
         'sm': 'var(--radius-sm)',
         'md': 'var(--radius-md)',
         'lg': 'var(--radius-lg)',
         'xl': 'var(--radius-xl)',
         '2xl': 'var(--radius-2xl)',
         'full': 'var(--radius-full)',
+      },
+
+      /* =====================================================
+         BACKGROUND IMAGES (Gradients)
+         ===================================================== */
+      backgroundImage: {
+        'gradient-primary': 'var(--gradient-primary)',
+        'gradient-secondary': 'var(--gradient-secondary)',
+        'gradient-score-high': 'var(--gradient-score-high)',
+        'gradient-score-mid': 'var(--gradient-score-mid)',
+        'gradient-score-low': 'var(--gradient-score-low)',
+        'gradient-glass': 'var(--gradient-glass)',
+        'gradient-text': 'var(--gradient-text)',
       },
 
       /* =====================================================

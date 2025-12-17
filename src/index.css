@@ -3,36 +3,30 @@
 @tailwind utilities;
 
 /* =====================================================
-   AXIOM DESIGN SYSTEM - Design Tokens v2.0
+   AXIOM DESIGN SYSTEM v3.0 - Blue/Cyan/Purple Identity
    =====================================================
    
-   CORES:
-   - Primary: Indigo (#6366F1 / hsl 239 84% 67%) - Identidade da marca
-   - Background: 3 níveis de elevação (base → card → popover → elevated-3)
-   - Semânticas: success, warning, error com variantes subtle
+   CORES PRINCIPAIS:
+   - Primary: Blue (#2563EB) - CTAs e elementos de ação
+   - Secondary: Cyan (#06B6D4) - Links e informações
+   - Accent: Purple (#7C3AED) - Badges e destaques especiais
    
-   TIPOGRAFIA:
-   - Sans: Inter (UI)
-   - Display: Orbitron (Branding)
-   - Mono: JetBrains Mono (Code)
+   BACKGROUNDS (Dark-first):
+   - Base: #0B0B0F (quase preto com azul sutil)
+   - Elevated: 3 níveis de elevação
    
-   MOTION:
-   - ease-smooth: Transições gerais
-   - ease-spring: Feedback tátil
-   - ease-expo: Modais/overlays
-   
-   ESPAÇAMENTO:
-   - 8pt grid system
-   - space-1 (4px) até space-16 (64px)
+   GRADIENTES:
+   - Primary: Blue → Purple (CTAs premium)
+   - Secondary: Cyan → Blue (informativo)
+   - Score: Verde/Amarelo/Vermelho (performance)
    
    GLASSMORPHISM:
-   - glass-sm, glass-md, glass-lg
-   - Blur + bg translúcido + border sutil
+   - Blue tint sutil para identidade
    
    ===================================================== */
 
 /* =====================================================
-   MOTION & SPACING TOKENS (Light/Dark agnostic)
+   GLOBAL TOKENS (Light/Dark agnostic)
    ===================================================== */
 :root {
   /* === MOTION TOKENS === */
@@ -63,57 +57,73 @@
   
   /* === RADIUS SCALE === */
   --radius-none: 0;
-  --radius-sm: 0.25rem;   /* 4px */
+  --radius-xs: 0.25rem;   /* 4px */
+  --radius-sm: 0.375rem;  /* 6px */
   --radius-md: 0.5rem;    /* 8px - default */
   --radius-lg: 0.75rem;   /* 12px */
   --radius-xl: 1rem;      /* 16px */
   --radius-2xl: 1.5rem;   /* 24px */
   --radius-full: 9999px;
 
-  /* =====================================================
-     CONVENÇÃO --color-* (Aliases Semânticos)
-     Para uso direto com var() em inline styles
-     ===================================================== */
-  
-  /* Backgrounds */
+  /* === SEMANTIC COLOR ALIASES === */
   --color-bg-base: hsl(var(--background));
   --color-bg-elevated: hsl(var(--card));
   --color-bg-elevated-2: hsl(var(--popover));
   --color-bg-elevated-3: hsl(var(--elevated-3));
   
-  /* Text */
   --color-text-primary: hsl(var(--foreground));
   --color-text-secondary: hsl(var(--muted-foreground));
-  --color-text-tertiary: hsl(240 5% 55%);
+  --color-text-tertiary: hsl(215 16% 47%);
   
-  /* Primary */
   --color-primary: hsl(var(--primary));
   --color-primary-hover: hsl(var(--primary-hover));
   --color-primary-active: hsl(var(--primary-active));
-  --color-primary-glow: hsl(var(--primary) / 0.3);
+  --color-primary-glow: hsl(var(--primary) / 0.25);
   --color-primary-foreground: hsl(var(--primary-foreground));
   
-  /* Semantic */
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-hover: hsl(var(--secondary-hover));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  
+  --color-accent: hsl(var(--accent));
+  --color-accent-hover: hsl(var(--accent-hover));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  
   --color-success: hsl(var(--success));
   --color-warning: hsl(var(--warning));
   --color-error: hsl(var(--error));
   --color-destructive: hsl(var(--destructive));
   
-  /* Borders */
   --color-border: hsl(var(--border));
   --color-border-subtle: hsl(var(--border-subtle));
   --color-border-medium: hsl(var(--border-medium));
   --color-border-strong: hsl(var(--border-strong));
   
-  /* Glass */
   --color-glass-bg: hsl(var(--glass-bg));
   --color-glass-border: hsl(var(--glass-border));
   
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  /* === SHADOWS === */
+  --shadow-xs: 0 1px 2px 0 rgba(0, 0, 0, 0.25);
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.3), 0 1px 2px -1px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.6);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   --shadow-glow: 0 0 30px var(--color-primary-glow);
+  
+  /* Colored shadows for CTAs */
+  --shadow-primary: 0 8px 16px -4px rgba(37, 99, 235, 0.3);
+  --shadow-accent: 0 8px 16px -4px rgba(124, 58, 237, 0.3);
+  --shadow-secondary: 0 8px 16px -4px rgba(6, 182, 212, 0.3);
+  
+  /* === GRADIENTS === */
+  --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(271 81% 56%) 100%);
+  --gradient-secondary: linear-gradient(135deg, hsl(187 94% 43%) 0%, hsl(217 91% 60%) 100%);
+  --gradient-score-high: linear-gradient(135deg, hsl(160 84% 39%) 0%, hsl(158 64% 32%) 100%);
+  --gradient-score-mid: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(32 95% 44%) 100%);
+  --gradient-score-low: linear-gradient(135deg, hsl(0 84% 60%) 0%, hsl(0 72% 51%) 100%);
+  --gradient-glass: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+  --gradient-text: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(187 94% 43%) 50%, hsl(271 81% 56%) 100%);
 }
 
 /* =====================================================
@@ -122,32 +132,43 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222 84% 5%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 84% 5%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 222 84% 5%;
+    
+    --elevated-3: 210 40% 98%;
 
-    /* === PRIMARY (Indigo) === */
-    --primary: 239 84% 67%;
+    /* === PRIMARY (Blue) === */
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 239 84% 57%;
-    --primary-active: 239 84% 47%;
-    --primary-subtle: 239 40% 95%;
+    --primary-hover: 217 91% 50%;
+    --primary-active: 217 91% 43%;
+    --primary-light: 217 91% 65%;
+    --primary-subtle: 217 91% 96%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* === SECONDARY (Cyan) === */
+    --secondary: 187 94% 43%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-hover: 187 94% 36%;
+    --secondary-light: 187 94% 54%;
+    --secondary-subtle: 187 94% 96%;
+    
+    /* === ACCENT (Purple) === */
+    --accent: 271 81% 56%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 271 81% 46%;
+    --accent-light: 271 81% 66%;
+    --accent-subtle: 271 81% 96%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
     /* === SEMANTIC COLORS === */
     --success: 160 84% 39%;
@@ -156,78 +177,84 @@
     --warning-subtle: 38 40% 95%;
     --error: 0 72% 50%;
     --error-subtle: 0 40% 95%;
+    --info: 217 91% 60%;
+    --info-subtle: 217 40% 96%;
 
     /* === BORDERS === */
-    --border: 214.3 31.8% 91.4%;
+    --border: 214 32% 91%;
     --border-subtle: 214 32% 96%;
-    --border-medium: 214.3 31.8% 91.4%;
+    --border-medium: 214 32% 91%;
     --border-strong: 214 32% 85%;
     
-    --input: 214.3 31.8% 91.4%;
-    --ring: 239 84% 67%;
+    --input: 214 32% 91%;
+    --ring: 217 91% 60%;
 
     --radius: 0.5rem;
 
-    /* === ELEVATED BACKGROUNDS === */
-    --elevated-3: 210 40% 98%;
-
     /* === GLASSMORPHISM === */
     --glass-bg: 0 0% 100% / 0.8;
-    --glass-border: 0 0% 0% / 0.08;
-    --glass-blur: 20px;
+    --glass-border: 217 91% 60% / 0.1;
+    --glass-blur: 24px;
 
     /* === SIDEBAR === */
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 239 84% 67%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-foreground: 222 84% 5%;
+    --sidebar-primary: 217 91% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 91% 96%;
+    --sidebar-accent-foreground: 222 84% 5%;
+    --sidebar-border: 214 32% 91%;
+    --sidebar-ring: 217 91% 60%;
   }
 
   /* =====================================================
      DARK MODE TOKENS
      ===================================================== */
   .dark {
-    /* ===== BASE LAYERS (Preto Profundo) ===== */
-    --background: 240 10% 4%;
-    --foreground: 0 0% 100%;
+    /* ===== BASE LAYERS (Preto Profundo com tint azul) ===== */
+    --background: 240 20% 4%;
+    --foreground: 210 40% 98%;
 
     /* ===== CARDS (Elevação +1) ===== */
-    --card: 222 14% 9%;
-    --card-foreground: 0 0% 100%;
+    --card: 240 17% 9%;
+    --card-foreground: 210 40% 98%;
 
     /* ===== POPOVERS (Elevação +2) ===== */
-    --popover: 222 11% 13%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 240 14% 12%;
+    --popover-foreground: 210 40% 98%;
 
     /* ===== ELEVATED-3 (Elevação +3) ===== */
-    --elevated-3: 222 11% 17%;
+    --elevated-3: 240 12% 16%;
 
-    /* ===== PRIMARY (Indigo - Premium Identity) ===== */
-    --primary: 239 84% 67%;
+    /* ===== PRIMARY (Blue - Action Identity) ===== */
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 239 84% 57%;
-    --primary-active: 239 84% 47%;
-    --primary-subtle: 239 40% 15%;
+    --primary-hover: 217 91% 50%;
+    --primary-active: 217 91% 43%;
+    --primary-light: 217 91% 65%;
+    --primary-subtle: 217 91% 15%;
 
-    /* ===== SECONDARY ===== */
-    --secondary: 222 14% 9%;
-    --secondary-foreground: 0 0% 98%;
+    /* ===== SECONDARY (Cyan - Info/Links) ===== */
+    --secondary: 187 94% 43%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-hover: 187 94% 36%;
+    --secondary-light: 187 94% 54%;
+    --secondary-subtle: 187 94% 15%;
+
+    /* ===== ACCENT (Purple - Special highlights) ===== */
+    --accent: 271 81% 56%;
+    --accent-foreground: 0 0% 100%;
+    --accent-hover: 271 81% 46%;
+    --accent-light: 271 81% 66%;
+    --accent-subtle: 271 81% 15%;
 
     /* ===== MUTED (Texto Secundário WCAG AA) ===== */
-    --muted: 222 14% 9%;
-    --muted-foreground: 240 5% 65%;
-
-    /* ===== ACCENT (Indigo subtle) ===== */
-    --accent: 239 40% 15%;
-    --accent-foreground: 0 0% 98%;
+    --muted: 240 14% 12%;
+    --muted-foreground: 215 16% 65%;
 
     /* ===== DESTRUCTIVE ===== */
     --destructive: 0 72% 45%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 0 0% 100%;
 
     /* ===== SEMANTIC COLORS ===== */
     --success: 160 84% 39%;
@@ -236,30 +263,32 @@
     --warning-subtle: 38 40% 15%;
     --error: 0 72% 45%;
     --error-subtle: 0 40% 15%;
+    --info: 217 91% 60%;
+    --info-subtle: 217 40% 15%;
 
     /* ===== BORDERS & INPUTS ===== */
     --border: 240 6% 10%;
-    --border-subtle: 0 0% 100% / 0.04;
-    --border-medium: 0 0% 100% / 0.08;
-    --border-strong: 0 0% 100% / 0.12;
+    --border-subtle: 215 16% 65% / 0.08;
+    --border-medium: 215 16% 65% / 0.15;
+    --border-strong: 215 16% 65% / 0.25;
     
-    --input: 222 14% 9%;
-    --ring: 239 84% 67%;
+    --input: 240 14% 12%;
+    --ring: 217 91% 60%;
 
-    /* ===== GLASSMORPHISM ===== */
-    --glass-bg: 0 0% 100% / 0.03;
-    --glass-border: 0 0% 100% / 0.08;
-    --glass-blur: 20px;
+    /* ===== GLASSMORPHISM (Blue tint) ===== */
+    --glass-bg: 217 91% 60% / 0.05;
+    --glass-border: 217 91% 60% / 0.15;
+    --glass-blur: 24px;
 
     /* ===== SIDEBAR ===== */
-    --sidebar-background: 240 10% 5%;
-    --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 239 84% 67%;
+    --sidebar-background: 240 18% 5%;
+    --sidebar-foreground: 210 40% 95%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 239 40% 15%;
-    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-accent: 217 91% 15%;
+    --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 240 6% 10%;
-    --sidebar-ring: 239 84% 67%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -269,8 +298,9 @@
 @layer components {
   /* ===== GLASSMORPHISM VARIANTS ===== */
   .glass {
-    @apply backdrop-blur-md border border-white/10;
-    background: hsla(222, 30%, 8%, 0.75);
+    @apply backdrop-blur-xl border;
+    background: hsla(240, 17%, 9%, 0.7);
+    border-color: hsl(var(--glass-border));
     box-shadow: 
       0 8px 32px rgba(0, 0, 0, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -307,6 +337,14 @@
     box-shadow: 0 0 50px hsl(var(--primary) / 0.4);
   }
 
+  .glow-secondary {
+    box-shadow: 0 0 30px hsl(var(--secondary) / 0.3);
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 30px hsl(var(--accent) / 0.3);
+  }
+
   .glow-success {
     box-shadow: 0 0 30px hsl(var(--success) / 0.3);
   }
@@ -341,7 +379,7 @@
   /* Axiom Question Glow Card */
   .axiom-question {
     @apply relative overflow-hidden;
-    @apply bg-gradient-to-br from-primary/10 to-purple-500/10;
+    @apply bg-gradient-to-br from-primary/10 to-accent/10;
     @apply border border-primary/20;
     @apply rounded-xl p-4;
   }
@@ -377,31 +415,36 @@
     animation: float 20s ease-in-out infinite;
   }
 
-  .orb-cyan {
+  .orb-primary {
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, hsl(239 84% 67%) 0%, transparent 70%);
+    background: radial-gradient(circle, hsl(217 91% 60%) 0%, transparent 70%);
     top: -10%;
     left: -10%;
   }
 
-  .orb-violet {
+  .orb-accent {
     width: 400px;
     height: 400px;
-    background: radial-gradient(circle, hsl(280 70% 60%) 0%, transparent 70%);
+    background: radial-gradient(circle, hsl(271 81% 56%) 0%, transparent 70%);
     bottom: -10%;
     right: 10%;
     animation-delay: -7s;
   }
 
-  .orb-blue {
+  .orb-secondary {
     width: 350px;
     height: 350px;
-    background: radial-gradient(circle, hsl(217 91% 60%) 0%, transparent 70%);
+    background: radial-gradient(circle, hsl(187 94% 43%) 0%, transparent 70%);
     top: 40%;
     right: -5%;
     animation-delay: -14s;
   }
+
+  /* Legacy aliases for backward compatibility */
+  .orb-cyan { @apply orb-primary; }
+  .orb-violet { @apply orb-accent; }
+  .orb-blue { @apply orb-secondary; }
 
   /* ===== INPUT PREMIUM ===== */
   .input-premium {
@@ -421,15 +464,15 @@
   .btn-gradient {
     @apply w-full py-3 px-4 rounded-lg font-semibold;
     @apply flex items-center justify-center gap-2;
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280 70% 60%) 100%);
+    background: var(--gradient-primary);
     @apply text-white border-0;
     transition: all var(--duration-base) var(--ease-smooth);
-    box-shadow: 0 0 20px hsl(var(--primary) / 0.3);
+    box-shadow: var(--shadow-primary);
   }
 
   .btn-gradient:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 0 30px hsl(var(--primary) / 0.5), 0 10px 40px rgba(0,0,0,0.2);
+    box-shadow: 0 12px 24px -4px rgba(37, 99, 235, 0.4), 0 4px 8px rgba(0,0,0,0.2);
   }
 
   .btn-gradient:active:not(:disabled) {
@@ -456,7 +499,21 @@
 
   /* ===== GRADIENT TEXT ===== */
   .gradient-text {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(280 70% 60%) 100%);
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-secondary {
+    background: var(--gradient-secondary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-full {
+    background: var(--gradient-text);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -488,6 +545,19 @@
 
   .elevated-3 {
     background: hsl(var(--elevated-3));
+  }
+
+  /* ===== SCORE CARD GRADIENTS ===== */
+  .score-high {
+    background: var(--gradient-score-high);
+  }
+
+  .score-mid {
+    background: var(--gradient-score-mid);
+  }
+
+  .score-low {
+    background: var(--gradient-score-low);
   }
 }
 
