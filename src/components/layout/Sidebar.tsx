@@ -4,7 +4,7 @@ import { Target, Wallet, Brain, Settings, LogOut, Menu, User, Sun, Moon, Refresh
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { MobileDrawer } from './MobileDrawer';
 import { useTheme } from 'next-themes';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/contexts/SidebarContext';
@@ -312,34 +312,25 @@ export const Sidebar = () => {
     <>
       {/* Mobile Trigger */}
       <div className="md:hidden fixed top-4 left-4 z-50">
-        <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-          <SheetTrigger asChild>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              className="backdrop-blur-sm shadow-md"
-              style={{ 
-                background: 'var(--color-bg-elevated)', 
-                borderColor: 'var(--color-border-subtle)' 
-              }}
-              aria-label="Abrir menu de navegação"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent 
-            side="left" 
-            className="w-64 p-0"
-            style={{
-              background: 'var(--color-glass-bg)',
-              backdropFilter: 'blur(var(--glass-blur))',
-              borderRight: '1px solid var(--color-glass-border)'
-            }}
-          >
-            <NavContent onClose={() => setMobileOpen(false)} />
-          </SheetContent>
-        </Sheet>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="backdrop-blur-sm shadow-md"
+          style={{ 
+            background: 'var(--color-bg-elevated)', 
+            borderColor: 'var(--color-border-subtle)' 
+          }}
+          onClick={() => setMobileOpen(true)}
+          aria-label="Abrir menu de navegação"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
       </div>
+
+      {/* Mobile Drawer com animação */}
+      <MobileDrawer open={mobileOpen} setOpen={setMobileOpen}>
+        <NavContent onClose={() => setMobileOpen(false)} />
+      </MobileDrawer>
 
       {/* Desktop Sidebar */}
       <aside 
