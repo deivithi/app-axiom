@@ -8,7 +8,7 @@ import { MobileDrawer } from './MobileDrawer';
 import { useTheme } from 'next-themes';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/contexts/SidebarContext';
-import axiomLogo from '@/assets/axiom-logo.png';
+import { Logo, LogoIcon } from './Logo';
 
 // === INTERFACES ===
 interface NavItem {
@@ -78,22 +78,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
           backdropFilter: 'blur(var(--glass-blur))'
         }}
       >
-        <div className={cn("flex items-center gap-2", collapsed && "flex-col")}>
-          <img 
-            src={axiomLogo} 
-            alt="Axiom Logo" 
-            className={cn(
-              "object-contain transition-all duration-[var(--duration-base)] ease-[var(--ease-smooth)]",
-              collapsed ? "w-10 h-10" : "w-12 h-12"
-            )} 
-          />
-          {!collapsed && (
-            <div>
-              <span className="font-semibold text-sm" style={{ color: 'var(--color-text-primary)' }}>Axiom</span>
-              <p className="text-xs" style={{ color: 'var(--color-text-secondary)' }}>Estrategista pessoal</p>
-            </div>
-          )}
-        </div>
+        {collapsed ? <LogoIcon size="md" /> : <Logo size="lg" />}
         
         {/* Toggle button interno simplificado */}
         {onToggle && (
