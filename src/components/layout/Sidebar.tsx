@@ -10,13 +10,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useSidebar } from '@/contexts/SidebarContext';
 import axiomLogo from '@/assets/axiom-logo.png';
 
-// 5 módulos core
+// 5 módulos core com suporte a badges
 const navItems = [
-  { icon: Sparkles, label: 'Motor de Inteligência', path: '/intelligence', description: 'Análise e insights' },
-  { icon: Wallet, label: 'CFO Pessoal', path: '/finances', description: 'Controle financeiro' },
-  { icon: CheckSquare, label: 'Sistema de Execução', path: '/execution', description: 'Tarefas e projetos' },
-  { icon: Target, label: 'Arquiteto de Rotina', path: '/habits', description: 'Hábitos e rotinas' },
-  { icon: Brain, label: 'Segunda Memória', path: '/memory', description: 'Pensamentos e reflexões' },
+  { icon: Sparkles, label: 'Motor de Inteligência', path: '/intelligence', description: 'Análise e insights', badge: 0 },
+  { icon: Wallet, label: 'CFO Pessoal', path: '/finances', description: 'Controle financeiro', badge: 0 },
+  { icon: CheckSquare, label: 'Sistema de Execução', path: '/execution', description: 'Tarefas e projetos', badge: 0 },
+  { icon: Target, label: 'Arquiteto de Rotina', path: '/habits', description: 'Hábitos e rotinas', badge: 0 },
+  { icon: Brain, label: 'Segunda Memória', path: '/memory', description: 'Pensamentos e reflexões', badge: 0 },
 ];
 
 const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; collapsed?: boolean }) => {
@@ -55,17 +55,19 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
   };
 
   return (
-    <div className="flex flex-col h-full bg-sidebar">
-      {/* Header com logo */}
+    <div className="flex flex-col h-full">
+      {/* Header com logo + glassmorphism */}
       <div className={cn(
-        "p-4 text-center border-b border-border/30",
+        "p-4 text-center border-b border-border-subtle",
+        "bg-glass backdrop-blur-[var(--glass-blur)]",
         collapsed && "px-2"
       )}>
         <img 
           src={axiomLogo} 
           alt="Axiom Logo" 
           className={cn(
-            "mx-auto mb-2 object-contain transition-all duration-200",
+            "mx-auto mb-2 object-contain",
+            "transition-all duration-[var(--duration-base)] ease-[var(--ease-smooth)]",
             collapsed ? "w-10 h-10" : "w-28 h-auto"
           )} 
         />
@@ -94,7 +96,8 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
                 onClick={onClose}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex items-center gap-4 rounded-lg transition-all duration-200',
+                  'flex items-center gap-4 rounded-lg',
+                  'transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
                   collapsed ? 'justify-center p-2' : 'px-3 py-2.5',
                   isActive 
                     ? 'text-primary' 
@@ -102,12 +105,20 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
                 )}
               >
                 <div className={cn(
-                  'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200',
+                  'relative w-10 h-10 rounded-full flex items-center justify-center border-2',
+                  'transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
                   isActive 
-                    ? 'bg-primary border-primary text-primary-foreground' 
-                    : 'border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50'
+                    ? 'bg-primary border-primary text-primary-foreground shadow-glow-primary' 
+                    : 'border-border-medium text-muted-foreground hover:border-primary/50 hover:text-primary/70'
                 )}>
                   <item.icon className="h-5 w-5" />
+                  
+                  {/* Badge de notificação */}
+                  {item.badge > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-destructive text-[10px] font-bold flex items-center justify-center text-destructive-foreground shadow-sm">
+                      {item.badge > 9 ? '9+' : item.badge}
+                    </span>
+                  )}
                 </div>
                 {!collapsed && (
                   <div>
@@ -120,8 +131,8 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
           );
         })}
 
-        {/* Separador */}
-        <div className="border-t border-border/30 my-2" />
+        {/* Separador com token semântico */}
+        <div className="border-t border-border-subtle my-2" />
 
         {/* Configurações */}
         <NavItemWrapper label="Configurações">
@@ -130,7 +141,8 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             onClick={onClose}
             aria-current={location.pathname === '/settings' ? 'page' : undefined}
             className={cn(
-              'flex items-center gap-4 rounded-lg transition-all duration-200',
+              'flex items-center gap-4 rounded-lg',
+              'transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
               collapsed ? 'justify-center p-2' : 'px-3 py-2.5',
               location.pathname === '/settings' 
                 ? 'text-primary' 
@@ -138,10 +150,11 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             )}
           >
             <div className={cn(
-              'w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-200',
+              'w-10 h-10 rounded-full flex items-center justify-center border-2',
+              'transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
               location.pathname === '/settings' 
-                ? 'bg-primary border-primary text-primary-foreground' 
-                : 'border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50'
+                ? 'bg-primary border-primary text-primary-foreground shadow-glow-primary' 
+                : 'border-border-medium text-muted-foreground hover:border-primary/50 hover:text-primary/70'
             )}>
               <Settings className="h-5 w-5" />
             </div>
@@ -150,9 +163,10 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
         </NavItemWrapper>
       </nav>
 
-      {/* Bottom bar com ícones utilitários */}
+      {/* Bottom bar com glassmorphism */}
       <div className={cn(
-        "p-4 border-t border-border/30 flex items-center",
+        "p-4 border-t border-border-subtle flex items-center",
+        "bg-glass backdrop-blur-[var(--glass-blur)]",
         collapsed ? "flex-col gap-2 p-2" : "justify-around"
       )}>
         <Tooltip delayDuration={0}>
@@ -160,7 +174,7 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-[var(--duration-fast)]"
               onClick={handleUserClick}
               aria-label="Configurações de usuário"
             >
@@ -175,7 +189,7 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-[var(--duration-fast)]"
               onClick={handleThemeToggle}
               aria-label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
             >
@@ -190,7 +204,7 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-[var(--duration-fast)]"
               onClick={handleRefresh}
               aria-label="Atualizar página"
             >
@@ -205,7 +219,7 @@ const NavContent = ({ onClose, collapsed = false }: { onClose?: () => void; coll
             <Button 
               variant="ghost" 
               size="icon" 
-              className="text-muted-foreground hover:text-destructive"
+              className="text-muted-foreground hover:text-destructive transition-colors duration-[var(--duration-fast)]"
               onClick={signOut}
               aria-label="Sair da conta"
             >
@@ -232,30 +246,41 @@ export const Sidebar = () => {
             <Button 
               variant="outline" 
               size="icon" 
-              className="bg-background"
+              className="bg-card/80 backdrop-blur-sm border-border-subtle shadow-md"
               aria-label="Abrir menu de navegação"
             >
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0 bg-sidebar">
+          <SheetContent 
+            side="left" 
+            className={cn(
+              "w-64 p-0",
+              "bg-glass backdrop-blur-[var(--glass-blur)]",
+              "border-r border-glass-border"
+            )}
+          >
             <NavContent onClose={() => setMobileOpen(false)} />
           </SheetContent>
         </Sheet>
       </div>
 
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar com glassmorphism */}
       <aside 
         className={cn(
-          "hidden md:flex flex-col bg-sidebar border-r border-border h-screen fixed left-0 top-0",
-          "transition-[width] duration-200 ease-out will-change-[width]",
+          "hidden md:flex flex-col h-screen fixed left-0 top-0",
+          "transition-[width] duration-[var(--duration-base)] ease-[var(--ease-smooth)] will-change-[width]",
+          // Glassmorphism
+          "bg-glass backdrop-blur-[var(--glass-blur)]",
+          "border-r border-glass-border",
+          "shadow-lg",
           collapsed ? "w-16" : "w-64"
         )}
         aria-label="Barra lateral de navegação"
       >
         <NavContent collapsed={collapsed} />
         
-        {/* Toggle Button */}
+        {/* Toggle Button refinado */}
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <Button
@@ -266,9 +291,11 @@ export const Sidebar = () => {
               aria-controls="sidebar-nav"
               aria-label={collapsed ? "Expandir menu" : "Colapsar menu"}
               className={cn(
-                "absolute -right-3 top-20 h-6 w-6 rounded-full border bg-background shadow-md",
-                "text-muted-foreground hover:text-foreground hover:bg-accent",
-                "transition-transform duration-200"
+                "absolute -right-3 top-20 h-6 w-6 rounded-full",
+                "bg-elevated-3 border border-border-medium",
+                "shadow-md hover:shadow-lg",
+                "text-muted-foreground hover:text-primary",
+                "transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]"
               )}
             >
               {collapsed ? (
