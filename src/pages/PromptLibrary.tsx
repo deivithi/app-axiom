@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Star, Filter, Loader2, Plus, Sparkles, Clock, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { AppLayout } from "@/components/layout/AppLayout";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-
 interface Prompt {
   id: string;
   title: string;
@@ -174,7 +174,8 @@ export default function PromptLibrary() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 space-y-6">
+    <AppLayout>
+      <div className="min-h-screen bg-background p-4 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -345,7 +346,8 @@ export default function PromptLibrary() {
             </Card>
           ))}
         </div>
-      )}
-    </div>
+        )}
+      </div>
+    </AppLayout>
   );
 }
