@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.validate-memory-system]
 verify_jwt = false
+
+[functions.inject-variables]
+verify_jwt = false
+
+[functions.validate-memory-system]
+verify_jwt = false
