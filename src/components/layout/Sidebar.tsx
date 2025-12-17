@@ -1,6 +1,6 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { Target, Wallet, Brain, Settings, LogOut, Menu, User, Sun, Moon, RefreshCw, Sparkles, CheckSquare, ChevronLeft, ChevronRight, LucideIcon } from 'lucide-react';
+import { Target, Wallet, Brain, Settings, LogOut, Menu, Sun, Moon, RefreshCw, Sparkles, CheckSquare, ChevronLeft, ChevronRight, LucideIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
@@ -9,6 +9,7 @@ import { useTheme } from 'next-themes';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSidebar } from '@/contexts/SidebarContext';
 import { Logo, LogoIcon } from './Logo';
+import { UserProfileLink } from './UserProfileLink';
 
 // === INTERFACES ===
 interface NavItem {
@@ -34,14 +35,9 @@ const navItems: NavItem[] = [
 
 const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => void; collapsed?: boolean; onToggle?: () => void }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const { signOut } = useAuth();
   const { theme, setTheme } = useTheme();
 
-  const handleUserClick = () => {
-    navigate('/settings');
-    onClose?.();
-  };
 
   const handleThemeToggle = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');
@@ -211,6 +207,14 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
         </NavItemWrapper>
       </nav>
 
+      {/* User Profile Link */}
+      <div 
+        className={cn("px-4 py-3", collapsed && "px-2")}
+        style={{ borderTop: '1px solid var(--color-border-subtle)' }}
+      >
+        <UserProfileLink collapsed={collapsed} onClose={onClose} />
+      </div>
+
       {/* Bottom bar */}
       <div 
         className={cn("p-4 flex items-center", collapsed ? "flex-col gap-2 p-2" : "justify-around")}
@@ -220,22 +224,6 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
           backdropFilter: 'blur(var(--glass-blur))'
         }}
       >
-        <Tooltip delayDuration={0}>
-          <TooltipTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="transition-colors duration-[var(--duration-fast)]"
-              style={{ color: 'var(--color-text-secondary)' }}
-              onClick={handleUserClick}
-              aria-label="Configurações de usuário"
-            >
-              <User className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side={collapsed ? "right" : "top"}>Configurações</TooltipContent>
-        </Tooltip>
-        
         <Tooltip delayDuration={0}>
           <TooltipTrigger asChild>
             <Button 
