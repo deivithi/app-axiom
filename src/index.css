@@ -1519,3 +1519,27 @@
     padding: 12px;
   }
 }
+
+/* ========================================
+   LIGHT MODE CONTRAST FIX
+   ======================================== */
+
+/* Light mode: texto escuro para contraste */
+:root .chat-message.user .message-content {
+  color: hsl(var(--foreground) / 0.9);
+}
+
+:root .chat-message.user .message-bubble {
+  background: hsl(var(--secondary) / 0.15);
+  border-color: hsl(var(--secondary) / 0.3);
+}
+
+/* Dark mode: manter texto claro */
+.dark .chat-message.user .message-content {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.dark .chat-message.user .message-bubble {
+  background: rgba(0, 230, 255, 0.12);
+  border-color: rgba(0, 230, 255, 0.25);
+}
