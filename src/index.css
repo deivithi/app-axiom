@@ -1137,6 +1137,160 @@
 }
 
 /* ========================================
+   CHAT MESSAGE BUBBLES (GLASSMORPHISM)
+   ======================================== */
+
+/* Container de mensagens */
+.chat-messages-container {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Base do chat-message */
+.chat-message {
+  display: flex;
+  max-width: 85%;
+}
+
+.chat-message.assistant {
+  align-self: flex-start;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+  justify-content: flex-end;
+}
+
+/* ========================================
+   BALÃO GLASSMORPHIC - AXIOM (AI)
+   ======================================== */
+
+.message-bubble {
+  /* Glassmorphism Apple-level */
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  
+  /* Border sutil luminosa */
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  
+  /* Padding generoso */
+  padding: 14px 18px;
+  
+  /* Shadow premium */
+  box-shadow: 
+    0 2px 12px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Corner estilo iMessage - canto superior esquerdo flat para AI */
+.chat-message.assistant .message-bubble {
+  border-top-left-radius: 6px;
+}
+
+/* ========================================
+   BALÃO GLASSMORPHIC - USUÁRIO
+   ======================================== */
+
+.chat-message.user .message-bubble {
+  /* Azul cyan glassmorphic */
+  background: rgba(0, 230, 255, 0.12);
+  border-color: rgba(0, 230, 255, 0.25);
+  
+  /* Corner estilo iMessage - canto inferior direito flat */
+  border-bottom-right-radius: 6px;
+  border-top-left-radius: 18px;
+  
+  /* Glow sutil */
+  box-shadow: 
+    0 2px 12px rgba(0, 230, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* ========================================
+   TIMESTAMP (DISCRETO)
+   ======================================== */
+
+.message-timestamp {
+  margin-top: 6px;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  color: hsl(var(--muted-foreground) / 0.6);
+  padding: 0 4px;
+}
+
+.chat-message.user .message-timestamp {
+  text-align: right;
+}
+
+/* ========================================
+   AVATAR
+   ======================================== */
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.message-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border) / 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ========================================
+   ANIMAÇÃO ENTRADA
+   ======================================== */
+
+@keyframes message-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-message {
+  animation: message-fade-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@media (max-width: 768px) {
+  .chat-message {
+    max-width: 90%;
+  }
+  
+  .message-bubble {
+    padding: 12px 14px;
+  }
+}
+
+@media (max-width: 375px) {
+  .message-bubble {
+    padding: 10px 12px;
+  }
+}
+
+/* ========================================
    CHAT MESSAGE TYPOGRAPHY (CLAUDE-LEVEL)
    ======================================== */
 
