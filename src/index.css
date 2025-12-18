@@ -2187,6 +2187,40 @@
 }
 
 /* ========================================
+   THEME TOGGLE BUTTON
+   ======================================== */
+.theme-toggle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  
+  color: hsl(var(--foreground));
+  cursor: pointer;
+  
+  transition: all 0.3s var(--ease-smooth);
+}
+
+.theme-toggle:hover {
+  background: hsl(var(--muted));
+  transform: scale(1.05);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
+
+.theme-toggle svg {
+  transition: transform 0.5s var(--ease-spring), opacity 0.3s ease;
+}
+
+/* ========================================
    APPLE DESIGN SYSTEM - DASHBOARD THEMING
    ======================================== */
 
