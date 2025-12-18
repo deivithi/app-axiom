@@ -139,7 +139,7 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
   if (isCompact) {
     return (
       <aside className={cn(
-        "chat-panel fixed right-0 top-0 h-screen z-40",
+        "chat-panel fixed right-0 top-0 h-screen z-modal",
         "w-20 flex flex-col items-center",
         "bg-card/95 backdrop-blur-xl",
         "border-l border-border/50",
@@ -185,7 +185,7 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
 
   return (
     <aside className={cn(
-      "chat-panel fixed right-0 top-0 h-screen z-40",
+      "chat-panel fixed right-0 top-0 h-screen z-modal",
       "flex flex-col",
       "bg-card/95 backdrop-blur-xl",
       "border-l border-border/50",

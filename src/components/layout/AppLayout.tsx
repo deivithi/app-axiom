@@ -51,7 +51,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       />
       
       {/* Mobile: Bottom Navigation */}
-      {isMobile && <BottomNavigation />}
+      {isMobile && !chatOpen && <BottomNavigation />}
       
       {/* Mobile: Backdrop when chat is open */}
       {chatOpen && isMobile && (
