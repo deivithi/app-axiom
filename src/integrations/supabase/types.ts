@@ -733,6 +733,7 @@ export type Database = {
           transaction_date: string
           type: string
           user_id: string
+          version: number
         }
         Insert: {
           account_id?: string | null
@@ -752,6 +753,7 @@ export type Database = {
           transaction_date?: string
           type: string
           user_id: string
+          version?: number
         }
         Update: {
           account_id?: string | null
@@ -771,6 +773,7 @@ export type Database = {
           transaction_date?: string
           type?: string
           user_id?: string
+          version?: number
         }
         Relationships: [
           {
