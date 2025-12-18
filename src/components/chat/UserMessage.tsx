@@ -1,6 +1,7 @@
 import { User } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatMessageContent } from '@/lib/formatMessage';
 
 interface UserMessageProps {
   content: string;
@@ -25,8 +26,8 @@ export function UserMessage({ content, timestamp, avatarUrl }: UserMessageProps)
       <div className="message-row">
         <div className="message-column">
           <div className="message-bubble">
-            <div className="message-content whitespace-pre-wrap">
-              {content}
+            <div className="message-content">
+              {formatMessageContent(content)}
             </div>
           </div>
           <span className="message-timestamp">
