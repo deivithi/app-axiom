@@ -380,7 +380,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_transaction",
-      description: "Cria uma nova transação financeira (receita ou despesa). CRÍTICO: SEMPRE envie transaction_date (YYYY-MM-DD) - consulte CALENDÁRIO no system prompt para a data correta. Se usuário não mencionar data, use a data de HOJE. NUNCA omita transaction_date! Suporta: transações simples, fixas (is_fixed=true), ou parceladas (is_installment=true + total_installments). Para parcelas, amount é o valor DE CADA PARCELA.",
+      description: "Cria uma nova transação financeira (receita ou despesa). CRÍTICO: SEMPRE envie transaction_date (YYYY-MM-DD) - consulte CALENDÁRIO no system prompt para a data correta. Se usuário não mencionar data, use a data de HOJE. NUNCA omita transaction_date! Suporta: transações simples, fixas (is_fixed=true com recurrence_day), ou parceladas (is_installment=true + total_installments). Para parcelas, amount é o valor DE CADA PARCELA. Para transações fixas, use recurrence_day para definir o dia do mês em que a transação recorre (ex: 'todo dia 5').",
       parameters: {
         type: "object",
         properties: {
@@ -389,7 +389,8 @@ const tools = [
           type: { type: "string", enum: ["income", "expense"], description: "Tipo: receita ou despesa" },
           category: { type: "string", description: "Categoria da transação" },
           transaction_date: { type: "string", description: "OBRIGATÓRIO: Data no formato YYYY-MM-DD. Use CALENDÁRIO do system prompt. Se não mencionada pelo usuário, use HOJE. NUNCA deixe em branco!" },
-          is_fixed: { type: "boolean", description: "Se é uma despesa fixa/recorrente (aparece todos os meses)" },
+          is_fixed: { type: "boolean", description: "Se é uma despesa fixa/recorrente (aparece todos os meses). Use com recurrence_day para definir o dia." },
+          recurrence_day: { type: "number", description: "Dia do mês para transações fixas (1-31). Ex: 5 para 'todo dia 5', 10 para 'todo dia 10'. Se usuário mencionar 'dia 5' ou 'todo dia 5', use recurrence_day=5. Se não informado, usa o dia de transaction_date." },
           is_installment: { type: "boolean", description: "Se é uma compra parcelada (ex: 10x, 12x). Use junto com total_installments" },
           total_installments: { type: "number", description: "Número total de parcelas (ex: 10 para 10x, 12 para 12x). Obrigatório quando is_installment=true" },
           payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento. Para parcelas, geralmente é Crédito" },
@@ -1766,7 +1767,12 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         };
       }
       
-      // Transação simples ou fixa - AGORA USA transaction_date
+      // Transação simples ou fixa - AGORA USA transaction_date e recurrence_day
+      // Calculate recurrence_day: use provided value, or extract from transaction_date
+      const recurrenceDay = args.is_fixed 
+        ? (args.recurrence_day || transactionDate.getDate())
+        : null;
+      
       const { data, error } = await supabaseAdmin.from("transactions").insert({
         user_id: userId,
         title: args.title,
@@ -1779,12 +1785,13 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         is_paid: false,
         transaction_date: transactionDateStr,
         reference_month: args.is_fixed ? referenceMonth : null,
-        account_id: args.account_id || null
+        account_id: args.account_id || null,
+        recurrence_day: recurrenceDay
       }).select().single();
       if (error) throw error;
       
       const dateMsg = args.transaction_date ? ` para ${transactionDate.toLocaleDateString('pt-BR')}` : "";
-      const fixedMsg = args.is_fixed ? " (recorrente - aparecerá em todos os meses futuros)" : "";
+      const fixedMsg = args.is_fixed ? ` (recorrente - todo dia ${recurrenceDay} de cada mês)` : "";
       const accountMsg = args.account_id ? " Vinculada à conta selecionada." : "";
       return { success: true, transaction: data, message: `Transação "${args.title}"${dateMsg} criada com sucesso!${fixedMsg}${accountMsg} 💰` };
     }
