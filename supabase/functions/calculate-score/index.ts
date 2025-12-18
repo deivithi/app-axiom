@@ -6,6 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ===== HELPERS PARA TIMEZONE DO BRASIL =====
+function getBrazilDateStr(date?: Date): string {
+  const d = date || new Date();
+  const brazilDate = new Date(d.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const year = brazilDate.getFullYear();
+  const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getBrazilNow(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+}
+
 interface ScoreBreakdown {
   total_score: number;
   execution: { score: number; tasksCompleted: number; tasksTotal: number; rate: number };
@@ -16,10 +30,10 @@ interface ScoreBreakdown {
 }
 
 async function calculateScoreBreakdown(supabase: any, userId: string): Promise<ScoreBreakdown> {
-  const now = new Date();
+  const now = getBrazilNow();
   const thirtyDaysAgo = new Date(now);
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+  const thirtyDaysAgoStr = getBrazilDateStr(thirtyDaysAgo);
 
   // 1. EXECUTION: Task completion rate (last 30 days)
   const { data: tasks } = await supabase
@@ -41,7 +55,7 @@ async function calculateScoreBreakdown(supabase: any, userId: string): Promise<S
     .from("transactions")
     .select("amount, type, transaction_date")
     .eq("user_id", userId)
-    .gte("transaction_date", sixMonthsAgo.toISOString().split("T")[0]);
+    .gte("transaction_date", getBrazilDateStr(sixMonthsAgo));
 
   const monthlyBalances: Record<string, number> = {};
   transactions?.forEach((t: any) => {

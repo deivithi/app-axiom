@@ -34,6 +34,21 @@ function getBrazilDate(dateStr?: string): { date: Date; dateStr: string; referen
   };
 }
 
+// Helper para obter string de data no Brasil (YYYY-MM-DD)
+function getBrazilDateStr(date?: Date): string {
+  const d = date || new Date();
+  const brazilDate = new Date(d.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const year = brazilDate.getFullYear();
+  const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Helper para obter Date atual no timezone do Brasil
+function getBrazilNow(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+}
+
 // ===== HELPER PARA ADICIONAR MESES SEM OVERFLOW DE DIAS =====
 function addMonthsSafe(baseDate: Date, monthsToAdd: number): Date {
   const result = new Date(baseDate);
@@ -1500,7 +1515,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       if (error) throw error;
       
       // Get today's logs for each habit
-      const today = new Date().toISOString().split("T")[0];
+      const today = getBrazilDateStr();
       const { data: todayLogs } = await supabaseAdmin
         .from("habit_logs")
         .select("habit_id")
@@ -1601,7 +1616,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         .select("*")
         .eq("habit_id", args.habit_id)
         .eq("user_id", userId)
-        .gte("completed_at", startDate.toISOString().split("T")[0])
+        .gte("completed_at", getBrazilDateStr(startDate))
         .order("completed_at", { ascending: false });
         
       if (error) throw error;
@@ -1865,7 +1880,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         .eq("user_id", userId)
         .eq("type", "expense")
         .eq("is_paid", false)
-        .gte("transaction_date", startOfMonth.toISOString().split("T")[0])
+        .gte("transaction_date", getBrazilDateStr(startOfMonth))
         .order("amount", { ascending: false });
       
       if (error) throw error;
@@ -1886,7 +1901,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabaseAdmin.from("transactions").select("*").eq("user_id", userId).gte("transaction_date", startOfMonth.toISOString().split("T")[0]);
+      const { data, error } = await supabaseAdmin.from("transactions").select("*").eq("user_id", userId).gte("transaction_date", getBrazilDateStr(startOfMonth));
       if (error) throw error;
 
       const income = data.filter((t: any) => t.type === "income").reduce((sum: number, t: any) => sum + Number(t.amount), 0);
@@ -2097,7 +2112,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         content: args.content,
         mood: moodValue,
         tags: args.tags || null,
-        entry_date: new Date().toISOString().split('T')[0]
+        entry_date: getBrazilDateStr()
       }).select().single();
       if (error) throw error;
       
@@ -2471,7 +2486,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       const now = new Date();
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+      const thirtyDaysAgoStr = getBrazilDateStr(thirtyDaysAgo);
 
       // 1. EXECUTION
       const { data: tasks } = await supabaseAdmin.from("tasks").select("status").eq("user_id", userId).gte("created_at", thirtyDaysAgoStr);
@@ -2483,7 +2498,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       // 2. FINANCIAL
       const sixMonthsAgo = new Date(now);
       sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      const { data: transactions } = await supabaseAdmin.from("transactions").select("amount, type, transaction_date").eq("user_id", userId).gte("transaction_date", sixMonthsAgo.toISOString().split("T")[0]);
+      const { data: transactions } = await supabaseAdmin.from("transactions").select("amount, type, transaction_date").eq("user_id", userId).gte("transaction_date", getBrazilDateStr(sixMonthsAgo));
       const monthlyBalances: Record<string, number> = {};
       transactions?.forEach((t: any) => {
         const month = t.transaction_date.substring(0, 7);
@@ -2598,7 +2613,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
       const now = new Date();
       const thirtyDaysAgo = new Date(now);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+      const thirtyDaysAgoStr = getBrazilDateStr(thirtyDaysAgo);
 
       const { data: tasks } = await supabaseAdmin.from("tasks").select("status").eq("user_id", userId).gte("created_at", thirtyDaysAgoStr);
       const { data: habitLogs } = await supabaseAdmin.from("habit_logs").select("completed_at").eq("user_id", userId).gte("completed_at", thirtyDaysAgoStr);
@@ -2862,7 +2877,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         .from("transactions")
         .select("*")
         .eq("user_id", userId)
-        .gte("transaction_date", sixtyDaysAgo.toISOString().split("T")[0]);
+        .gte("transaction_date", getBrazilDateStr(sixtyDaysAgo));
       
       // Calculate average daily expense
       const expenses = recentTransactions?.filter((t: any) => t.type === "expense" && t.is_paid) || [];
@@ -2953,7 +2968,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         .select("*")
         .eq("user_id", userId)
         .eq("type", "expense")
-        .gte("transaction_date", threeMonthsAgo.toISOString().split("T")[0]);
+        .gte("transaction_date", getBrazilDateStr(threeMonthsAgo));
       
       let itemsAnalyzed: Array<{ name: string; monthly_avg: number }> = [];
       let totalMonthlySavings = 0;
@@ -3025,7 +3040,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         .select("*")
         .eq("user_id", userId)
         .eq("type", "expense")
-        .gte("transaction_date", ninetyDaysAgo.toISOString().split("T")[0]);
+        .gte("transaction_date", getBrazilDateStr(ninetyDaysAgo));
       
       const { data: scoreHistory } = await supabaseAdmin
         .from("axiom_score_history")
@@ -3038,7 +3053,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         .from("habit_logs")
         .select("completed_at")
         .eq("user_id", userId)
-        .gte("completed_at", ninetyDaysAgo.toISOString().split("T")[0]);
+        .gte("completed_at", getBrazilDateStr(ninetyDaysAgo));
       
       // Analyze by day of week
       const dayOfWeekTotals: Record<number, { total: number; count: number }> = {};
@@ -3133,7 +3148,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         .select("*")
         .eq("user_id", userId)
         .eq("type", "expense")
-        .gte("transaction_date", startDate.toISOString().split("T")[0]);
+        .gte("transaction_date", getBrazilDateStr(startDate));
       
       // If specific category requested
       if (args.category) {
@@ -3208,7 +3223,7 @@ REGRAS: Estruture em 3 partes curtas: 🔍 DIAGNÓSTICO (1-2 frases), 💡 INSIG
         .select("amount, type, is_paid")
         .eq("user_id", userId)
         .eq("is_paid", true)
-        .gte("transaction_date", threeMonthsAgo.toISOString().split("T")[0]);
+        .gte("transaction_date", getBrazilDateStr(threeMonthsAgo));
       
       const income = transactions?.filter((t: any) => t.type === "income").reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;
       const expenses = transactions?.filter((t: any) => t.type === "expense").reduce((sum: number, t: any) => sum + Number(t.amount), 0) || 0;

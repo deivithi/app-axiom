@@ -7,6 +7,20 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// ===== HELPERS PARA TIMEZONE DO BRASIL =====
+function getBrazilDateStr(date?: Date): string {
+  const d = date || new Date();
+  const brazilDate = new Date(d.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const year = brazilDate.getFullYear();
+  const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getBrazilNow(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -43,7 +57,7 @@ serve(async (req) => {
     for (const profile of profiles || []) {
       try {
         // Check if user already has a pending question today
-        const today = new Date().toISOString().split('T')[0];
+        const today = getBrazilDateStr();
         const { data: existingQuestion } = await supabase
           .from('proactive_questions')
           .select('id')
@@ -70,12 +84,12 @@ serve(async (req) => {
             .from('habit_logs')
             .select('id')
             .eq('user_id', profile.id)
-            .gte('completed_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+            .gte('completed_at', getBrazilDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))),
           supabase
             .from('transactions')
             .select('type, amount')
             .eq('user_id', profile.id)
-            .gte('transaction_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+            .gte('transaction_date', getBrazilDateStr(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)))
         ]);
 
         const pendingTasks = tasksResult.data?.length || 0;
@@ -90,7 +104,7 @@ serve(async (req) => {
           .reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
         // Generate contextual daily question
-        const dayOfWeek = new Date().getDay();
+        const dayOfWeek = getBrazilNow().getDay();
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
         
         let question: string;
