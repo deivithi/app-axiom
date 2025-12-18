@@ -407,6 +407,8 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          deleted_at: string | null
+          deletion_scheduled_for: string | null
           full_name: string | null
           id: string
           notification_preferences: Json | null
@@ -417,6 +419,8 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deletion_scheduled_for?: string | null
           full_name?: string | null
           id: string
           notification_preferences?: Json | null
@@ -427,6 +431,8 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          deleted_at?: string | null
+          deletion_scheduled_for?: string | null
           full_name?: string | null
           id?: string
           notification_preferences?: Json | null
@@ -674,6 +680,42 @@ export type Database = {
           title?: string
           updated_at?: string
           url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scheduled_deletions: {
+        Row: {
+          cancelled_at: string | null
+          confirmation_token: string | null
+          confirmed: boolean | null
+          executed_at: string | null
+          id: string
+          requested_at: string
+          scheduled_for: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          confirmation_token?: string | null
+          confirmed?: boolean | null
+          executed_at?: string | null
+          id?: string
+          requested_at?: string
+          scheduled_for: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          confirmation_token?: string | null
+          confirmed?: boolean | null
+          executed_at?: string | null
+          id?: string
+          requested_at?: string
+          scheduled_for?: string
+          status?: string
           user_id?: string
         }
         Relationships: []
