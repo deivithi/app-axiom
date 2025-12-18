@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -1010,11 +1011,9 @@ export default function Finances() {
                   </div>
                   <div className="space-y-2">
                     <Label>Valor (R$)</Label>
-                    <Input 
-                      type="number" 
-                      value={newTransaction.amount}
-                      onChange={e => setNewTransaction(prev => ({ ...prev, amount: e.target.value }))}
-                      placeholder="0,00"
+                    <CurrencyInput 
+                      value={parseFloat(newTransaction.amount) || 0}
+                      onChange={value => setNewTransaction(prev => ({ ...prev, amount: value.toString() }))}
                     />
                   </div>
                   <div className="space-y-2">
@@ -1227,11 +1226,9 @@ export default function Finances() {
                       </div>
                       <div className="space-y-2">
                         <Label>Valor (R$)</Label>
-                        <Input 
-                          type="number"
-                          value={newTransfer.amount}
-                          onChange={e => setNewTransfer(prev => ({ ...prev, amount: e.target.value }))}
-                          placeholder="0,00"
+                        <CurrencyInput 
+                          value={parseFloat(newTransfer.amount) || 0}
+                          onChange={value => setNewTransfer(prev => ({ ...prev, amount: value.toString() }))}
                         />
                       </div>
                       <div className="space-y-2">
@@ -1625,10 +1622,9 @@ export default function Finances() {
                 </div>
                 <div className="space-y-2">
                   <Label>Valor (R$)</Label>
-                  <Input 
-                    type="number"
+                  <CurrencyInput 
                     value={editingTransaction.amount}
-                    onChange={e => setEditingTransaction(prev => prev ? { ...prev, amount: parseFloat(e.target.value) || 0 } : null)}
+                    onChange={value => setEditingTransaction(prev => prev ? { ...prev, amount: value } : null)}
                   />
                 </div>
                 <div className="space-y-2">
