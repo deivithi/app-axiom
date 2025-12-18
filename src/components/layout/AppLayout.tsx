@@ -53,10 +53,10 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       {/* Mobile: Bottom Navigation */}
       {isMobile && !chatOpen && <BottomNavigation />}
       
-      {/* Mobile: Backdrop when chat is open */}
+      {/* Mobile: Backdrop when chat is open - z-index between fixed (150) and modal (250) */}
       {chatOpen && isMobile && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
           onClick={() => setChatOpen(false)}
         />
       )}
