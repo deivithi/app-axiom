@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -222,9 +222,9 @@ export default function Auth() {
                   )}
 
                   {/* Forgot Password */}
-                  <a href="#" className="inline-block text-sm text-muted-foreground hover:text-primary transition-colors">
+                  <Link to="/reset-password" className="inline-block text-sm text-muted-foreground hover:text-primary transition-colors">
                     Esqueceu sua senha?
-                  </a>
+                  </Link>
 
                   {/* Submit Button */}
                   <button type="submit" className="btn-gradient" disabled={loading}>

@@ -11,7 +11,11 @@ import { ChatProvider } from "@/contexts/ChatContext";
 import { SidebarProvider } from "@/contexts/SidebarContext";
 import { MemoryProvider } from "@/contexts/MemoryContext";
 import { MobileToastProvider } from "@/components/mobile/Toast";
+import { Loader2 } from "lucide-react";
+import { StarryBackground } from "@/components/ui/starry-background";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 import Intelligence from "./pages/Intelligence";
 import Execution from "./pages/Execution";
 import Habits from "./pages/Habits";
@@ -22,8 +26,6 @@ import MemoryValidation from "./pages/MemoryValidation";
 import PromptLibrary from "./pages/PromptLibrary";
 import PromptAnalysis from "./pages/PromptAnalysis";
 import NotFound from "./pages/NotFound";
-import { Loader2 } from "lucide-react";
-import { StarryBackground } from "@/components/ui/starry-background";
 
 const queryClient = new QueryClient();
 
@@ -89,6 +91,8 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Navigate to="/intelligence" replace />} />
       <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+      <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+      <Route path="/update-password" element={<UpdatePassword />} />
       <Route path="/chat" element={<Navigate to="/intelligence" replace />} />
       <Route path="/intelligence" element={<ProtectedRoute><Intelligence /></ProtectedRoute>} />
       <Route path="/execution" element={<ProtectedRoute><Execution /></ProtectedRoute>} />
