@@ -12,6 +12,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 import { ScoreCard } from '@/components/intelligence/ScoreCard';
 import { ScoreEvolutionChart } from '@/components/intelligence/ScoreEvolutionChart';
 import { AppleCard, MetricCard, ChartCard } from '@/components/ui/apple-card';
+import { formatCurrency } from '@/lib/utils';
 
 interface WeeklySummary {
   tasksCompleted: number;
@@ -308,7 +309,7 @@ export default function Intelligence() {
 
               <MetricCard
                 label="Saldo"
-                value={`R$${((summary?.income || 0) - (summary?.expenses || 0)).toFixed(0)}`}
+                value={formatCurrency((summary?.income || 0) - (summary?.expenses || 0))}
                 icon={<Wallet className="h-5 w-5 text-emerald-500" />}
                 color={(summary?.income || 0) - (summary?.expenses || 0) >= 0 ? "success" : "error"}
                 interactive
@@ -354,7 +355,7 @@ export default function Intelligence() {
                         <Cell fill="url(#gradientExpense)" />
                       </Pie>
                       <Tooltip 
-                        formatter={(value: number) => `R$${value.toFixed(2)}`}
+                        formatter={(value: number) => formatCurrency(value)}
                         contentStyle={{
                           background: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
