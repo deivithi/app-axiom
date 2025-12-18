@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 interface Prompt {
   id: string;
   title: string;
@@ -173,17 +174,15 @@ export default function PromptLibrary() {
 
   return (
     <AppLayout>
-      <div className="min-h-screen bg-background p-4 md:p-6 space-y-6">
+      <div className="min-h-screen bg-background p-4 md:p-6 space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
+        <div className="dashboard-header-apple" style={{ marginBottom: 0, paddingBottom: 0, borderBottom: 'none' }}>
+          <h1>
+            <Sparkles />
             Biblioteca de Prompts
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            {prompts.length} prompts salvos
-          </p>
+          <p>{prompts.length} prompts salvos • Otimize seus prompts com IA</p>
         </div>
 
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -280,36 +279,35 @@ export default function PromptLibrary() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPrompts.map(prompt => (
-            <Card
+            <div
               key={prompt.id}
-              className="group cursor-pointer hover:border-primary/50 transition-colors"
+              className="prompt-card-apple group cursor-pointer"
               onClick={() => navigate(`/prompts/${prompt.id}`)}
             >
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
-                    <CardTitle className="text-base line-clamp-1">{prompt.title}</CardTitle>
-                    <Badge variant="secondary" className="mt-1 text-xs">
+                    <h3 className="font-sf-display text-base font-semibold line-clamp-1">{prompt.title}</h3>
+                    <Badge variant="secondary" className="mt-2 text-xs">
                       {prompt.category}
                     </Badge>
                   </div>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 transition-transform duration-200"
                     onClick={e => {
                       e.stopPropagation();
                       toggleFavorite(prompt);
                     }}
                   >
-                    <Star className={`h-4 w-4 ${prompt.is_pinned ? "fill-yellow-500 text-yellow-500" : ""}`} />
+                    <Star className={`h-4 w-4 transition-all duration-200 ${prompt.is_pinned ? "fill-yellow-500 text-yellow-500 scale-110" : ""}`} />
                   </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground line-clamp-3 mb-3">
+                
+                <p className="text-sm text-muted-foreground line-clamp-3 mb-4">
                   {prompt.prompt_text}
                 </p>
 
@@ -321,9 +319,12 @@ export default function PromptLibrary() {
                   </div>
                 ) : prompt.analysis_score ? (
                   <div className="flex items-center gap-3">
-                    <div className={`px-2 py-1 rounded-md border text-sm font-medium ${getScoreBg(prompt.analysis_score)} ${getScoreColor(prompt.analysis_score)}`}>
+                    <span className={cn(
+                      'score-badge-apple',
+                      prompt.analysis_score >= 8 ? 'high' : prompt.analysis_score >= 5 ? 'medium' : 'low'
+                    )}>
                       {prompt.analysis_score}/10
-                    </div>
+                    </span>
                     {prompt.analysis_score < 8 && prompt.optimized_prompt && (
                       <span className="text-xs text-primary flex items-center gap-1">
                         <TrendingUp className="h-3 w-3" />
@@ -335,13 +336,13 @@ export default function PromptLibrary() {
 
                 {/* Usage stats */}
                 {prompt.usage_count > 0 && (
-                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     Usado {prompt.usage_count}x
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
         </div>
         )}

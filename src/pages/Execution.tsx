@@ -282,15 +282,13 @@ export default function Execution() {
 
   return (
     <AppLayout>
-      <div className="p-4 pl-16 md:pl-6 md:p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <CheckSquare className="h-6 w-6 text-primary" />
-              Sistema de Execução
-            </h1>
-            <p className="text-muted-foreground">Tarefas e projetos unificados</p>
-          </div>
+      <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-8">
+        <div className="dashboard-header-apple">
+          <h1>
+            <CheckSquare />
+            Sistema de Execução
+          </h1>
+          <p>Tarefas e projetos unificados para máxima produtividade</p>
         </div>
 
         {loading ? (
@@ -298,13 +296,13 @@ export default function Execution() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <Tabs defaultValue="tasks" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="tasks" className="gap-2">
+          <Tabs defaultValue="tasks" className="space-y-6 tabs-apple">
+            <TabsList className="bg-muted/50 p-1 rounded-xl">
+              <TabsTrigger value="tasks" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <CheckSquare className="h-4 w-4" />
                 Tarefas ({tasks.length})
               </TabsTrigger>
-              <TabsTrigger value="projects" className="gap-2">
+              <TabsTrigger value="projects" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <FolderKanban className="h-4 w-4" />
                 Projetos ({projects.length})
               </TabsTrigger>
@@ -403,21 +401,21 @@ export default function Execution() {
                   }}
                 />
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {columns.map((col) => (
-                    <Card
+                    <div
                       key={col.id}
-                      className={cn('min-h-[400px]', col.color)}
+                      className="kanban-column-apple"
                       onDrop={(e) => handleDrop(e, col.id)}
                       onDragOver={handleDragOver}
                     >
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-lg flex items-center gap-2">
+                      <div className="column-header">
+                        <div className="column-title">
                           {col.title}
-                          <Badge variant="secondary">{tasks.filter(t => t.status === col.id).length}</Badge>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="space-y-2">
+                          <Badge variant="secondary" className="ml-2">{tasks.filter(t => t.status === col.id).length}</Badge>
+                        </div>
+                      </div>
+                      <div className="column-content space-y-3">
                         {tasks.filter(t => t.status === col.id).length === 0 ? (
                           <p className="text-sm text-muted-foreground text-center py-8">
                             Arraste tarefas aqui
@@ -428,33 +426,32 @@ export default function Execution() {
                               key={task.id}
                               draggable
                               onDragStart={(e) => handleDragStart(e, task.id)}
-                              className="bg-background p-3 rounded-lg border cursor-move group"
+                              className="task-card-apple group"
                             >
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="flex items-start gap-2 flex-1">
-                                  <GripVertical className="h-4 w-4 text-muted-foreground mt-1 opacity-50" />
-                                  <div className="flex-1">
-                                    <p className="font-medium">{task.title}</p>
-                                    {task.description && <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>}
-                                    <Badge className={cn('mt-2 text-xs', priorityColors[task.priority])}>
-                                      {task.priority === 'low' ? 'Baixa' : task.priority === 'medium' ? 'Média' : 'Alta'}
-                                    </Badge>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-                                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTask({ ...task }); setEditTaskDialogOpen(true); }}>
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTask(task.id)}>
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
+                              <div className="flex items-start justify-between">
+                                <span className="task-title">{task.title}</span>
+                                <span className={cn('priority-badge', task.priority)}>
+                                  {task.priority === 'low' ? 'Baixa' : task.priority === 'medium' ? 'Média' : 'Alta'}
+                                </span>
+                              </div>
+                              {task.description && (
+                                <p className="task-description line-clamp-2">
+                                  {task.description}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-1 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditingTask({ ...task }); setEditTaskDialogOpen(true); }}>
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteTask(task.id)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               </div>
                             </div>
                           ))
                         )}
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}

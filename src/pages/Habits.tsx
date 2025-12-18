@@ -203,17 +203,18 @@ export default function Habits() {
 
   return (
     <AppLayout>
-      <div className="p-4 pl-16 md:pl-6 md:p-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Hábitos</h1>
-            <p className="text-muted-foreground">
-              {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
-            </p>
+      <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-8">
+        <div className="flex items-center justify-between">
+          <div className="dashboard-header-apple" style={{ marginBottom: 0, paddingBottom: 0, borderBottom: 'none' }}>
+            <h1>
+              <Target />
+              Arquiteto de Rotina
+            </h1>
+            <p>{format(currentMonth, 'MMMM yyyy', { locale: ptBR })}</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="btn-apple">
                 <Plus className="h-4 w-4 mr-2" />
                 Novo Hábito
               </Button>
@@ -331,43 +332,41 @@ export default function Habits() {
         ) : (
           <div className="space-y-6">
             {habits.map((habit) => (
-              <Card key={habit.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: habit.color }}
-                      />
-                      <CardTitle className="text-lg">{habit.title}</CardTitle>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-1 text-amber-500">
-                        <Flame className="h-4 w-4" />
-                        <span className="text-sm font-medium">{habit.current_streak}</span>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(habit)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive"
-                        onClick={() => deleteHabit(habit.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+              <div key={habit.id} className="habit-card-apple">
+                <div className="habit-header">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: habit.color }}
+                    />
+                    <span className="font-sf-display text-lg font-semibold">{habit.title}</span>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-7 gap-1">
+                  <div className="flex items-center gap-4">
+                    <div className="streak-badge">
+                      <Flame className="h-4 w-4" />
+                      <span>{habit.current_streak}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEditDialog(habit)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive"
+                      onClick={() => deleteHabit(habit.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="habit-calendar">
+                  <div className="grid grid-cols-7 gap-2">
                     {['D', 'S', 'T', 'Q', 'Q', 'S', 'S'].map((day, i) => (
-                      <div key={i} className="text-center text-xs text-muted-foreground py-1">
+                      <div key={i} className="text-center text-xs text-muted-foreground py-1 font-medium">
                         {day}
                       </div>
                     ))}
@@ -381,11 +380,9 @@ export default function Habits() {
                           key={day.toISOString()}
                           onClick={() => toggleHabitDay(habit.id, day)}
                           className={cn(
-                            'aspect-square rounded-lg flex items-center justify-center text-xs transition-all',
-                            isToday(day) && 'ring-2 ring-primary',
-                            completed
-                              ? 'text-primary-foreground'
-                              : 'bg-muted hover:bg-muted/80'
+                            'day-cell-apple',
+                            isToday(day) && 'today',
+                            completed && 'completed'
                           )}
                           style={completed ? { backgroundColor: habit.color } : undefined}
                         >
@@ -398,8 +395,8 @@ export default function Habits() {
                       );
                     })}
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             ))}
           </div>
         )}
