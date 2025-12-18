@@ -731,6 +731,7 @@ export type Database = {
           title: string
           total_installments: number | null
           transaction_date: string
+          transfer_id: string | null
           type: string
           user_id: string
           version: number
@@ -751,6 +752,7 @@ export type Database = {
           title: string
           total_installments?: number | null
           transaction_date?: string
+          transfer_id?: string | null
           type: string
           user_id: string
           version?: number
@@ -771,6 +773,7 @@ export type Database = {
           title?: string
           total_installments?: number | null
           transaction_date?: string
+          transfer_id?: string | null
           type?: string
           user_id?: string
           version?: number

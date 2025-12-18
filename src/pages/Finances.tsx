@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
-import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank, Check, Clock, RefreshCw, FileText } from "lucide-react";
+import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank, Check, Clock, RefreshCw, FileText, ArrowRightLeft } from "lucide-react";
 import { generateFinancialPDF } from "@/lib/generateFinancialPDF";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -42,6 +42,7 @@ interface Transaction {
   reference_month?: string;
   account_id?: string;
   version?: number;
+  transfer_id?: string;
 }
 
 const PAYMENT_METHODS = ["PIX", "Débito", "Crédito"];
@@ -74,8 +75,16 @@ export default function Finances() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  
+  const [newTransfer, setNewTransfer] = useState({
+    fromAccountId: "",
+    toAccountId: "",
+    amount: "",
+    description: ""
+  });
   
   const [newTransaction, setNewTransaction] = useState({
     title: "",
@@ -618,6 +627,131 @@ export default function Finances() {
     loadAccounts();
   };
 
+  const deleteAccount = async (accountId: string) => {
+    // Check for linked transactions
+    const { count, error: countError } = await supabase
+      .from("transactions")
+      .select("id", { count: 'exact', head: true })
+      .eq("account_id", accountId);
+
+    if (countError) {
+      toast.error("Erro ao verificar transações");
+      return;
+    }
+
+    if (count && count > 0) {
+      toast.error(`Não é possível excluir: ${count} transação(ões) vinculada(s)`);
+      return;
+    }
+
+    const { error } = await supabase
+      .from("accounts")
+      .delete()
+      .eq("id", accountId);
+
+    if (error) {
+      toast.error("Erro ao excluir conta");
+      return;
+    }
+
+    toast.success("Conta excluída com sucesso!");
+    loadAccounts();
+  };
+
+  const createTransfer = async () => {
+    const amount = parseFloat(newTransfer.amount);
+    
+    if (!newTransfer.fromAccountId || !newTransfer.toAccountId) {
+      toast.error("Selecione as contas de origem e destino");
+      return;
+    }
+    
+    if (newTransfer.fromAccountId === newTransfer.toAccountId) {
+      toast.error("As contas de origem e destino devem ser diferentes");
+      return;
+    }
+    
+    if (!amount || amount <= 0) {
+      toast.error("Valor deve ser maior que zero");
+      return;
+    }
+
+    const fromAccount = accounts.find(a => a.id === newTransfer.fromAccountId);
+    const toAccount = accounts.find(a => a.id === newTransfer.toAccountId);
+    
+    if (!fromAccount || !toAccount) {
+      toast.error("Conta não encontrada");
+      return;
+    }
+
+    const transferId = crypto.randomUUID();
+    const description = newTransfer.description.trim() || "Transferência";
+    const today = format(new Date(), "yyyy-MM-dd");
+
+    // Create expense in source account
+    const { error: expenseError } = await supabase.from("transactions").insert({
+      user_id: user?.id,
+      title: `${description} → ${toAccount.name}`,
+      amount,
+      type: "expense",
+      category: "Transferência",
+      account_id: newTransfer.fromAccountId,
+      is_paid: true,
+      is_fixed: false,
+      is_installment: false,
+      transaction_date: today,
+      payment_method: "PIX",
+      transfer_id: transferId
+    });
+
+    if (expenseError) {
+      toast.error("Erro ao criar transferência (saída)");
+      return;
+    }
+
+    // Create income in destination account
+    const { error: incomeError } = await supabase.from("transactions").insert({
+      user_id: user?.id,
+      title: `${description} ← ${fromAccount.name}`,
+      amount,
+      type: "income",
+      category: "Transferência",
+      account_id: newTransfer.toAccountId,
+      is_paid: true,
+      is_fixed: false,
+      is_installment: false,
+      transaction_date: today,
+      payment_method: "PIX",
+      transfer_id: transferId
+    });
+
+    if (incomeError) {
+      toast.error("Erro ao criar transferência (entrada)");
+      return;
+    }
+
+    // Update account balances
+    await supabase
+      .from("accounts")
+      .update({ balance: fromAccount.balance - amount })
+      .eq("id", newTransfer.fromAccountId);
+
+    await supabase
+      .from("accounts")
+      .update({ balance: toAccount.balance + amount })
+      .eq("id", newTransfer.toAccountId);
+
+    toast.success("Transferência realizada com sucesso!");
+    setIsTransferDialogOpen(false);
+    setNewTransfer({
+      fromAccountId: "",
+      toAccountId: "",
+      amount: "",
+      description: ""
+    });
+    loadData();
+  };
+
   const totalIncome = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0);
   const totalExpenses = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
   const balance = totalIncome - totalExpenses;
@@ -873,65 +1007,127 @@ export default function Finances() {
             <h2 className="section-title">
               <Wallet className="h-5 w-5" /> Minhas Contas
             </h2>
-            <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline"><Plus className="h-4 w-4 mr-1" /> Nova Conta</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Nova Conta</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Nome da Conta</Label>
-                    <Input 
-                      value={newAccount.name}
-                      onChange={e => setNewAccount(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Ex: Nubank"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Saldo Atual (R$)</Label>
-                    <Input 
-                      type="number"
-                      value={newAccount.balance}
-                      onChange={e => setNewAccount(prev => ({ ...prev, balance: e.target.value }))}
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Ícone</Label>
-                    <div className="flex gap-2">
-                      {ACCOUNT_ICONS.map(icon => (
-                        <button
-                          key={icon}
-                          onClick={() => setNewAccount(prev => ({ ...prev, icon }))}
-                          className={`text-2xl p-2 rounded-lg ${newAccount.icon === icon ? "bg-primary/20 ring-2 ring-primary" : "bg-muted"}`}
-                        >
-                          {icon}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Cor</Label>
-                    <div className="flex gap-2">
-                      {ACCOUNT_COLORS.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setNewAccount(prev => ({ ...prev, color }))}
-                          className={`w-8 h-8 rounded-full ${newAccount.color === color ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
-                          style={{ backgroundColor: color }}
+            <div className="flex gap-2">
+              {accounts.length >= 2 && (
+                <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" variant="outline"><ArrowRightLeft className="h-4 w-4 mr-1" /> Transferir</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Transferência entre Contas</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Conta de Origem</Label>
+                        <Select value={newTransfer.fromAccountId} onValueChange={v => setNewTransfer(prev => ({ ...prev, fromAccountId: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {accounts.map(acc => (
+                              <SelectItem key={acc.id} value={acc.id}>
+                                {acc.icon} {acc.name} (R$ {Number(acc.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Conta de Destino</Label>
+                        <Select value={newTransfer.toAccountId} onValueChange={v => setNewTransfer(prev => ({ ...prev, toAccountId: v }))}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {accounts.filter(a => a.id !== newTransfer.fromAccountId).map(acc => (
+                              <SelectItem key={acc.id} value={acc.id}>
+                                {acc.icon} {acc.name} (R$ {Number(acc.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Valor (R$)</Label>
+                        <Input 
+                          type="number"
+                          value={newTransfer.amount}
+                          onChange={e => setNewTransfer(prev => ({ ...prev, amount: e.target.value }))}
+                          placeholder="0,00"
                         />
-                      ))}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Descrição (opcional)</Label>
+                        <Input 
+                          value={newTransfer.description}
+                          onChange={e => setNewTransfer(prev => ({ ...prev, description: e.target.value }))}
+                          placeholder="Ex: Reserva de emergência"
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button onClick={createTransfer}>Transferir</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              )}
+              <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline"><Plus className="h-4 w-4 mr-1" /> Nova Conta</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Nova Conta</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Nome da Conta</Label>
+                      <Input 
+                        value={newAccount.name}
+                        onChange={e => setNewAccount(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="Ex: Nubank"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Saldo Atual (R$)</Label>
+                      <Input 
+                        type="number"
+                        value={newAccount.balance}
+                        onChange={e => setNewAccount(prev => ({ ...prev, balance: e.target.value }))}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Ícone</Label>
+                      <div className="flex gap-2">
+                        {ACCOUNT_ICONS.map(icon => (
+                          <button
+                            key={icon}
+                            onClick={() => setNewAccount(prev => ({ ...prev, icon }))}
+                            className={`text-2xl p-2 rounded-lg ${newAccount.icon === icon ? "bg-primary/20 ring-2 ring-primary" : "bg-muted"}`}
+                          >
+                            {icon}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Cor</Label>
+                      <div className="flex gap-2">
+                        {ACCOUNT_COLORS.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setNewAccount(prev => ({ ...prev, color }))}
+                            className={`w-8 h-8 rounded-full ${newAccount.color === color ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <DialogFooter>
-                  <Button onClick={createAccount}>Criar Conta</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  <DialogFooter>
+                    <Button onClick={createAccount}>Criar Conta</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
 
           {accounts.length === 0 ? (
@@ -959,12 +1155,21 @@ export default function Finances() {
                     <p className="card-value" style={{ color: account.color }}>
                       R$ {Number(account.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </p>
-                    <button 
-                      className="card-action secondary"
-                      onClick={() => recalculateAccountBalance(account.id)}
-                    >
-                      <RefreshCw className="h-4 w-4" /> Atualizar saldo
-                    </button>
+                    <div className="flex gap-2 mt-2">
+                      <button 
+                        className="card-action secondary flex-1"
+                        onClick={() => recalculateAccountBalance(account.id)}
+                      >
+                        <RefreshCw className="h-4 w-4" /> Atualizar
+                      </button>
+                      <button 
+                        className="card-action error"
+                        onClick={() => deleteAccount(account.id)}
+                        title="Excluir conta"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
