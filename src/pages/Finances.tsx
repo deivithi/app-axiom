@@ -23,7 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
-import { transactionSchema, accountSchema } from "@/lib/validations";
+import { transactionSchema, accountSchema, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/validations";
 
 interface Transaction {
   id: string;
@@ -41,6 +41,7 @@ interface Transaction {
   parent_transaction_id?: string;
   reference_month?: string;
   account_id?: string;
+  version?: number;
 }
 
 const PAYMENT_METHODS = ["PIX", "Débito", "Crédito"];
@@ -53,8 +54,6 @@ interface Account {
   icon: string;
 }
 
-const EXPENSE_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Compras", "Assinaturas", "Outros"];
-const INCOME_CATEGORIES = ["Salário", "Freelance", "Investimentos", "Vendas", "Outros"];
 const COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444", "#6366F1", "#84CC16", "#14B8A6"];
 const ACCOUNT_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"];
 const ACCOUNT_ICONS = ["💳", "🏦", "💰", "💵", "🪙", "💎"];
@@ -420,8 +419,10 @@ export default function Finances() {
 
     const validData = validationResult.data;
     const originalTransaction = transactions.find(t => t.id === editingTransaction.id);
+    const currentVersion = originalTransaction?.version || 1;
 
-    const { error } = await supabase
+    // Optimistic locking: only update if version matches
+    const { data: updatedData, error } = await supabase
       .from("transactions")
       .update({
         title: validData.title,
@@ -434,12 +435,24 @@ export default function Finances() {
         total_installments: validData.total_installments,
         payment_method: validData.payment_method,
         account_id: validData.account_id,
-        transaction_date: validData.transaction_date
+        transaction_date: validData.transaction_date,
+        version: currentVersion + 1
       })
-      .eq("id", editingTransaction.id);
+      .eq("id", editingTransaction.id)
+      .eq("version", currentVersion)
+      .select();
 
     if (error) {
       toast.error("Erro ao atualizar transação");
+      return;
+    }
+
+    // Check if optimistic lock failed (no rows updated)
+    if (!updatedData || updatedData.length === 0) {
+      toast.error("Transação foi modificada por outro dispositivo. Recarregando dados...");
+      setIsEditDialogOpen(false);
+      setEditingTransaction(null);
+      loadData();
       return;
     }
 

@@ -38,6 +38,14 @@ export const signInSchema = z.object({
 
 // ==================== TRANSACTION SCHEMAS ====================
 
+// Category lists for validation
+export const EXPENSE_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Compras", "Assinaturas", "Outros"];
+export const INCOME_CATEGORIES = ["Salário", "Freelance", "Investimentos", "Vendas", "Outros"];
+
+// Date range constants
+const MAX_FUTURE_DAYS = 365; // 1 year in the future
+const MAX_PAST_YEARS = 5;    // 5 years in the past
+
 export const transactionTitleSchema = z
   .string()
   .trim()
@@ -53,11 +61,30 @@ export const transactionTypeSchema = z.enum(['income', 'expense'], {
   errorMap: () => ({ message: 'Tipo deve ser "income" ou "expense"' }),
 });
 
+export const transactionDateSchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida')
+  .refine((date) => {
+    const d = new Date(date + 'T12:00:00');
+    const now = new Date();
+    const maxFuture = new Date();
+    maxFuture.setDate(maxFuture.getDate() + MAX_FUTURE_DAYS);
+    const minPast = new Date();
+    minPast.setFullYear(minPast.getFullYear() - MAX_PAST_YEARS);
+    return d <= maxFuture && d >= minPast;
+  }, 'Data deve estar entre 5 anos no passado e 1 ano no futuro');
+
 export const transactionCategorySchema = z
   .string()
   .trim()
   .min(1, 'Categoria é obrigatória')
   .max(50, 'Categoria deve ter no máximo 50 caracteres');
+
+// Helper to validate category based on transaction type
+export const validateTransactionCategory = (category: string, type: 'income' | 'expense'): boolean => {
+  const allowedCategories = type === 'expense' ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+  return allowedCategories.includes(category);
+};
 
 export const transactionSchema = z.object({
   title: transactionTitleSchema,
@@ -69,7 +96,12 @@ export const transactionSchema = z.object({
   total_installments: z.number().int().min(2).max(72).optional().nullable(),
   payment_method: z.string().max(50).optional(),
   account_id: z.string().uuid().optional().nullable(),
-  transaction_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data inválida'),
+  transaction_date: transactionDateSchema,
+}).refine((data) => {
+  return validateTransactionCategory(data.category, data.type);
+}, {
+  message: 'Categoria inválida para o tipo de transação',
+  path: ['category'],
 });
 
 // ==================== ACCOUNT SCHEMAS ====================
