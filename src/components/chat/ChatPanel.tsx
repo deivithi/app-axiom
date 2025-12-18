@@ -185,20 +185,26 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
 
   return (
     <aside className={cn(
-      "chat-panel fixed right-0 top-0 h-screen z-modal",
+      "chat-panel fixed right-0 top-0 z-modal",
       "flex flex-col",
-      "bg-card/95 backdrop-blur-xl",
+      "bg-background", // Solid base for mobile
       "border-l border-border/50",
       "transition-all duration-300",
-      // Mobile: always full width
-      "w-full sm:w-96",
+      // Mobile: full screen with dynamic viewport height
+      "w-full h-[100dvh]",
+      // Desktop: fixed height and width
+      "sm:w-96 sm:h-screen sm:bg-card/95 sm:backdrop-blur-xl",
       // Desktop: respect size setting
       `lg:${widthClass}`,
       isExpanded ? "translate-x-0" : "translate-x-full",
       "lg:translate-x-0"
     )}>
-      {/* Chat Header */}
-      <div className="chat-header flex items-center justify-between p-4 border-b border-border/50">
+      {/* Chat Header - with safe area for notch */}
+      <div className={cn(
+        "chat-header flex-shrink-0 flex items-center justify-between p-4 border-b border-border/50",
+        "bg-card/95 backdrop-blur-xl",
+        "pt-safe-top" // Safe area for iOS notch/Dynamic Island
+      )}>
         <div className="flex items-center gap-3">
           <div className="relative">
             <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
@@ -346,8 +352,12 @@ Pra começar rápido, escolha quem você é:`}
         )}
       </div>
 
-      {/* Input Area */}
-      <div className="p-4 border-t border-border/50">
+      {/* Input Area - with safe area for home indicator */}
+      <div className={cn(
+        "flex-shrink-0 p-4 border-t border-border/50",
+        "bg-card/95 backdrop-blur-xl",
+        "pb-safe-bottom" // Safe area for iOS home indicator
+      )}>
         {respondingToQuestion && (
           <div className="flex items-center gap-2 text-primary text-sm mb-3">
             <span className="relative flex h-2 w-2">
