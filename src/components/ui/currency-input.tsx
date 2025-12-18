@@ -22,8 +22,9 @@ const parseCurrencyInput = (input: string): number => {
   // Remove tudo exceto números
   const raw = input.replace(/\D/g, "");
   if (!raw) return 0;
-  // Converte centavos para reais
-  return parseInt(raw, 10) / 100;
+  // Converte centavos para reais com arredondamento garantido
+  const value = parseInt(raw, 10) / 100;
+  return Math.round(value * 100) / 100;
 };
 
 const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(

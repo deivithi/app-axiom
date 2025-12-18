@@ -54,8 +54,12 @@ export const transactionTitleSchema = z
 
 export const transactionAmountSchema = z
   .number()
-  .positive('Valor deve ser maior que zero')
-  .max(999999999, 'Valor máximo: R$ 999.999.999');
+  .min(0.01, 'Valor mínimo: R$ 0,01')
+  .max(999999999, 'Valor máximo: R$ 999.999.999')
+  .refine(
+    (val) => Math.round(val * 100) / 100 === val,
+    'Valor deve ter no máximo 2 casas decimais'
+  );
 
 export const transactionTypeSchema = z.enum(['income', 'expense'], {
   errorMap: () => ({ message: 'Tipo deve ser "income" ou "expense"' }),
