@@ -715,67 +715,67 @@ export default function Finances() {
           </div>
         </div>
 
-        {/* Cards de Resumo com Emojis */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="tap-card bg-emerald-500/10 border-emerald-500/30">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <span className="text-4xl">💰</span>
-                <div>
-                  <p className="text-sm text-emerald-400 font-medium">Receitas</p>
-                  <p className="text-2xl font-bold text-emerald-500">
-                    R$ {totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
+        {/* Cards de Resumo com Emojis - Apple Style */}
+        <div className="stats-grid">
+          <div className="apple-card apple-card-1 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-emerald-500/10">
+                <span className="text-2xl">💰</span>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="metric-label text-emerald-500">Receitas</p>
+                <p className="metric-value text-emerald-500">
+                  R$ {totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <Card className="tap-card bg-red-500/10 border-red-500/30">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <span className="text-4xl">💸</span>
-                <div>
-                  <p className="text-sm text-red-400 font-medium">Despesas</p>
-                  <p className="text-2xl font-bold text-red-500">
-                    R$ {totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
+          <div className="apple-card apple-card-1 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-red-500/10">
+                <span className="text-2xl">💸</span>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="metric-label text-red-500">Despesas</p>
+                <p className="metric-value text-red-500">
+                  R$ {totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <Card className="tap-card bg-yellow-500/10 border-yellow-500/30">
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <span className="text-4xl">⏳</span>
-                <div>
-                  <p className="text-sm text-yellow-400 font-medium">Pendente</p>
-                  <p className="text-2xl font-bold text-yellow-500">
-                    R$ {pendingExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
+          <div className="apple-card apple-card-1 p-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/10">
+                <span className="text-2xl">⏳</span>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className="metric-label text-amber-500">Pendente</p>
+                <p className="metric-value text-amber-500">
+                  R$ {pendingExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                </p>
+              </div>
+            </div>
+          </div>
 
-          <Card className={`tap-card ${balance >= 0 ? "bg-violet-500/10 border-violet-500/30" : "bg-orange-500/10 border-orange-500/30"}`}>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <span className="text-4xl">🎯</span>
-                <div>
-                  <p className={`text-sm font-medium ${balance >= 0 ? "text-violet-400" : "text-orange-400"}`}>Saldo</p>
-                  <p className={`text-2xl font-bold ${balance >= 0 ? "text-violet-500" : "text-orange-500"}`}>
-                    R$ {balance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
+          <div className={cn("apple-card apple-card-1 p-4", balance >= 0 ? "" : "")}>
+            <div className="flex items-center gap-3">
+              <div className={cn("p-2.5 rounded-xl", balance >= 0 ? "bg-primary/10" : "bg-orange-500/10")}>
+                <span className="text-2xl">🎯</span>
               </div>
-            </CardContent>
-          </Card>
+              <div>
+                <p className={cn("metric-label", balance >= 0 ? "text-primary" : "text-orange-500")}>Saldo</p>
+                <p className={cn("metric-value", balance >= 0 ? "text-primary" : "text-orange-500")}>
+                  R$ {balance.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Contas Bancárias */}
-        <Card>
+        <Card className="apple-card apple-card-2">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2">
               <Wallet className="h-5 w-5" /> Minhas Contas
@@ -852,8 +852,8 @@ export default function Finances() {
                   {accounts.map(account => (
                     <div
                       key={account.id}
-                      className="p-4 rounded-xl border"
-                      style={{ borderColor: account.color + "50", backgroundColor: account.color + "10" }}
+                      className="apple-card apple-card-1 p-4"
+                      style={{ borderColor: account.color + "50" }}
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -893,11 +893,9 @@ export default function Finances() {
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Gráfico de Pizza - Despesas por Categoria */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Despesas por Categoria</CardTitle>
-            </CardHeader>
-            <CardContent>
+          <div className="apple-card apple-card-2 p-6">
+            <h3 className="text-lg font-semibold mb-4">Despesas por Categoria</h3>
+            <div>
               {expensesByCategory.length > 0 ? (
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
@@ -940,8 +938,8 @@ export default function Finances() {
                   ))}
                 </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Gráfico de Barras - Receitas x Despesas */}
           <Card>
