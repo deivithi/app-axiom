@@ -289,7 +289,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_transaction",
-      description: "Cria uma nova transação financeira (receita ou despesa). Suporta: transações simples, fixas (recorrentes todo mês com is_fixed=true), ou parceladas (ex: 10x com is_installment=true e total_installments=10). Para parcelas, o amount é o valor DE CADA PARCELA. Pode vincular a uma conta para sincronização automática de saldo.",
+      description: "Cria uma nova transação financeira (receita ou despesa). Suporta: transações simples, fixas (recorrentes todo mês com is_fixed=true), ou parceladas (ex: 10x com is_installment=true e total_installments=10). Para parcelas, o amount é o valor DE CADA PARCELA. Pode vincular a uma conta para sincronização automática de saldo. IMPORTANTE: Use transaction_date para registrar em datas passadas ou futuras (formato YYYY-MM-DD).",
       parameters: {
         type: "object",
         properties: {
@@ -297,6 +297,7 @@ const tools = [
           amount: { type: "number", description: "Valor da transação. Para parcelas, é o valor de CADA parcela (não o total)" },
           type: { type: "string", enum: ["income", "expense"], description: "Tipo: receita ou despesa" },
           category: { type: "string", description: "Categoria da transação" },
+          transaction_date: { type: "string", description: "Data da transação no formato YYYY-MM-DD. Se não informada, usa a data de hoje. Use para registrar transações em datas passadas ou futuras (ex: '2024-12-15' para dia 15 de dezembro)." },
           is_fixed: { type: "boolean", description: "Se é uma despesa fixa/recorrente (aparece todos os meses)" },
           is_installment: { type: "boolean", description: "Se é uma compra parcelada (ex: 10x, 12x). Use junto com total_installments" },
           total_installments: { type: "number", description: "Número total de parcelas (ex: 10 para 10x, 12 para 12x). Obrigatório quando is_installment=true" },
@@ -320,6 +321,7 @@ const tools = [
           amount: { type: "number", description: "Novo valor" },
           type: { type: "string", enum: ["income", "expense"], description: "Novo tipo" },
           category: { type: "string", description: "Nova categoria" },
+          transaction_date: { type: "string", description: "Nova data da transação (YYYY-MM-DD)" },
           payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Nova forma de pagamento" },
           is_paid: { type: "boolean", description: "Status de pagamento (true=pago, false=pendente)" },
           account_id: { type: "string", description: "UUID da conta bancária vinculada (opcional). Obtenha de list_accounts." }
@@ -1616,14 +1618,20 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
 
     // TRANSACTIONS
     case "create_transaction": {
-      const today = new Date();
-      const referenceMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+      // Usar data fornecida pelo usuário ou data atual
+      const transactionDate = args.transaction_date 
+        ? new Date(args.transaction_date + 'T12:00:00') // Adiciona horário para evitar problemas de timezone
+        : new Date();
       
-      // PARCELAS: Criar todas as parcelas de uma vez
+      // Calcular reference_month baseado na data da transação
+      const referenceMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
+      const transactionDateStr = transactionDate.toISOString().split("T")[0];
+      
+      // PARCELAS: Criar todas as parcelas a partir da data informada
       if (args.is_installment && args.total_installments && args.total_installments > 1) {
         const installments = [];
         for (let i = 1; i <= args.total_installments; i++) {
-          const installmentDate = new Date(today);
+          const installmentDate = new Date(transactionDate);
           installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
           
           const instMonth = `${installmentDate.getFullYear()}-${String(installmentDate.getMonth() + 1).padStart(2, '0')}`;
@@ -1641,7 +1649,8 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
             payment_method: args.payment_method || "Crédito",
             is_paid: false,
             transaction_date: installmentDate.toISOString().split("T")[0],
-            reference_month: instMonth
+            reference_month: instMonth,
+            account_id: args.account_id || null
           });
         }
         
@@ -1652,9 +1661,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         
         if (error) throw error;
         
-        const lastDate = new Date(today);
+        const lastDate = new Date(transactionDate);
         lastDate.setMonth(lastDate.getMonth() + args.total_installments - 1);
-        const firstMonth = today.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
+        const firstMonth = transactionDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         const lastMonth = lastDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         const totalValue = args.amount * args.total_installments;
         
@@ -1668,7 +1677,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         };
       }
       
-      // Transação simples ou fixa
+      // Transação simples ou fixa - AGORA USA transaction_date
       const { data, error } = await supabaseAdmin.from("transactions").insert({
         user_id: userId,
         title: args.title,
@@ -1679,14 +1688,16 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         is_installment: false,
         payment_method: args.payment_method || "PIX",
         is_paid: false,
+        transaction_date: transactionDateStr,
         reference_month: args.is_fixed ? referenceMonth : null,
         account_id: args.account_id || null
       }).select().single();
       if (error) throw error;
       
+      const dateMsg = args.transaction_date ? ` para ${transactionDate.toLocaleDateString('pt-BR')}` : "";
       const fixedMsg = args.is_fixed ? " (recorrente - aparecerá em todos os meses futuros)" : "";
       const accountMsg = args.account_id ? " Vinculada à conta selecionada." : "";
-      return { success: true, transaction: data, message: `Transação "${args.title}" criada com sucesso!${fixedMsg}${accountMsg} 💰` };
+      return { success: true, transaction: data, message: `Transação "${args.title}"${dateMsg} criada com sucesso!${fixedMsg}${accountMsg} 💰` };
     }
 
     case "update_transaction": {
@@ -1695,6 +1706,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       if (args.amount !== undefined) updateData.amount = args.amount;
       if (args.type) updateData.type = args.type;
       if (args.category) updateData.category = args.category;
+      if (args.transaction_date) updateData.transaction_date = args.transaction_date;
       if (args.payment_method) updateData.payment_method = args.payment_method;
       if (args.is_paid !== undefined) updateData.is_paid = args.is_paid;
       if (args.account_id !== undefined) updateData.account_id = args.account_id || null;
@@ -1702,8 +1714,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       const { data, error } = await supabaseAdmin.from("transactions").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
       if (error) throw error;
       
+      const dateMsg = args.transaction_date ? ` data alterada para ${new Date(args.transaction_date + 'T12:00:00').toLocaleDateString('pt-BR')}` : "";
       const paidMsg = args.is_paid === true ? " e marcada como paga ✅" : (args.is_paid === false ? " e marcada como pendente" : "");
-      return { success: true, transaction: data, message: `Transação "${data.title}" atualizada${paidMsg}!` };
+      return { success: true, transaction: data, message: `Transação "${data.title}" atualizada${dateMsg}${paidMsg}!` };
     }
 
     case "delete_transaction": {
