@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { normalizePortugueseText } from './robotoFont';
 
 interface Transaction {
   id: string;
@@ -36,6 +37,9 @@ interface PDFData {
   expensesByCategory: { name: string; value: number }[];
 }
 
+// Helper to safely render text with Portuguese characters
+const safeText = (text: string): string => normalizePortugueseText(text);
+
 export function generateFinancialPDF(data: PDFData) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -44,7 +48,7 @@ export function generateFinancialPDF(data: PDFData) {
   let yPos = 0;
 
   const monthName = format(data.month, "MMMM yyyy", { locale: ptBR });
-  const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  const capitalizedMonth = safeText(monthName.charAt(0).toUpperCase() + monthName.slice(1));
 
   // Colors
   const primaryColor: [number, number, number] = [99, 102, 241]; // Indigo

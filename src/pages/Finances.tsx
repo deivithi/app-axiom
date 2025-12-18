@@ -73,6 +73,10 @@ export default function Finances() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreTransactions, setHasMoreTransactions] = useState(true);
+  const [transactionPage, setTransactionPage] = useState(0);
+  const TRANSACTIONS_PER_PAGE = 50;
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
@@ -174,16 +178,17 @@ export default function Finances() {
   const { hasDuplicates, duplicateCount, isDuplicate } = useDuplicateDetection(transactions);
 
   const loadData = async () => {
-    if (isLoadingData) return; // Evita execução duplicada
+    if (isLoadingData) return;
     
     setIsLoadingData(true);
     setLoading(true);
+    setTransactionPage(0);
+    setHasMoreTransactions(true);
     
     try {
       await generateRecurringTransactions();
-      // Pequeno delay para evitar race condition com realtime
       await new Promise(resolve => setTimeout(resolve, 50));
-      await Promise.all([loadTransactions(), loadAccounts()]);
+      await Promise.all([loadTransactions(0, false), loadAccounts()]);
     } finally {
       setLoading(false);
       setIsLoadingData(false);
@@ -252,7 +257,7 @@ export default function Finances() {
     }
   };
 
-  const loadTransactions = async () => {
+  const loadTransactions = async (page = 0, append = false) => {
     const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
 
@@ -263,13 +268,30 @@ export default function Finances() {
       .gte("transaction_date", monthStart)
       .lte("transaction_date", monthEnd)
       .order("transaction_date", { ascending: true })
-      .limit(500);
+      .range(page * TRANSACTIONS_PER_PAGE, (page + 1) * TRANSACTIONS_PER_PAGE - 1);
 
     if (error) {
       toast.error("Erro ao carregar transações");
       return;
     }
-    setTransactions((data || []) as Transaction[]);
+    
+    const newTransactions = (data || []) as Transaction[];
+    setHasMoreTransactions(newTransactions.length === TRANSACTIONS_PER_PAGE);
+    
+    if (append) {
+      setTransactions(prev => [...prev, ...newTransactions]);
+    } else {
+      setTransactions(newTransactions);
+    }
+  };
+
+  const loadMoreTransactions = async () => {
+    if (isLoadingMore || !hasMoreTransactions) return;
+    setIsLoadingMore(true);
+    const nextPage = transactionPage + 1;
+    await loadTransactions(nextPage, true);
+    setTransactionPage(nextPage);
+    setIsLoadingMore(false);
   };
 
   const loadAccounts = async () => {
