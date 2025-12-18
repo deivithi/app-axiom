@@ -265,13 +265,13 @@ export default function Intelligence() {
 
   return (
     <AppLayout>
-      <div className="p-4 pl-16 md:pl-6 md:p-6">
-        <div className="dashboard-header">
+      <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-8">
+        <div className="dashboard-header-apple">
           <h1>
-            <Sparkles className="h-6 w-6 text-primary" />
+            <Sparkles />
             Motor de Inteligência
           </h1>
-          <p>Análise e insights personalizados</p>
+          <p>Análise e insights personalizados para seu crescimento</p>
         </div>
 
         {loading ? (
@@ -287,7 +287,7 @@ export default function Intelligence() {
             </div>
 
             {/* Stats Grid */}
-            <div className="stats-grid">
+            <div className="stats-grid-apple">
               <MetricCard
                 label="Tarefas"
                 value={`${summary?.tasksCompleted}/${summary?.tasksTotal}`}

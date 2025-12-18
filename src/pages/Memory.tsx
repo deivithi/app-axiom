@@ -225,13 +225,13 @@ export default function Memory() {
 
   return (
     <AppLayout>
-      <div className="p-4 pl-16 md:pl-6 md:p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Brain className="h-6 w-6 text-primary" />
+      <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-8">
+        <div className="dashboard-header-apple">
+          <h1>
+            <Brain />
             Segunda Memória
           </h1>
-          <p className="text-muted-foreground">Pensamentos e reflexões unificados</p>
+          <p>Pensamentos e reflexões unificados para clareza mental</p>
         </div>
 
         {loading ? (
@@ -239,17 +239,17 @@ export default function Memory() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         ) : (
-          <Tabs defaultValue="axiom-memory" className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="axiom-memory" className="gap-2">
+          <Tabs defaultValue="axiom-memory" className="space-y-6 tabs-apple">
+            <TabsList className="bg-muted/50 p-1 rounded-xl">
+              <TabsTrigger value="axiom-memory" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Cpu className="h-4 w-4" />
                 Axiom Memory
               </TabsTrigger>
-              <TabsTrigger value="thoughts" className="gap-2">
+              <TabsTrigger value="thoughts" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <Brain className="h-4 w-4" />
                 Pensamentos ({notes.length})
               </TabsTrigger>
-              <TabsTrigger value="journal" className="gap-2">
+              <TabsTrigger value="journal" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
                 <BookOpen className="h-4 w-4" />
                 Diário ({entries.length})
               </TabsTrigger>
