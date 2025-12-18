@@ -80,7 +80,8 @@ export default function Finances() {
     is_installment: false,
     total_installments: "",
     payment_method: "PIX",
-    account_id: ""
+    account_id: "",
+    transaction_date: format(new Date(), "yyyy-MM-dd")
   });
 
   const [newAccount, setNewAccount] = useState({
@@ -238,6 +239,8 @@ export default function Finances() {
 
     const referenceMonth = format(selectedMonth, "yyyy-MM");
 
+    const transactionDate = newTransaction.transaction_date || format(new Date(), "yyyy-MM-dd");
+    
     const { error } = await supabase.from("transactions").insert({
       user_id: user?.id,
       title: newTransaction.title,
@@ -248,7 +251,7 @@ export default function Finances() {
       is_installment: newTransaction.is_installment,
       current_installment: newTransaction.is_installment ? 1 : null,
       total_installments: newTransaction.is_installment ? parseInt(newTransaction.total_installments) : null,
-      transaction_date: format(selectedMonth, "yyyy-MM-dd"),
+      transaction_date: transactionDate,
       payment_method: newTransaction.payment_method,
       is_paid: false,
       reference_month: newTransaction.is_fixed ? referenceMonth : null,
@@ -271,7 +274,8 @@ export default function Finances() {
       is_installment: false,
       total_installments: "",
       payment_method: "PIX",
-      account_id: ""
+      account_id: "",
+      transaction_date: format(new Date(), "yyyy-MM-dd")
     });
     loadData();
   };
@@ -365,7 +369,8 @@ export default function Finances() {
         current_installment: editingTransaction.is_installment ? editingTransaction.current_installment : null,
         total_installments: editingTransaction.is_installment ? editingTransaction.total_installments : null,
         payment_method: editingTransaction.payment_method,
-        account_id: editingTransaction.account_id || null
+        account_id: editingTransaction.account_id || null,
+        transaction_date: editingTransaction.transaction_date
       })
       .eq("id", editingTransaction.id);
 
@@ -654,6 +659,14 @@ export default function Finances() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data da Transação</Label>
+                    <Input 
+                      type="date"
+                      value={newTransaction.transaction_date}
+                      onChange={e => setNewTransaction(prev => ({ ...prev, transaction_date: e.target.value }))}
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <Label>Despesa Fixa (recorrente)</Label>
@@ -1184,6 +1197,14 @@ export default function Finances() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Data da Transação</Label>
+                  <Input 
+                    type="date"
+                    value={editingTransaction.transaction_date}
+                    onChange={e => setEditingTransaction(prev => prev ? { ...prev, transaction_date: e.target.value } : null)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Conta Vinculada</Label>

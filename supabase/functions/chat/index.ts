@@ -1745,9 +1745,28 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       const { data, error } = await query.order("transaction_date", { ascending: false }).limit(args.limit || 20);
       if (error) throw error;
       
+      // Formatar transações com datas legíveis em pt-BR
+      const formattedTransactions = data.map((t: any) => {
+        const dateObj = new Date(t.transaction_date + 'T12:00:00');
+        const dataFormatada = dateObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        return {
+          ...t,
+          data_formatada: dataFormatada
+        };
+      });
+      
       const pendingCount = data.filter((t: any) => !t.is_paid && t.type === "expense").length;
       const pendingMsg = pendingCount > 0 ? ` (${pendingCount} pendentes)` : "";
-      return { transactions: data, message: `${data.length} transações encontradas${pendingMsg}. Use os IDs (UUIDs) para editar, excluir ou pagar.` };
+      
+      // Criar lista resumida com datas formatadas
+      const transactionsList = formattedTransactions.slice(0, 10).map((t: any) => 
+        `- ${t.data_formatada}: ${t.title} | R$ ${Number(t.amount).toFixed(2)} | ${t.type === 'income' ? 'Receita' : 'Despesa'} | ${t.is_paid ? '✅ Pago' : '⏳ Pendente'}`
+      ).join('\n');
+      
+      return { 
+        transactions: formattedTransactions, 
+        message: `${data.length} transações encontradas${pendingMsg}:\n\n${transactionsList}\n\nUse os IDs (UUIDs) para editar, excluir ou pagar.` 
+      };
     }
 
     case "pay_transaction": {
