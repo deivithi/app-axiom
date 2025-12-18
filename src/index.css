@@ -3240,3 +3240,52 @@
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: var(--space-4);
 }
+
+/* =====================================================
+   LANDSCAPE & TOUCH TARGET UTILITIES
+   ===================================================== */
+
+/* Touch target enforcement (WCAG 2.1 - min 44x44px) */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.touch-target-lg {
+  min-width: 48px;
+  min-height: 48px;
+}
+
+/* Landscape mobile adjustments */
+@media (orientation: landscape) and (max-height: 500px) {
+  .bottom-nav-glass {
+    height: 48px;
+    padding-top: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  
+  .pb-bottom-nav {
+    padding-bottom: calc(3rem + env(safe-area-inset-bottom, 0px));
+  }
+  
+  /* Reduce chart heights in landscape */
+  .chart-container,
+  .recharts-responsive-container {
+    max-height: 200px !important;
+  }
+  
+  /* Compact bottom navigation items in landscape */
+  .bottom-nav-glass button,
+  .bottom-nav-glass a {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+  
+  /* Hide labels in landscape to save space */
+  .bottom-nav-label {
+    display: none;
+  }
+}
