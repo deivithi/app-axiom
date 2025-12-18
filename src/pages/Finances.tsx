@@ -397,35 +397,19 @@ export default function Finances() {
   };
 
   const payTransaction = async (id: string, type: string) => {
-    const transaction = transactions.find(t => t.id === id);
-    
-    const { error } = await supabase
-      .from("transactions")
-      .update({ is_paid: true })
-      .eq("id", id);
+    // Usar função atômica do banco para evitar race conditions
+    const { error } = await supabase.rpc('pay_transaction_atomic', {
+      p_transaction_id: id,
+      p_user_id: user?.id
+    });
 
     if (error) {
-      toast.error(type === "income" ? "Erro ao marcar receita" : "Erro ao pagar transação");
-      return;
-    }
-
-    if (transaction?.account_id) {
-      const { data: currentAccount } = await supabase
-        .from("accounts")
-        .select("balance")
-        .eq("id", transaction.account_id)
-        .single();
-      
-      if (currentAccount) {
-        const newBalance = type === "income" 
-          ? currentAccount.balance + transaction.amount
-          : currentAccount.balance - transaction.amount;
-        
-        await supabase
-          .from("accounts")
-          .update({ balance: newBalance })
-          .eq("id", transaction.account_id);
+      if (error.message?.includes('já está paga')) {
+        toast.error("Transação já está paga");
+      } else {
+        toast.error(type === "income" ? "Erro ao marcar receita" : "Erro ao pagar transação");
       }
+      return;
     }
 
     toast.success(type === "income" ? "Receita marcada como recebida! 💰" : "Transação marcada como paga! ✅");
@@ -433,35 +417,19 @@ export default function Finances() {
   };
 
   const unpayTransaction = async (id: string) => {
-    const transaction = transactions.find(t => t.id === id);
-    
-    const { error } = await supabase
-      .from("transactions")
-      .update({ is_paid: false })
-      .eq("id", id);
+    // Usar função atômica do banco para evitar race conditions
+    const { error } = await supabase.rpc('unpay_transaction_atomic', {
+      p_transaction_id: id,
+      p_user_id: user?.id
+    });
 
     if (error) {
-      toast.error("Erro ao desfazer pagamento");
-      return;
-    }
-
-    if (transaction?.account_id) {
-      const { data: currentAccount } = await supabase
-        .from("accounts")
-        .select("balance")
-        .eq("id", transaction.account_id)
-        .single();
-      
-      if (currentAccount) {
-        const newBalance = transaction.type === "income"
-          ? currentAccount.balance - transaction.amount
-          : currentAccount.balance + transaction.amount;
-        
-        await supabase
-          .from("accounts")
-          .update({ balance: newBalance })
-          .eq("id", transaction.account_id);
+      if (error.message?.includes('não está paga')) {
+        toast.error("Transação não está paga");
+      } else {
+        toast.error("Erro ao desfazer pagamento");
       }
+      return;
     }
 
     toast.success("Pagamento desfeito");
