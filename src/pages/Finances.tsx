@@ -58,6 +58,11 @@ const COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"
 const ACCOUNT_COLORS = ["#8B5CF6", "#EC4899", "#F59E0B", "#10B981", "#3B82F6", "#EF4444"];
 const ACCOUNT_ICONS = ["💳", "🏦", "💰", "💵", "🪙", "💎"];
 
+// Helper para criar Date sem problema de timezone (Brasil UTC-3)
+const safeParseDateBR = (dateStr: string): Date => {
+  return new Date(dateStr + 'T12:00:00');
+};
+
 export default function Finances() {
   const { user } = useAuth();
   const { notifyAction } = useAxiomSync();
@@ -65,6 +70,7 @@ export default function Finances() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
@@ -97,13 +103,23 @@ export default function Finances() {
     }
   }, [user, selectedMonth]);
 
-  // Realtime sync for transactions
+  // Realtime sync for transactions - FILTRAR POR MÊS SELECIONADO
   const handleTransactionInsert = useCallback((newTx: Transaction) => {
+    // Verificar se a transação pertence ao mês selecionado
+    const txDate = safeParseDateBR(newTx.transaction_date);
+    const monthStart = startOfMonth(selectedMonth);
+    const monthEnd = endOfMonth(selectedMonth);
+    
+    // Ignorar transações de outros meses
+    if (txDate < monthStart || txDate > monthEnd) {
+      return;
+    }
+    
     setTransactions(prev => {
       if (prev.some(t => t.id === newTx.id)) return prev;
       return [...prev, newTx];
     });
-  }, []);
+  }, [selectedMonth]);
 
   const handleTransactionUpdate = useCallback((updatedTx: Transaction) => {
     setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t));
@@ -145,10 +161,20 @@ export default function Finances() {
   const { hasDuplicates, duplicateCount, isDuplicate } = useDuplicateDetection(transactions);
 
   const loadData = async () => {
+    if (isLoadingData) return; // Evita execução duplicada
+    
+    setIsLoadingData(true);
     setLoading(true);
-    await generateRecurringTransactions();
-    await Promise.all([loadTransactions(), loadAccounts()]);
-    setLoading(false);
+    
+    try {
+      await generateRecurringTransactions();
+      // Pequeno delay para evitar race condition com realtime
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await Promise.all([loadTransactions(), loadAccounts()]);
+    } finally {
+      setLoading(false);
+      setIsLoadingData(false);
+    }
   };
 
   const generateRecurringTransactions = async () => {
@@ -164,9 +190,9 @@ export default function Finances() {
     if (fetchError || !fixedTransactions) return;
 
     for (const original of fixedTransactions) {
-      const originalDate = new Date(original.transaction_date);
+      const originalDate = safeParseDateBR(original.transaction_date);
       
-      if (isAfter(startOfMonth(selectedMonth), startOfMonth(originalDate)) || 
+      if (isAfter(startOfMonth(selectedMonth), startOfMonth(originalDate)) ||
           isSameMonth(selectedMonth, originalDate)) {
         
         const { data: existing } = await supabase
@@ -1041,7 +1067,7 @@ export default function Finances() {
                           {transaction.title}
                         </p>
                         <span className="text-sm text-muted-foreground">
-                          • {format(new Date(transaction.transaction_date), "dd/MM", { locale: ptBR })}
+                          • {format(safeParseDateBR(transaction.transaction_date), "dd/MM", { locale: ptBR })}
                         </span>
                         {transaction.is_fixed && (
                           <Badge variant="outline" className="text-xs">
