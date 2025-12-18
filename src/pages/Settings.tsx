@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Save, Trash2, AlertTriangle, Upload, User, Target, Compass, Handshake, Download, CloudUpload, Wifi, WifiOff } from "lucide-react";
+import { Loader2, Save, Trash2, AlertTriangle, Upload, User, Target, Compass, Handshake, Download, CloudUpload, Wifi, WifiOff, Clock, XCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -15,6 +15,13 @@ import { exportUserData, downloadUserData, importUserData, ExportData } from "@/
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 type PersonalityMode = "direto" | "sabio" | "parceiro";
+
+interface ScheduledDeletion {
+  id: string;
+  scheduled_for: string;
+  status: string;
+  confirmed: boolean;
+}
 
 export default function Settings() {
   const { user } = useAuth();
@@ -36,6 +43,8 @@ export default function Settings() {
   const [importFile, setImportFile] = useState<File | null>(null);
   const [personalityMode, setPersonalityMode] = useState<PersonalityMode>("direto");
   const [savingMode, setSavingMode] = useState(false);
+  const [scheduledDeletion, setScheduledDeletion] = useState<ScheduledDeletion | null>(null);
+  const [isCancellingDeletion, setIsCancellingDeletion] = useState(false);
 
   const handleExportData = async () => {
     if (!user) return;
@@ -92,8 +101,22 @@ export default function Settings() {
   useEffect(() => {
     if (user) {
       loadProfile();
+      loadScheduledDeletion();
     }
   }, [user]);
+
+  const loadScheduledDeletion = async () => {
+    if (!user) return;
+    
+    const { data } = await supabase
+      .from("scheduled_deletions")
+      .select("id, scheduled_for, status, confirmed")
+      .eq("user_id", user.id)
+      .in("status", ["pending", "confirmed"])
+      .maybeSingle();
+    
+    setScheduledDeletion(data);
+  };
 
   const loadProfile = async () => {
     setLoading(true);
@@ -204,6 +227,73 @@ export default function Settings() {
     setSaving(false);
   };
 
+  const requestAccountDeletion = async () => {
+    if (deleteConfirmation !== "EXCLUIR") {
+      toast.error("Digite EXCLUIR para confirmar");
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      // Call edge function to send confirmation email and create scheduled deletion
+      const { data, error } = await supabase.functions.invoke("send-deletion-confirmation", {
+        body: {
+          userId: user?.id,
+          userEmail: user?.email,
+          userName: fullName,
+        },
+      });
+
+      if (error) throw error;
+
+      toast.success("Email de confirmação enviado! Verifique sua caixa de entrada. 📧");
+      setIsDeleteDialogOpen(false);
+      setDeleteConfirmation("");
+      
+      // Reload scheduled deletion status
+      await loadScheduledDeletion();
+    } catch (error) {
+      console.error("[Settings] Deletion request error:", error);
+      toast.error("Erro ao solicitar exclusão. Tente novamente.");
+    }
+
+    setIsDeleting(false);
+  };
+
+  const cancelScheduledDeletion = async () => {
+    if (!scheduledDeletion) return;
+    
+    setIsCancellingDeletion(true);
+
+    try {
+      const { error } = await supabase
+        .from("scheduled_deletions")
+        .update({
+          status: "cancelled",
+          cancelled_at: new Date().toISOString(),
+        })
+        .eq("id", scheduledDeletion.id);
+
+      if (error) throw error;
+
+      // Clear deletion_scheduled_for from profile
+      await supabase
+        .from("profiles")
+        .update({ deletion_scheduled_for: null })
+        .eq("id", user?.id);
+
+      toast.success("Exclusão cancelada! Sua conta está segura. ✅");
+      setScheduledDeletion(null);
+    } catch (error) {
+      console.error("[Settings] Cancel deletion error:", error);
+      toast.error("Erro ao cancelar exclusão. Tente novamente.");
+    }
+
+    setIsCancellingDeletion(false);
+  };
+
+  // Keep old function for immediate data clear (without account deletion)
   const deleteAllData = async () => {
     if (deleteConfirmation !== "EXCLUIR") {
       toast.error("Digite EXCLUIR para confirmar");
@@ -573,17 +663,71 @@ export default function Settings() {
               Zona de Perigo
             </CardTitle>
             <CardDescription>
-              Excluir todos os seus dados e começar do zero. Esta ação é IRREVERSÍVEL!
+              {scheduledDeletion ? (
+                "Sua conta está agendada para exclusão. Você pode cancelar até a data limite."
+              ) : (
+                "Exclua seus dados ou sua conta. Ações sensíveis com período de recuperação."
+              )}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button 
-              variant="destructive" 
-              onClick={() => setIsDeleteDialogOpen(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir Todos os Dados
-            </Button>
+          <CardContent className="space-y-4">
+            {scheduledDeletion && (
+              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2 text-destructive">
+                  <Clock className="h-5 w-5" />
+                  <span className="font-semibold">
+                    Exclusão Agendada
+                    {scheduledDeletion.confirmed ? " (Confirmada)" : " (Aguardando confirmação)"}
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Sua conta será excluída em:{" "}
+                  <strong className="text-foreground">
+                    {new Date(scheduledDeletion.scheduled_for).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </strong>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Após esta data, todos os seus dados serão permanentemente removidos.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={cancelScheduledDeletion}
+                  disabled={isCancellingDeletion}
+                  className="border-green-500 text-green-600 hover:bg-green-500/10"
+                >
+                  {isCancellingDeletion ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <XCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Cancelar Exclusão
+                </Button>
+              </div>
+            )}
+
+            {!scheduledDeletion && (
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  variant="outline"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="border-amber-500 text-amber-600 hover:bg-amber-500/10"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Limpar Todos os Dados
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Excluir Minha Conta
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -593,12 +737,12 @@ export default function Settings() {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-5 w-5" />
-                Confirmar Exclusão Total
+                Excluir Conta (LGPD)
               </DialogTitle>
               <DialogDescription>
-                Esta ação vai excluir TODOS os seus dados: transações, contas, tarefas, hábitos, projetos, lembretes, notas, diário e histórico de mensagens.
+                Ao solicitar a exclusão, você receberá um email de confirmação. Sua conta será excluída <strong>30 dias</strong> após a confirmação, dando tempo para cancelar se mudar de ideia.
                 <br /><br />
-                <strong>Esta ação NÃO pode ser desfeita!</strong>
+                <span className="text-amber-500">⚠️ Após os 30 dias, a exclusão é PERMANENTE e IRREVERSÍVEL.</span>
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -611,21 +755,21 @@ export default function Settings() {
                 />
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
                 Cancelar
               </Button>
               <Button 
                 variant="destructive" 
-                onClick={deleteAllData}
+                onClick={requestAccountDeletion}
                 disabled={deleteConfirmation !== "EXCLUIR" || isDeleting}
               >
                 {isDeleting ? (
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 ) : (
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <AlertTriangle className="h-4 w-4 mr-2" />
                 )}
-                Excluir Tudo
+                Solicitar Exclusão
               </Button>
             </DialogFooter>
           </DialogContent>

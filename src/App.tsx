@@ -27,6 +27,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const MemoryValidation = lazy(() => import("./pages/MemoryValidation"));
 const PromptLibrary = lazy(() => import("./pages/PromptLibrary"));
 const PromptAnalysis = lazy(() => import("./pages/PromptAnalysis"));
+const CancelDeletion = lazy(() => import("./pages/CancelDeletion"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -116,6 +117,8 @@ function AppRoutes() {
         <Route path="/prompts" element={<ProtectedRoute><PromptLibrary /></ProtectedRoute>} />
         <Route path="/prompts/:id" element={<ProtectedRoute><PromptAnalysis /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/cancel-deletion/:token" element={<CancelDeletion />} />
+        <Route path="/confirm-deletion/:token" element={<CancelDeletion />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
