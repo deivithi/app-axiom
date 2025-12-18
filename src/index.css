@@ -1164,6 +1164,31 @@
 }
 
 /* ========================================
+   MESSAGE LAYOUT STRUCTURE
+   ======================================== */
+
+/* Row: Avatar + Column */
+.message-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/* User messages: avatar à direita */
+.chat-message.user .message-row {
+  flex-direction: row-reverse;
+}
+
+/* Column: Bubble + Timestamp */
+.message-column {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  max-width: 100%;
+}
+
+/* ========================================
    BALÃO GLASSMORPHIC - AXIOM (AI)
    ======================================== */
 
