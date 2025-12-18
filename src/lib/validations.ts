@@ -39,8 +39,8 @@ export const signInSchema = z.object({
 // ==================== TRANSACTION SCHEMAS ====================
 
 // Category lists for validation
-export const EXPENSE_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Compras", "Assinaturas", "Outros"];
-export const INCOME_CATEGORIES = ["Salário", "Freelance", "Investimentos", "Vendas", "Outros"];
+export const EXPENSE_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Compras", "Assinaturas", "Transferência", "Outros"];
+export const INCOME_CATEGORIES = ["Salário", "Freelance", "Investimentos", "Vendas", "Transferência", "Outros"];
 
 // Date range constants
 const MAX_FUTURE_DAYS = 365; // 1 year in the future
