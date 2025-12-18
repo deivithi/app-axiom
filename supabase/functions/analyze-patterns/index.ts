@@ -10,6 +10,20 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const openaiKey = Deno.env.get("OPENAI_API_KEY")!;
 
+// ===== HELPERS PARA TIMEZONE DO BRASIL =====
+function getBrazilDateStr(date?: Date): string {
+  const d = date || new Date();
+  const brazilDate = new Date(d.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+  const year = brazilDate.getFullYear();
+  const month = String(brazilDate.getMonth() + 1).padStart(2, '0');
+  const day = String(brazilDate.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function getBrazilNow(): Date {
+  return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+}
+
 interface PatternAnalysis {
   trigger_type: string;
   priority: 'critical' | 'important' | 'normal' | 'reflective';
@@ -43,7 +57,7 @@ serve(async (req) => {
     const userName = profile?.full_name || 'usuário';
 
     // Check if there's already a pending question for today
-    const today = new Date().toISOString().split('T')[0];
+    const today = getBrazilDateStr();
     const { data: existingQuestion } = await supabase
       .from('proactive_questions')
       .select('id')
@@ -61,10 +75,10 @@ serve(async (req) => {
       });
     }
 
-    // Gather data for analysis
-    const now = new Date();
+    // Gather data for analysis - usando timezone Brasil
+    const now = getBrazilNow();
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const monthAgo = getBrazilDateStr(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
 
     // Parallel data fetching
     const [
