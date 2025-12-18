@@ -154,30 +154,54 @@ export default function Settings() {
     setIsDeleting(true);
 
     try {
-      // Delete from all tables
+      // Delete from all tables - ordem importa por foreign keys
+      // Primeiro: tabelas filhas
+      await supabase.from("habit_logs").delete().eq("user_id", user?.id);
+      await supabase.from("project_tasks").delete().eq("user_id", user?.id);
+      
+      // Segundo: tabelas principais
       await supabase.from("transactions").delete().eq("user_id", user?.id);
       await supabase.from("accounts").delete().eq("user_id", user?.id);
-      await supabase.from("habit_logs").delete().eq("user_id", user?.id);
       await supabase.from("habits").delete().eq("user_id", user?.id);
-      await supabase.from("project_tasks").delete().eq("user_id", user?.id);
       await supabase.from("projects").delete().eq("user_id", user?.id);
       await supabase.from("reminders").delete().eq("user_id", user?.id);
       await supabase.from("notes").delete().eq("user_id", user?.id);
       await supabase.from("journal_entries").delete().eq("user_id", user?.id);
       await supabase.from("messages").delete().eq("user_id", user?.id);
       await supabase.from("tasks").delete().eq("user_id", user?.id);
+      
+      // Tabelas que estavam faltando
+      await supabase.from("memories").delete().eq("user_id", user?.id);
+      await supabase.from("conversations").delete().eq("user_id", user?.id);
+      await supabase.from("axiom_score_history").delete().eq("user_id", user?.id);
+      await supabase.from("financial_goals").delete().eq("user_id", user?.id);
+      await supabase.from("saved_sites").delete().eq("user_id", user?.id);
+      await supabase.from("push_subscriptions").delete().eq("user_id", user?.id);
+      await supabase.from("proactive_questions").delete().eq("user_id", user?.id);
+      await supabase.from("prompt_library").delete().eq("user_id", user?.id);
 
-      // Reset user context
+      // Delete avatars from storage
+      try {
+        await supabase.storage
+          .from('avatars')
+          .remove([`${user?.id}/avatar.png`, `${user?.id}/avatar.jpg`, `${user?.id}/avatar.jpeg`, `${user?.id}/avatar.webp`]);
+      } catch (storageError) {
+        console.error('Storage cleanup error:', storageError);
+      }
+
+      // Reset user profile (keep the profile, just clear context)
       await supabase
         .from("profiles")
-        .update({ user_context: null })
+        .update({ user_context: null, avatar_url: null })
         .eq("id", user?.id);
 
       toast.success("Todos os dados foram excluídos. Você está começando do zero! 🔄");
       setIsDeleteDialogOpen(false);
       setDeleteConfirmation("");
       setUserContext("");
+      setAvatarUrl(null);
     } catch (error) {
+      console.error('Delete error:', error);
       toast.error("Erro ao excluir dados");
     }
     

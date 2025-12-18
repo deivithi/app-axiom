@@ -65,6 +65,39 @@ function addMonthsSafe(baseDate: Date, monthsToAdd: number): Date {
   return result;
 }
 
+// ===== RATE LIMITING =====
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_MAX = 60; // 60 requests
+const RATE_LIMIT_WINDOW = 60 * 1000; // per minute (60 seconds)
+
+function checkRateLimit(userId: string): { allowed: boolean; remaining: number; resetIn: number } {
+  const now = Date.now();
+  const userLimit = rateLimitMap.get(userId);
+  
+  if (!userLimit || now > userLimit.resetTime) {
+    // Reset or new user
+    rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return { allowed: true, remaining: RATE_LIMIT_MAX - 1, resetIn: RATE_LIMIT_WINDOW };
+  }
+  
+  if (userLimit.count >= RATE_LIMIT_MAX) {
+    return { allowed: false, remaining: 0, resetIn: userLimit.resetTime - now };
+  }
+  
+  userLimit.count++;
+  return { allowed: true, remaining: RATE_LIMIT_MAX - userLimit.count, resetIn: userLimit.resetTime - now };
+}
+
+// Clean up old entries periodically (every 5 minutes)
+setInterval(() => {
+  const now = Date.now();
+  for (const [userId, limit] of rateLimitMap.entries()) {
+    if (now > limit.resetTime) {
+      rateLimitMap.delete(userId);
+    }
+  }
+}, 5 * 60 * 1000);
+
 const tools = [
   // TASKS
   {
@@ -3723,6 +3756,28 @@ serve(async (req) => {
 
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) throw new Error("Usuário não autenticado");
+
+    // Rate limiting check
+    const rateLimit = checkRateLimit(user.id);
+    if (!rateLimit.allowed) {
+      console.warn(`[RateLimit] User ${user.id} exceeded rate limit. Reset in ${Math.ceil(rateLimit.resetIn / 1000)}s`);
+      return new Response(
+        JSON.stringify({ 
+          error: "Limite de requisições excedido. Aguarde um momento antes de enviar mais mensagens.",
+          resetIn: Math.ceil(rateLimit.resetIn / 1000)
+        }), 
+        {
+          status: 429,
+          headers: { 
+            ...corsHeaders, 
+            "Content-Type": "application/json",
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": String(Math.ceil(rateLimit.resetIn / 1000))
+          }
+        }
+      );
+    }
+    console.log(`[RateLimit] User ${user.id}: ${rateLimit.remaining} requests remaining`);
 
 // Buscar nome, contexto e modo de personalidade do usuário
     const { data: profile } = await supabaseAdmin.from("profiles").select("full_name, user_context, personality_mode").eq("id", user.id).maybeSingle();
