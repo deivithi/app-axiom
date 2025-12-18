@@ -7,6 +7,49 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ===== HELPER FUNCTION PARA DATAS NO TIMEZONE DO BRASIL =====
+function getBrazilDate(dateStr?: string): { date: Date; dateStr: string; referenceMonth: string } {
+  let date: Date;
+  
+  if (dateStr) {
+    // Data específica fornecida - usar meio-dia no timezone Brasil para evitar problemas
+    // Força a interpretação como data local do Brasil
+    const [year, month, day] = dateStr.split('-').map(Number);
+    date = new Date(year, month - 1, day, 12, 0, 0);
+  } else {
+    // Sem data - usar horário atual do Brasil (UTC-3)
+    const now = new Date();
+    const brazilTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    date = brazilTime;
+  }
+  
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  
+  return {
+    date,
+    dateStr: `${year}-${month}-${day}`,
+    referenceMonth: `${year}-${month}`
+  };
+}
+
+// ===== HELPER PARA ADICIONAR MESES SEM OVERFLOW DE DIAS =====
+function addMonthsSafe(baseDate: Date, monthsToAdd: number): Date {
+  const result = new Date(baseDate);
+  const originalDay = result.getDate();
+  
+  // Primeiro vai para dia 1 para evitar overflow
+  result.setDate(1);
+  result.setMonth(result.getMonth() + monthsToAdd);
+  
+  // Depois ajusta para o dia correto (ou último dia do mês se necessário)
+  const lastDayOfMonth = new Date(result.getFullYear(), result.getMonth() + 1, 0).getDate();
+  result.setDate(Math.min(originalDay, lastDayOfMonth));
+  
+  return result;
+}
+
 const tools = [
   // TASKS
   {
@@ -289,7 +332,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_transaction",
-      description: "Cria uma nova transação financeira (receita ou despesa). Suporta: transações simples, fixas (recorrentes todo mês com is_fixed=true), ou parceladas (ex: 10x com is_installment=true e total_installments=10). Para parcelas, o amount é o valor DE CADA PARCELA. Pode vincular a uma conta para sincronização automática de saldo. IMPORTANTE: Use transaction_date para registrar em datas passadas ou futuras (formato YYYY-MM-DD).",
+      description: "Cria uma nova transação financeira (receita ou despesa). CRÍTICO: SEMPRE envie transaction_date (YYYY-MM-DD) - consulte CALENDÁRIO no system prompt para a data correta. Se usuário não mencionar data, use a data de HOJE. NUNCA omita transaction_date! Suporta: transações simples, fixas (is_fixed=true), ou parceladas (is_installment=true + total_installments). Para parcelas, amount é o valor DE CADA PARCELA.",
       parameters: {
         type: "object",
         properties: {
@@ -297,14 +340,14 @@ const tools = [
           amount: { type: "number", description: "Valor da transação. Para parcelas, é o valor de CADA parcela (não o total)" },
           type: { type: "string", enum: ["income", "expense"], description: "Tipo: receita ou despesa" },
           category: { type: "string", description: "Categoria da transação" },
-          transaction_date: { type: "string", description: "Data da transação no formato YYYY-MM-DD. Se não informada, usa a data de hoje. Use para registrar transações em datas passadas ou futuras (ex: '2024-12-15' para dia 15 de dezembro)." },
+          transaction_date: { type: "string", description: "OBRIGATÓRIO: Data no formato YYYY-MM-DD. Use CALENDÁRIO do system prompt. Se não mencionada pelo usuário, use HOJE. NUNCA deixe em branco!" },
           is_fixed: { type: "boolean", description: "Se é uma despesa fixa/recorrente (aparece todos os meses)" },
           is_installment: { type: "boolean", description: "Se é uma compra parcelada (ex: 10x, 12x). Use junto com total_installments" },
           total_installments: { type: "number", description: "Número total de parcelas (ex: 10 para 10x, 12 para 12x). Obrigatório quando is_installment=true" },
           payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento. Para parcelas, geralmente é Crédito" },
           account_id: { type: "string", description: "UUID da conta bancária vinculada (opcional). Obtenha de list_accounts. Ao pagar, o saldo será sincronizado." }
         },
-        required: ["title", "amount", "type", "category"]
+        required: ["title", "amount", "type", "category", "transaction_date"]
       }
     }
   },
@@ -1494,7 +1537,8 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     case "log_habit_completion": {
-      const completedDate = args.completed_at || new Date().toISOString().split("T")[0];
+      // Usar helper de timezone do Brasil
+      const { dateStr: completedDate } = getBrazilDate(args.completed_at);
       
       // Check if already logged for this day
       const { data: existing } = await supabaseAdmin
@@ -1528,7 +1572,8 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     case "remove_habit_completion": {
-      const completedDate = args.completed_at || new Date().toISOString().split("T")[0];
+      // Usar helper de timezone do Brasil
+      const { dateStr: completedDate } = getBrazilDate(args.completed_at);
       
       const { error } = await supabaseAdmin
         .from("habit_logs")
@@ -1618,23 +1663,18 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
 
     // TRANSACTIONS
     case "create_transaction": {
-      // Usar data fornecida pelo usuário ou data atual
-      const transactionDate = args.transaction_date 
-        ? new Date(args.transaction_date + 'T12:00:00') // Adiciona horário para evitar problemas de timezone
-        : new Date();
-      
-      // Calcular reference_month baseado na data da transação
-      const referenceMonth = `${transactionDate.getFullYear()}-${String(transactionDate.getMonth() + 1).padStart(2, '0')}`;
-      const transactionDateStr = transactionDate.toISOString().split("T")[0];
+      // ===== USAR HELPER DE DATA COM TIMEZONE DO BRASIL =====
+      const { date: transactionDate, dateStr: transactionDateStr, referenceMonth } = getBrazilDate(args.transaction_date);
       
       // PARCELAS: Criar todas as parcelas a partir da data informada
       if (args.is_installment && args.total_installments && args.total_installments > 1) {
         const installments = [];
         for (let i = 1; i <= args.total_installments; i++) {
-          const installmentDate = new Date(transactionDate);
-          installmentDate.setMonth(installmentDate.getMonth() + (i - 1));
-          
-          const instMonth = `${installmentDate.getFullYear()}-${String(installmentDate.getMonth() + 1).padStart(2, '0')}`;
+          // USAR MÉTODO SEGURO PARA ADICIONAR MESES (evita overflow de dias)
+          const installmentDate = addMonthsSafe(transactionDate, i - 1);
+          const { dateStr: instDateStr, referenceMonth: instMonth } = getBrazilDate(
+            `${installmentDate.getFullYear()}-${String(installmentDate.getMonth() + 1).padStart(2, '0')}-${String(installmentDate.getDate()).padStart(2, '0')}`
+          );
           
           installments.push({
             user_id: userId,
@@ -1648,7 +1688,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
             total_installments: args.total_installments,
             payment_method: args.payment_method || "Crédito",
             is_paid: false,
-            transaction_date: installmentDate.toISOString().split("T")[0],
+            transaction_date: instDateStr, // Usa string formatada corretamente
             reference_month: instMonth,
             account_id: args.account_id || null
           });
@@ -1661,8 +1701,8 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         
         if (error) throw error;
         
-        const lastDate = new Date(transactionDate);
-        lastDate.setMonth(lastDate.getMonth() + args.total_installments - 1);
+        // Calcular datas de início e fim para mensagem
+        const lastDate = addMonthsSafe(transactionDate, args.total_installments - 1);
         const firstMonth = transactionDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         const lastMonth = lastDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         const totalValue = args.amount * args.total_installments;
@@ -1673,7 +1713,8 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
           installments_created: args.total_installments,
           amount_per_installment: args.amount,
           total_value: totalValue,
-          message: `🛒 Compra parcelada criada! "${args.title}" em ${args.total_installments}x de R$ ${args.amount.toFixed(2)} (total: R$ ${totalValue.toFixed(2)}). Parcelas lançadas de ${firstMonth} até ${lastMonth}.`
+          first_installment_date: transactionDateStr,
+          message: `🛒 Compra parcelada criada! "${args.title}" em ${args.total_installments}x de R$ ${args.amount.toFixed(2)} (total: R$ ${totalValue.toFixed(2)}). Parcelas lançadas de ${firstMonth} até ${lastMonth}, iniciando em ${transactionDate.toLocaleDateString('pt-BR')}.`
         };
       }
       
@@ -3809,14 +3850,19 @@ ONTEM: ${ontem.getDate()} de ${meses[ontem.getMonth()]} → ${ontemAno}-${ontemM
 ANTEONTEM: ${anteontem.getDate()} de ${meses[anteontem.getMonth()]} → ${anteontemAno}-${anteontemMes}-${anteontemDia}
 MÊS ATUAL: ${mes} (${mesNum}/${ano})
 
-⚠️ REGRAS OBRIGATÓRIAS PARA DATAS EM TRANSAÇÕES/TAREFAS:
-- "hoje" ou "agora" ou sem mencionar data → use ${ano}-${mesNum}-${diaNum}
-- "ontem" → use ${ontemAno}-${ontemMes}-${ontemDia}
-- "anteontem" → use ${anteontemAno}-${anteontemMes}-${anteontemDia}
-- "dia X" (sem mês) → assume mês atual: ${ano}-${mesNum}-[X com 2 dígitos]
-- "dia X de [mês]" → use o mês especificado
-- NUNCA invente datas! Use SEMPRE o calendário acima como referência.
-- SEMPRE passe transaction_date no formato YYYY-MM-DD ao criar transações.`;
+⚠️ REGRAS OBRIGATÓRIAS PARA transaction_date (CRÍTICO - NUNCA OMITA!):
+1. SEMPRE envie transaction_date em TODAS as transações - É UM CAMPO OBRIGATÓRIO!
+2. "hoje" ou "agora" ou SEM MENÇÃO DE DATA → use ${ano}-${mesNum}-${diaNum}
+3. "ontem" → use ${ontemAno}-${ontemMes}-${ontemDia}
+4. "anteontem" → use ${anteontemAno}-${anteontemMes}-${anteontemDia}
+5. "dia X" (sem mês) → assume mês atual: ${ano}-${mesNum}-[X com 2 dígitos]
+6. "dia X de [mês]" → use o mês especificado com ano atual
+7. NUNCA deixe transaction_date em branco/null/undefined - O SISTEMA REQUER!
+8. SEMPRE use formato YYYY-MM-DD (ex: ${ano}-${mesNum}-${diaNum})
+
+EXEMPLO: Se usuário disser apenas "gastei 50 no almoço" sem mencionar data:
+→ transaction_date: "${ano}-${mesNum}-${diaNum}" (usa HOJE automaticamente)`;
+
 
     const systemPrompt = `Você é Axiom, Consultor Estratégico Pessoal do(a) ${userName}.
 
@@ -3935,27 +3981,32 @@ ESTILO DE RESPOSTA FINANCEIRA:
 - Faça correlações comportamentais: "Delivery sobe quando você não exercita"
 - Termine com pergunta estratégica ou sugestão de ação
 
-💳 REGRAS PARA PARCELAS (MUITO IMPORTANTE):
+💳 REGRAS PARA PARCELAS (CRÍTICO - SIGA EXATAMENTE):
 Quando o usuário mencionar "parcelado", "em X vezes", "Xx" (ex: 10x, 3x, 12x):
 - Use is_installment: true
 - Use total_installments: [número de parcelas]
 - O AMOUNT é o valor DE CADA PARCELA, não o valor total
 - O payment_method geralmente é "Crédito" para parcelas
+- SEMPRE inclua transaction_date da primeira parcela!
 
-EXEMPLOS DE PARCELAS:
+⚠️ INTERPRETAÇÃO DO VALOR EM PARCELAS (MUITO IMPORTANTE):
+Padrão 1: "Comprei X em Nx" (valor + parcelas) → PERGUNTE se X é total ou por parcela!
+Padrão 2: "Parcelei em Nx de Y" (parcelas + valor explícito) → amount = Y (já é por parcela)
+Padrão 3: "Gastei X total em Nx" (menciona "total") → amount = X/N (divida)
+
+EXEMPLOS CORRETOS:
 - "Comprei uma TV de 500 reais em 10x"
-  → amount: 500, is_installment: true, total_installments: 10
-  → Sistema cria 10 transações de R$500 cada (total R$5000)
+  → AMBÍGUO! Pergunte: "Os R$500 são o valor total ou de cada parcela?"
+  → Se total: amount: 50 (500/10), total_installments: 10
+  → Se cada parcela: amount: 500, total_installments: 10
 
 - "Parcelei o celular em 12 vezes de 150"
-  → amount: 150, is_installment: true, total_installments: 12
-  → Sistema cria 12 transações de R$150 cada
+  → amount: 150 (valor explícito por parcela), total_installments: 12
 
-- "Gastei 800 em 4x no cartão"
-  → amount: 200 (800/4), is_installment: true, total_installments: 4
-  → Sistema cria 4 transações de R$200 cada
+- "Gastei 800 total em 4x no cartão"
+  → amount: 200 (800/4), total_installments: 4
 
-ATENÇÃO: Se o usuário disser "gastei X em Yx", divida X por Y para obter o valor da parcela!
+REGRA DE OURO: Na dúvida entre valor total ou por parcela, PERGUNTE ao usuário!
 
 EXEMPLOS DE USO CORRETO:
 - Usuário: "marca o hábito de flexões como feito"
