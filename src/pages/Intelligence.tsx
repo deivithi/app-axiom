@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -12,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { ScoreCard } from '@/components/intelligence/ScoreCard';
 import { ScoreEvolutionChart } from '@/components/intelligence/ScoreEvolutionChart';
+import { AppleCard, MetricCard, ChartCard } from '@/components/ui/apple-card';
 
 interface WeeklySummary {
   tasksCompleted: number;
@@ -45,7 +45,7 @@ interface LastInsight {
   date: string;
 }
 
-const COLORS = ['#14B8A6', '#8B5CF6', '#F59E0B', '#EC4899', '#3B82F6'];
+const COLORS = ['hsl(var(--success))', 'hsl(var(--destructive))'];
 
 export default function Intelligence() {
   const [loading, setLoading] = useState(true);
@@ -92,7 +92,7 @@ export default function Intelligence() {
         });
       }
     } catch (error) {
-      // No insights yet, that's fine
+      // No insights yet
     }
   };
 
@@ -266,12 +266,12 @@ export default function Intelligence() {
   return (
     <AppLayout>
       <div className="p-4 pl-16 md:pl-6 md:p-6">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold flex items-center gap-2">
+        <div className="dashboard-header">
+          <h1>
             <Sparkles className="h-6 w-6 text-primary" />
             Motor de Inteligência
           </h1>
-          <p className="text-muted-foreground">Análise e insights personalizados</p>
+          <p>Análise e insights personalizados</p>
         </div>
 
         {loading ? (
@@ -286,207 +286,190 @@ export default function Intelligence() {
               <ScoreEvolutionChart history={scoreHistory} loading={loadingScore} />
             </div>
 
-            {/* Cards de resumo */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card className="tap-card" onClick={() => navigate('/execution')}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <CheckSquare className="h-4 w-4" />
-                    <span className="text-xs">Tarefas</span>
-                  </div>
-                  <p className="text-2xl font-bold">{summary?.tasksCompleted}/{summary?.tasksTotal}</p>
-                  <p className="text-xs text-muted-foreground">{taskCompletion}% concluídas</p>
-                </CardContent>
-              </Card>
+            {/* Stats Grid */}
+            <div className="stats-grid">
+              <MetricCard
+                label="Tarefas"
+                value={`${summary?.tasksCompleted}/${summary?.tasksTotal}`}
+                icon={<CheckSquare className="h-5 w-5 text-primary" />}
+                color="info"
+                interactive
+                onClick={() => navigate('/execution')}
+              />
 
-              <Card className="tap-card" onClick={() => navigate('/habits')}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Target className="h-4 w-4" />
-                    <span className="text-xs">Hábitos</span>
-                  </div>
-                  <p className="text-2xl font-bold">{summary?.habitsCompleted}/{summary?.habitsTotal}</p>
-                  <p className="text-xs text-muted-foreground">ativos esta semana</p>
-                </CardContent>
-              </Card>
+              <MetricCard
+                label="Hábitos"
+                value={`${summary?.habitsCompleted}/${summary?.habitsTotal}`}
+                icon={<Target className="h-5 w-5 text-amber-500" />}
+                color="warning"
+                interactive
+                onClick={() => navigate('/habits')}
+              />
 
-              <Card className="tap-card" onClick={() => navigate('/finances')}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Wallet className="h-4 w-4" />
-                    <span className="text-xs">Saldo</span>
-                  </div>
-                  <p className={`text-2xl font-bold ${(summary?.income || 0) - (summary?.expenses || 0) >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
-                    R${((summary?.income || 0) - (summary?.expenses || 0)).toFixed(0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">este mês</p>
-                </CardContent>
-              </Card>
+              <MetricCard
+                label="Saldo"
+                value={`R$${((summary?.income || 0) - (summary?.expenses || 0)).toFixed(0)}`}
+                icon={<Wallet className="h-5 w-5 text-emerald-500" />}
+                color={(summary?.income || 0) - (summary?.expenses || 0) >= 0 ? "success" : "error"}
+                interactive
+                onClick={() => navigate('/finances')}
+              />
 
-              <Card className="tap-card" onClick={() => navigate('/memory')}>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                    <Brain className="h-4 w-4" />
-                    <span className="text-xs">Reflexões</span>
-                  </div>
-                  <p className="text-2xl font-bold">{(summary?.notesCreated || 0) + (summary?.journalEntries || 0)}</p>
-                  <p className="text-xs text-muted-foreground">esta semana</p>
-                </CardContent>
-              </Card>
+              <MetricCard
+                label="Reflexões"
+                value={(summary?.notesCreated || 0) + (summary?.journalEntries || 0)}
+                icon={<Brain className="h-5 w-5 text-purple-500" />}
+                color="default"
+                interactive
+                onClick={() => navigate('/memory')}
+              />
             </div>
 
-            {/* Gráficos */}
+            {/* Charts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Finanças do Mês</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {pieData.some(d => d.value > 0) ? (
-                    <ResponsiveContainer width="100%" height={200}>
-                      <PieChart>
-                        <Pie
-                          data={pieData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={50}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {pieData.map((_, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value: number) => `R$${value.toFixed(2)}`} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <p className="text-center text-muted-foreground py-8">Sem dados financeiros</p>
-                  )}
-                  <div className="flex justify-center gap-4 mt-2">
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[0] }} />
-                      <span className="text-sm">Receitas</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[1] }} />
-                      <span className="text-sm">Despesas</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Performance Semanal</CardTitle>
-                </CardHeader>
-                <CardContent>
+              <ChartCard title="Finanças do Mês">
+                {pieData.some(d => d.value > 0) ? (
                   <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={performanceData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip formatter={(value: number) => `${value}%`} />
-                      <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
+                    <PieChart>
+                      <defs>
+                        <linearGradient id="gradientIncome" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="hsl(160, 84%, 39%)" />
+                          <stop offset="100%" stopColor="hsl(158, 64%, 32%)" />
+                        </linearGradient>
+                        <linearGradient id="gradientExpense" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="hsl(0, 72%, 50%)" />
+                          <stop offset="100%" stopColor="hsl(0, 72%, 40%)" />
+                        </linearGradient>
+                      </defs>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={50}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        <Cell fill="url(#gradientIncome)" />
+                        <Cell fill="url(#gradientExpense)" />
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number) => `R$${value.toFixed(2)}`}
+                        contentStyle={{
+                          background: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                        }}
+                      />
+                    </PieChart>
                   </ResponsiveContainer>
-                </CardContent>
-              </Card>
+                ) : (
+                  <p className="text-center text-muted-foreground py-8">Sem dados financeiros</p>
+                )}
+                <div className="flex justify-center gap-4 mt-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                    <span className="text-sm">Receitas</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-red-500" />
+                    <span className="text-sm">Despesas</span>
+                  </div>
+                </div>
+              </ChartCard>
+
+              <ChartCard title="Performance Semanal">
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={performanceData}>
+                    <defs>
+                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" />
+                        <stop offset="100%" stopColor="hsl(var(--secondary))" />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip 
+                      formatter={(value: number) => `${value}%`}
+                      contentStyle={{
+                        background: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                      }}
+                    />
+                    <Bar dataKey="value" fill="url(#barGradient)" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
             </div>
 
             {/* AI Insight */}
-            <Card className="bg-gradient-to-br from-primary/10 to-cyan-500/10 border-primary/20">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-primary" />
-                    Análise do Axiom
-                  </CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={generateWeeklyInsight}
-                    disabled={generatingInsight}
-                  >
-                    {generatingInsight ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                        Analisando...
-                      </>
-                    ) : (
-                      <>
-                        <TrendingUp className="h-4 w-4 mr-2" />
-                        Gerar Análise
-                      </>
-                    )}
+            <AppleCard elevation={2} glow className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Análise do Axiom</h3>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={generateWeeklyInsight}
+                  disabled={generatingInsight}
+                >
+                  {generatingInsight ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Analisando...
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Gerar Análise
+                    </>
+                  )}
+                </Button>
+              </div>
+              {aiInsight ? (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{aiInsight}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Clique em "Gerar Análise" para receber insights personalizados sobre sua semana
+                </p>
+              )}
+            </AppleCard>
+
+            {/* Last Weekly Insight */}
+            <AppleCard elevation={1} className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="h-5 w-5 text-primary" />
+                <h3 className="text-lg font-semibold">Último Insight Semanal</h3>
+              </div>
+              {lastInsight ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Semana {lastInsight.week}</span>
+                    <span className="text-xs text-muted-foreground">{lastInsight.date}</span>
+                  </div>
+                  {lastInsight.score && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold">{lastInsight.score}</span>
+                      {lastInsight.change && (
+                        <span className={`text-sm ${lastInsight.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                          {lastInsight.change >= 0 ? '↑' : '↓'} {Math.abs(lastInsight.change)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  <Button variant="link" className="p-0 h-auto" onClick={() => navigate('/')}>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Ver conversa completa
                   </Button>
                 </div>
-              </CardHeader>
-              <CardContent>
-                {aiInsight ? (
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">{aiInsight}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Clique em "Gerar Análise" para receber insights personalizados sobre sua semana
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Last Weekly Insight Card */}
-            <Card className="border-border/50">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-primary" />
-                  Último Insight Semanal
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {lastInsight ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Semana {lastInsight.week}</span>
-                      <span className="text-xs text-muted-foreground/60">{lastInsight.date}</span>
-                    </div>
-                    {lastInsight.score !== null && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-bold">{lastInsight.score}</span>
-                        {lastInsight.change !== null && (
-                          <span className={`text-sm ${lastInsight.change >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
-                            {lastInsight.change >= 0 ? '+' : ''}{lastInsight.change}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => navigate('/chat')}
-                      className="w-full gap-2"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      Ver no Chat
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Seu primeiro relatório será gerado na segunda-feira às 6h
-                    </p>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => navigate('/chat?q=Gerar%20meu%20relatório%20semanal')}
-                      className="gap-2"
-                    >
-                      <Sparkles className="h-4 w-4" />
-                      Gerar Agora
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              ) : (
+                <p className="text-sm text-muted-foreground">Nenhum insight semanal gerado ainda</p>
+              )}
+            </AppleCard>
           </div>
         )}
       </div>

@@ -1543,3 +1543,274 @@
   background: rgba(0, 230, 255, 0.12);
   border-color: rgba(0, 230, 255, 0.25);
 }
+
+/* =====================================================
+   APPLE DESIGN SYSTEM - Premium Dashboard Styling
+   ===================================================== */
+
+/* Apple Design Tokens */
+:root {
+  /* Apple Shadows (Light Mode - Multi-layer) */
+  --apple-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.06);
+  --apple-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+  --apple-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+  --apple-shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16), 0 8px 16px rgba(0, 0, 0, 0.08);
+  
+  /* Inner Highlight */
+  --apple-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  
+  /* Apple Semantic Colors */
+  --apple-green: 160 84% 39%;
+  --apple-orange: 38 92% 50%;
+  --apple-red: 0 72% 50%;
+  --apple-blue: 217 91% 60%;
+  --apple-teal: 187 94% 43%;
+  --apple-purple: 271 81% 56%;
+  
+  /* Card Background */
+  --apple-card-bg: 0 0% 100% / 0.92;
+  --apple-card-border: 0 0% 0% / 0.06;
+}
+
+.dark {
+  /* Apple Shadows (Dark Mode - Deeper) */
+  --apple-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --apple-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.25);
+  --apple-shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.3);
+  --apple-shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
+  
+  /* Inner Highlight (Dark) */
+  --apple-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  
+  /* Card Background (Dark) */
+  --apple-card-bg: 240 14% 12% / 0.8;
+  --apple-card-border: 215 16% 65% / 0.1;
+}
+
+/* Apple Card Base */
+.apple-card {
+  background: hsl(var(--apple-card-bg));
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-radius: var(--radius-xl);
+  border: 1px solid hsl(var(--apple-card-border));
+  box-shadow: var(--apple-shadow-md), var(--apple-highlight);
+  transition: all var(--duration-base) var(--ease-smooth);
+}
+
+.apple-card:hover {
+  box-shadow: var(--apple-shadow-lg), var(--apple-highlight);
+}
+
+.apple-card.interactive:hover {
+  transform: translateY(-2px);
+}
+
+.apple-card.interactive:active {
+  transform: scale(0.98);
+}
+
+/* Elevation Variants */
+.apple-card-1 {
+  box-shadow: var(--apple-shadow-sm), var(--apple-highlight);
+}
+
+.apple-card-2 {
+  box-shadow: var(--apple-shadow-md), var(--apple-highlight);
+}
+
+.apple-card-3 {
+  box-shadow: var(--apple-shadow-lg), var(--apple-highlight);
+}
+
+/* Metric Card (iOS Health Style) */
+.metric-card {
+  @apply apple-card p-4;
+  min-height: 100px;
+}
+
+.metric-card .metric-value {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.metric-card .metric-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: hsl(var(--muted-foreground));
+}
+
+.metric-card .metric-icon {
+  @apply p-2 rounded-xl;
+  background: hsl(var(--primary) / 0.1);
+}
+
+/* Score Card Variants */
+.score-card {
+  @apply apple-card;
+  position: relative;
+  overflow: hidden;
+}
+
+.score-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.score-card.high::before {
+  background: linear-gradient(135deg, hsl(var(--apple-green)) 0%, hsl(var(--apple-teal)) 100%);
+}
+
+.score-card.medium::before {
+  background: linear-gradient(135deg, hsl(var(--apple-orange)) 0%, hsl(var(--apple-red) / 0.7) 100%);
+}
+
+.score-card.low::before {
+  background: linear-gradient(135deg, hsl(var(--apple-red)) 0%, hsl(var(--apple-orange) / 0.7) 100%);
+}
+
+/* Glow Card (for AI/Special elements) */
+.glow-card {
+  @apply apple-card;
+  position: relative;
+}
+
+.glow-card::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.3), hsl(var(--accent) / 0.3));
+  z-index: -1;
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-smooth);
+}
+
+.glow-card:hover::after {
+  opacity: 1;
+}
+
+/* Dashboard Header */
+.dashboard-header {
+  @apply mb-6;
+}
+
+.dashboard-header h1 {
+  @apply text-2xl font-bold flex items-center gap-2;
+}
+
+.dashboard-header p {
+  @apply text-muted-foreground;
+}
+
+/* Stats Grid */
+.stats-grid {
+  @apply grid grid-cols-2 md:grid-cols-4 gap-4;
+}
+
+/* Chart Card */
+.chart-card {
+  @apply apple-card p-6;
+}
+
+.chart-card .chart-header {
+  @apply flex items-center justify-between mb-4;
+}
+
+.chart-card .chart-title {
+  @apply text-lg font-semibold;
+}
+
+/* List Item (for transactions, tasks, etc.) */
+.list-item {
+  @apply flex items-center justify-between p-3 rounded-lg;
+  @apply hover:bg-muted/50 transition-colors;
+}
+
+.list-item.interactive {
+  @apply cursor-pointer active:scale-[0.99];
+}
+
+/* Badge Variants (Apple Style) */
+.badge-success {
+  background: hsl(var(--apple-green) / 0.1);
+  color: hsl(var(--apple-green));
+  border: 1px solid hsl(var(--apple-green) / 0.2);
+}
+
+.badge-warning {
+  background: hsl(var(--apple-orange) / 0.1);
+  color: hsl(var(--apple-orange));
+  border: 1px solid hsl(var(--apple-orange) / 0.2);
+}
+
+.badge-error {
+  background: hsl(var(--apple-red) / 0.1);
+  color: hsl(var(--apple-red));
+  border: 1px solid hsl(var(--apple-red) / 0.2);
+}
+
+.badge-info {
+  background: hsl(var(--apple-blue) / 0.1);
+  color: hsl(var(--apple-blue));
+  border: 1px solid hsl(var(--apple-blue) / 0.2);
+}
+
+/* Progress Bar (Apple Style) */
+.progress-apple {
+  @apply h-2 rounded-full overflow-hidden;
+  background: hsl(var(--muted));
+}
+
+.progress-apple .progress-fill {
+  @apply h-full rounded-full transition-all duration-500;
+  background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--secondary)));
+}
+
+/* Calendar Cell (for Habits) */
+.calendar-cell {
+  @apply aspect-square rounded-lg flex items-center justify-center text-xs transition-all;
+  @apply hover:bg-muted/80;
+}
+
+.calendar-cell.completed {
+  @apply text-primary-foreground;
+}
+
+.calendar-cell.today {
+  @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+}
+
+/* Kanban Column (Apple Style) */
+.kanban-column {
+  @apply apple-card-1 min-h-[400px] p-4;
+}
+
+.kanban-column .column-header {
+  @apply flex items-center justify-between mb-4 pb-3 border-b border-border/50;
+}
+
+/* Empty State */
+.empty-state-apple {
+  @apply flex flex-col items-center justify-center py-12 text-center;
+}
+
+.empty-state-apple .icon {
+  @apply w-16 h-16 rounded-2xl flex items-center justify-center mb-4;
+  background: hsl(var(--muted));
+}
+
+.empty-state-apple .title {
+  @apply text-lg font-medium mb-2;
+}
+
+.empty-state-apple .description {
+  @apply text-sm text-muted-foreground max-w-sm;
+}
