@@ -18,9 +18,10 @@ export function useDuplicateDetection(transactions: Transaction[]) {
     const groups = new Map<string, Transaction[]>();
     
     transactions.forEach(tx => {
-      // Criar chave baseada em título normalizado + valor + data
+      // Criar chave baseada em título normalizado + valor + data (normalizada para YYYY-MM-DD)
       const normalizedTitle = tx.title.toLowerCase().trim();
-      const key = `${normalizedTitle}|${tx.amount}|${tx.type}|${tx.transaction_date}`;
+      const normalizedDate = tx.transaction_date.substring(0, 10); // Garante formato YYYY-MM-DD
+      const key = `${normalizedTitle}|${tx.amount}|${tx.type}|${normalizedDate}`;
       
       const existing = groups.get(key) || [];
       existing.push(tx);
