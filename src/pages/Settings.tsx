@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,17 +6,21 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Save, Trash2, AlertTriangle, Upload, User, Target, Compass, Handshake, Download } from "lucide-react";
+import { Loader2, Save, Trash2, AlertTriangle, Upload, User, Target, Compass, Handshake, Download, CloudUpload, Wifi, WifiOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
-import { exportUserData, downloadUserData } from "@/lib/exportUserData";
+import { exportUserData, downloadUserData, importUserData, ExportData } from "@/lib/exportUserData";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 type PersonalityMode = "direto" | "sabio" | "parceiro";
 
 export default function Settings() {
   const { user } = useAuth();
+  const networkStatus = useNetworkStatus();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userContext, setUserContext] = useState("");
@@ -27,6 +31,9 @@ export default function Settings() {
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
   const [personalityMode, setPersonalityMode] = useState<PersonalityMode>("direto");
   const [savingMode, setSavingMode] = useState(false);
 
@@ -41,6 +48,44 @@ export default function Settings() {
       toast.error("Erro ao exportar dados");
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImportFile(file);
+      setIsImportDialogOpen(true);
+    }
+  };
+
+  const handleImportData = async () => {
+    if (!user || !importFile) return;
+    setIsImporting(true);
+    
+    try {
+      const text = await importFile.text();
+      const data = JSON.parse(text) as ExportData;
+      
+      const result = await importUserData(user.id, data);
+      
+      if (result.success) {
+        toast.success(`${result.total} itens restaurados com sucesso! 🔄`);
+        loadProfile(); // Reload profile data
+      } else {
+        toast.error(`Restauração parcial: ${result.errors.length} erros`);
+        console.error('[Import] Errors:', result.errors);
+      }
+    } catch (error) {
+      console.error('[Import] Parse error:', error);
+      toast.error("Arquivo inválido ou corrompido");
+    } finally {
+      setIsImporting(false);
+      setIsImportDialogOpen(false);
+      setImportFile(null);
+      if (importInputRef.current) {
+        importInputRef.current.value = '';
+      }
     }
   };
 
@@ -429,29 +474,94 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Exportação de Dados - LGPD */}
+        {/* Status de Conexão */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              📦 Exportar Meus Dados (LGPD)
+              {networkStatus.isOnline ? (
+                <Wifi className="h-5 w-5 text-green-500" />
+              ) : (
+                <WifiOff className="h-5 w-5 text-destructive" />
+              )}
+              Status de Conexão
             </CardTitle>
             <CardDescription>
-              Baixe uma cópia de todos os seus dados em formato JSON. Isso inclui transações, hábitos, tarefas, projetos, notas, memórias e mais.
+              {networkStatus.isOnline 
+                ? "Você está online. Todas as alterações são salvas automaticamente."
+                : "Você está offline. Alterações serão sincronizadas quando reconectar."}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <Button 
-              variant="outline" 
-              onClick={handleExportData}
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
+          <CardContent className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className={`px-3 py-1 rounded-full text-sm ${networkStatus.isOnline ? 'bg-green-500/20 text-green-600' : 'bg-destructive/20 text-destructive'}`}>
+                {networkStatus.isOnline ? 'Online' : 'Offline'}
+              </div>
+              {networkStatus.pendingMutations > 0 && (
+                <div className="text-sm text-muted-foreground">
+                  {networkStatus.pendingMutations} alterações pendentes
+                </div>
               )}
-              {isExporting ? "Exportando..." : "Baixar Meus Dados"}
-            </Button>
+            </div>
+            {networkStatus.pendingMutations > 0 && networkStatus.isOnline && (
+              <Button 
+                variant="outline"
+                onClick={networkStatus.syncPendingMutations}
+                disabled={networkStatus.isSyncing}
+              >
+                {networkStatus.isSyncing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <CloudUpload className="h-4 w-4 mr-2" />
+                )}
+                Sincronizar Agora
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Backup e Restauração */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              📦 Backup e Restauração (LGPD)
+            </CardTitle>
+            <CardDescription>
+              Exporte seus dados para backup ou restaure de um arquivo anterior. Inclui transações, hábitos, tarefas, projetos, notas e mais.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-3">
+              <Button 
+                variant="outline" 
+                onClick={handleExportData}
+                disabled={isExporting}
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                {isExporting ? "Exportando..." : "Exportar Dados"}
+              </Button>
+              
+              <Label htmlFor="import-backup" className="cursor-pointer">
+                <Button variant="outline" asChild disabled={isImporting}>
+                  <span>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Restaurar Backup
+                  </span>
+                </Button>
+              </Label>
+              <input 
+                id="import-backup"
+                ref={importInputRef}
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={handleImportFile}
+                disabled={isImporting}
+              />
+            </div>
           </CardContent>
         </Card>
 
@@ -516,6 +626,42 @@ export default function Settings() {
                   <Trash2 className="h-4 w-4 mr-2" />
                 )}
                 Excluir Tudo
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog de Confirmação de Importação */}
+        <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5 text-primary" />
+                Restaurar Backup
+              </DialogTitle>
+              <DialogDescription>
+                Você está prestes a restaurar dados do arquivo: <strong>{importFile?.name}</strong>
+                <br /><br />
+                Dados existentes com o mesmo ID serão atualizados. Dados novos serão adicionados.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setIsImportDialogOpen(false);
+                setImportFile(null);
+              }}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={handleImportData}
+                disabled={isImporting}
+              >
+                {isImporting ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                {isImporting ? "Restaurando..." : "Confirmar Restauração"}
               </Button>
             </DialogFooter>
           </DialogContent>
