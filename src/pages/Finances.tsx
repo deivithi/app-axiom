@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -154,7 +153,6 @@ export default function Finances() {
   const generateRecurringTransactions = async () => {
     const referenceMonth = format(selectedMonth, "yyyy-MM");
     
-    // Get original fixed transactions (those without parent_transaction_id)
     const { data: fixedTransactions, error: fetchError } = await supabase
       .from("transactions")
       .select("*")
@@ -167,11 +165,9 @@ export default function Finances() {
     for (const original of fixedTransactions) {
       const originalDate = new Date(original.transaction_date);
       
-      // Only create for months after or equal to the original transaction month
       if (isAfter(startOfMonth(selectedMonth), startOfMonth(originalDate)) || 
           isSameMonth(selectedMonth, originalDate)) {
         
-        // Check if instance already exists for this month
         const { data: existing } = await supabase
           .from("transactions")
           .select("id")
@@ -179,11 +175,9 @@ export default function Finances() {
           .eq("reference_month", referenceMonth)
           .maybeSingle();
 
-        // Also check if the original IS the transaction for this month
         const originalMonth = format(originalDate, "yyyy-MM");
         
         if (!existing && originalMonth !== referenceMonth) {
-          // Create recurring instance for this month
           await supabase.from("transactions").insert({
             user_id: user?.id,
             title: original.title,
@@ -295,7 +289,6 @@ export default function Finances() {
       return;
     }
 
-    // Sincronizar saldo da conta se vinculada - BUSCAR DO BANCO
     if (transaction?.account_id) {
       const { data: currentAccount } = await supabase
         .from("accounts")
@@ -305,8 +298,8 @@ export default function Finances() {
       
       if (currentAccount) {
         const newBalance = type === "income" 
-          ? currentAccount.balance + transaction.amount  // Receita: +saldo
-          : currentAccount.balance - transaction.amount; // Despesa: -saldo
+          ? currentAccount.balance + transaction.amount
+          : currentAccount.balance - transaction.amount;
         
         await supabase
           .from("accounts")
@@ -332,7 +325,6 @@ export default function Finances() {
       return;
     }
 
-    // Reverter saldo da conta se vinculada - BUSCAR DO BANCO
     if (transaction?.account_id) {
       const { data: currentAccount } = await supabase
         .from("accounts")
@@ -342,8 +334,8 @@ export default function Finances() {
       
       if (currentAccount) {
         const newBalance = transaction.type === "income"
-          ? currentAccount.balance - transaction.amount  // Receita: -saldo (reverte)
-          : currentAccount.balance + transaction.amount; // Despesa: +saldo (reverte)
+          ? currentAccount.balance - transaction.amount
+          : currentAccount.balance + transaction.amount;
         
         await supabase
           .from("accounts")
@@ -359,7 +351,6 @@ export default function Finances() {
   const updateTransaction = async () => {
     if (!editingTransaction) return;
 
-    // Buscar transação original para comparar mudanças
     const originalTransaction = transactions.find(t => t.id === editingTransaction.id);
 
     const { error } = await supabase
@@ -383,14 +374,11 @@ export default function Finances() {
       return;
     }
 
-    // Sincronizar saldos se transação estava paga - BUSCAR DO BANCO
     if (originalTransaction?.is_paid) {
       const oldAccountId = originalTransaction.account_id;
       const newAccountId = editingTransaction.account_id;
 
-      // Mudou de conta?
       if (oldAccountId !== newAccountId) {
-        // Reverter na conta antiga - BUSCAR DO BANCO
         if (oldAccountId) {
           const { data: oldAccount } = await supabase
             .from("accounts")
@@ -405,7 +393,6 @@ export default function Finances() {
             await supabase.from("accounts").update({ balance: revertedBalance }).eq("id", oldAccountId);
           }
         }
-        // Aplicar na conta nova - BUSCAR DO BANCO
         if (newAccountId) {
           const { data: newAccount } = await supabase
             .from("accounts")
@@ -421,7 +408,6 @@ export default function Finances() {
           }
         }
       }
-      // Mesma conta mas mudou valor/tipo? - BUSCAR DO BANCO
       else if (newAccountId && (originalTransaction.amount !== editingTransaction.amount || originalTransaction.type !== editingTransaction.type)) {
         const { data: account } = await supabase
           .from("accounts")
@@ -430,11 +416,9 @@ export default function Finances() {
           .single();
         
         if (account) {
-          // Reverter valor antigo
           let balance = originalTransaction.type === "income"
             ? account.balance - originalTransaction.amount
             : account.balance + originalTransaction.amount;
-          // Aplicar novo valor
           balance = editingTransaction.type === "income"
             ? balance + editingTransaction.amount
             : balance - editingTransaction.amount;
@@ -450,10 +434,8 @@ export default function Finances() {
   };
 
   const deleteTransaction = async (id: string) => {
-    // Also delete all recurring instances if deleting an original fixed transaction
     const transaction = transactions.find(t => t.id === id);
     
-    // Se estava paga e tinha conta vinculada, reverter saldo - BUSCAR DO BANCO
     if (transaction?.is_paid && transaction?.account_id) {
       const { data: currentAccount } = await supabase
         .from("accounts")
@@ -474,7 +456,6 @@ export default function Finances() {
     }
     
     if (transaction?.is_fixed && !transaction.parent_transaction_id) {
-      // This is an original fixed transaction - delete all its instances too
       await supabase.from("transactions").delete().eq("parent_transaction_id", id);
     }
 
@@ -489,39 +470,41 @@ export default function Finances() {
     loadData();
   };
 
-  // Recalcular saldo da conta baseado em TODAS as transações pagas vinculadas
   const recalculateAccountBalance = async (accountId: string) => {
     const { data: paidTransactions, error } = await supabase
       .from("transactions")
       .select("amount, type")
       .eq("account_id", accountId)
-      .eq("is_paid", true)
-      .eq("user_id", user?.id);
-    
+      .eq("is_paid", true);
+
     if (error) {
       toast.error("Erro ao recalcular saldo");
       return;
     }
 
-    const newBalance = (paidTransactions || []).reduce((acc, t) => {
-      return t.type === "income" ? acc + Number(t.amount) : acc - Number(t.amount);
+    const newBalance = (paidTransactions || []).reduce((sum, t) => {
+      return t.type === "income" ? sum + Number(t.amount) : sum - Number(t.amount);
     }, 0);
-    
-    await supabase.from("accounts").update({ balance: newBalance }).eq("id", accountId);
-    toast.success("Saldo recalculado! ✅");
+
+    await supabase
+      .from("accounts")
+      .update({ balance: newBalance })
+      .eq("id", accountId);
+
+    toast.success("Saldo recalculado!");
     loadAccounts();
   };
 
   const createAccount = async () => {
-    if (!newAccount.name || !newAccount.balance) {
-      toast.error("Preencha nome e saldo");
+    if (!newAccount.name) {
+      toast.error("Informe o nome da conta");
       return;
     }
 
     const { error } = await supabase.from("accounts").insert({
       user_id: user?.id,
       name: newAccount.name,
-      balance: parseFloat(newAccount.balance),
+      balance: parseFloat(newAccount.balance) || 0,
       color: newAccount.color,
       icon: newAccount.icon
     });
@@ -531,9 +514,14 @@ export default function Finances() {
       return;
     }
 
-    toast.success("Conta criada!");
+    toast.success("Conta criada com sucesso!");
     setIsAccountDialogOpen(false);
-    setNewAccount({ name: "", balance: "", color: ACCOUNT_COLORS[0], icon: ACCOUNT_ICONS[0] });
+    setNewAccount({
+      name: "",
+      balance: "",
+      color: ACCOUNT_COLORS[0],
+      icon: ACCOUNT_ICONS[0]
+    });
     loadAccounts();
   };
 
@@ -542,7 +530,6 @@ export default function Finances() {
   const balance = totalIncome - totalExpenses;
   const totalAccountBalance = accounts.reduce((sum, a) => sum + Number(a.balance), 0);
   
-  // Calculate pending amounts
   const pendingExpenses = transactions
     .filter(t => t.type === "expense" && !t.is_paid)
     .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -573,12 +560,12 @@ export default function Finances() {
 
   return (
     <AppLayout>
-      <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-6">
-        {/* Header com filtro de mês */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <h1 className="text-2xl font-bold text-foreground">Finanças</h1>
+      <div className="dashboard-container">
+        {/* Header */}
+        <header className="dashboard-header">
+          <h1>CFO Pessoal</h1>
           
-          <div className="flex items-center gap-2">
+          <div className="dashboard-header-actions">
             <Button variant="ghost" size="icon" onClick={() => navigateMonth("prev")}>
               <ChevronLeft className="h-5 w-5" />
             </Button>
@@ -590,7 +577,7 @@ export default function Finances() {
             </Button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="dashboard-header-actions">
             <Button 
               variant="outline" 
               onClick={() => {
@@ -614,172 +601,177 @@ export default function Finances() {
               <DialogTrigger asChild>
                 <Button><Plus className="h-4 w-4 mr-2" /> Nova Transação</Button>
               </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Nova Transação</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Título</Label>
-                  <Input 
-                    value={newTransaction.title} 
-                    onChange={e => setNewTransaction(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Ex: Supermercado"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Valor (R$)</Label>
-                  <Input 
-                    type="number" 
-                    value={newTransaction.amount}
-                    onChange={e => setNewTransaction(prev => ({ ...prev, amount: e.target.value }))}
-                    placeholder="0,00"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select value={newTransaction.type} onValueChange={(v: "income" | "expense") => setNewTransaction(prev => ({ ...prev, type: v, category: "" }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="expense">Despesa</SelectItem>
-                      <SelectItem value="income">Receita</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Categoria</Label>
-                  <Select value={newTransaction.category} onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}>
-                    <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Forma de Pagamento</Label>
-                  <Select value={newTransaction.payment_method} onValueChange={v => setNewTransaction(prev => ({ ...prev, payment_method: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_METHODS.map(pm => (
-                        <SelectItem key={pm} value={pm}>{pm}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Despesa Fixa (recorrente)</Label>
-                  <Switch checked={newTransaction.is_fixed} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_fixed: v }))} />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Parcelado</Label>
-                  <Switch checked={newTransaction.is_installment} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_installment: v }))} />
-                </div>
-                {newTransaction.is_installment && (
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Nova Transação</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Número de Parcelas</Label>
+                    <Label>Título</Label>
                     <Input 
-                      type="number" 
-                      value={newTransaction.total_installments}
-                      onChange={e => setNewTransaction(prev => ({ ...prev, total_installments: e.target.value }))}
-                      placeholder="12"
+                      value={newTransaction.title} 
+                      onChange={e => setNewTransaction(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Ex: Supermercado"
                     />
                   </div>
-                )}
-                {accounts.length > 0 && (
                   <div className="space-y-2">
-                    <Label>Conta (opcional)</Label>
-                    <Select 
-                      value={newTransaction.account_id} 
-                      onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v }))}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
+                    <Label>Valor (R$)</Label>
+                    <Input 
+                      type="number" 
+                      value={newTransaction.amount}
+                      onChange={e => setNewTransaction(prev => ({ ...prev, amount: e.target.value }))}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Tipo</Label>
+                    <Select value={newTransaction.type} onValueChange={(v: "income" | "expense") => setNewTransaction(prev => ({ ...prev, type: v, category: "" }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Nenhuma</SelectItem>
-                        {accounts.map(acc => (
-                          <SelectItem key={acc.id} value={acc.id}>
-                            {acc.icon} {acc.name}
-                          </SelectItem>
+                        <SelectItem value="expense">Despesa</SelectItem>
+                        <SelectItem value="income">Receita</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Categoria</Label>
+                    <Select value={newTransaction.category} onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-                )}
+                  <div className="space-y-2">
+                    <Label>Forma de Pagamento</Label>
+                    <Select value={newTransaction.payment_method} onValueChange={v => setNewTransaction(prev => ({ ...prev, payment_method: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {PAYMENT_METHODS.map(pm => (
+                          <SelectItem key={pm} value={pm}>{pm}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Despesa Fixa (recorrente)</Label>
+                    <Switch checked={newTransaction.is_fixed} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_fixed: v }))} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Label>Parcelado</Label>
+                    <Switch checked={newTransaction.is_installment} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_installment: v }))} />
+                  </div>
+                  {newTransaction.is_installment && (
+                    <div className="space-y-2">
+                      <Label>Número de Parcelas</Label>
+                      <Input 
+                        type="number" 
+                        value={newTransaction.total_installments}
+                        onChange={e => setNewTransaction(prev => ({ ...prev, total_installments: e.target.value }))}
+                        placeholder="12"
+                      />
+                    </div>
+                  )}
+                  {accounts.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Conta (opcional)</Label>
+                      <Select 
+                        value={newTransaction.account_id} 
+                        onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v }))}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Nenhuma</SelectItem>
+                          {accounts.map(acc => (
+                            <SelectItem key={acc.id} value={acc.id}>
+                              {acc.icon} {acc.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button onClick={createTransaction}>Salvar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </header>
+
+        {/* Cards de Resumo */}
+        <div className="dashboard-grid">
+          {/* Receitas */}
+          <div className="dashboard-card success">
+            <div className="card-header">
+              <div className="card-icon success">💰</div>
+              <h3 className="card-title">Receitas</h3>
+            </div>
+            <p className="card-value positive">
+              R$ {totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+            </p>
+            <p className="card-subtitle">
+              {transactions.filter(t => t.type === "income").length} recebimentos
+            </p>
+          </div>
+
+          {/* Despesas */}
+          <div className="dashboard-card error">
+            <div className="card-header">
+              <div className="card-icon error">💸</div>
+              <h3 className="card-title">Despesas</h3>
+            </div>
+            <p className="card-value negative">
+              R$ {totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+            </p>
+            <p className="card-subtitle">
+              {transactions.filter(t => t.type === "expense").length} pagamentos
+            </p>
+          </div>
+
+          {/* Pendente */}
+          <div className="dashboard-card warning">
+            <div className="card-header">
+              <div className="card-icon warning">⏳</div>
+              <h3 className="card-title">Pendente</h3>
+            </div>
+            <p className="card-value">
+              R$ {pendingExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+            </p>
+            <p className="card-subtitle">
+              Aguardando pagamento
+            </p>
+          </div>
+
+          {/* Saldo */}
+          <div className={cn("dashboard-card", balance >= 0 ? "primary" : "error")}>
+            <div className="card-header">
+              <div className={cn("card-icon", balance >= 0 ? "primary" : "error")}>🎯</div>
+              <h3 className="card-title">Saldo</h3>
+            </div>
+            <p className={cn("card-value", balance >= 0 ? "positive" : "negative")}>
+              R$ {balance.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
+            </p>
+            {totalIncome > 0 && (
+              <div className="progress-bar">
+                <div 
+                  className={cn("progress-fill", balance >= 0 ? "success" : "error")} 
+                  style={{ width: `${Math.min(100, (totalIncome - totalExpenses) / totalIncome * 100)}%` }} 
+                />
               </div>
-              <DialogFooter>
-                <Button onClick={createTransaction}>Salvar</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+            )}
           </div>
         </div>
 
-        {/* Cards de Resumo com Emojis - Apple Style */}
-        <div className="stats-grid">
-          <div className="apple-card apple-card-1 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-emerald-500/10">
-                <span className="text-2xl">💰</span>
-              </div>
-              <div>
-                <p className="metric-label text-emerald-500">Receitas</p>
-                <p className="metric-value text-emerald-500">
-                  R$ {totalIncome.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="apple-card apple-card-1 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-red-500/10">
-                <span className="text-2xl">💸</span>
-              </div>
-              <div>
-                <p className="metric-label text-red-500">Despesas</p>
-                <p className="metric-value text-red-500">
-                  R$ {totalExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="apple-card apple-card-1 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2.5 rounded-xl bg-amber-500/10">
-                <span className="text-2xl">⏳</span>
-              </div>
-              <div>
-                <p className="metric-label text-amber-500">Pendente</p>
-                <p className="metric-value text-amber-500">
-                  R$ {pendingExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className={cn("apple-card apple-card-1 p-4", balance >= 0 ? "" : "")}>
-            <div className="flex items-center gap-3">
-              <div className={cn("p-2.5 rounded-xl", balance >= 0 ? "bg-primary/10" : "bg-orange-500/10")}>
-                <span className="text-2xl">🎯</span>
-              </div>
-              <div>
-                <p className={cn("metric-label", balance >= 0 ? "text-primary" : "text-orange-500")}>Saldo</p>
-                <p className={cn("metric-value", balance >= 0 ? "text-primary" : "text-orange-500")}>
-                  R$ {balance.toLocaleString("pt-BR", { minimumFractionDigits: 0 })}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Contas Bancárias */}
-        <Card className="apple-card apple-card-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+        {/* Seção: Minhas Contas */}
+        <section className="dashboard-section">
+          <div className="flex items-center justify-between">
+            <h2 className="section-title">
               <Wallet className="h-5 w-5" /> Minhas Contas
-            </CardTitle>
+            </h2>
             <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline"><Plus className="h-4 w-4 mr-1" /> Nova Conta</Button>
@@ -839,114 +831,114 @@ export default function Finances() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
-          </CardHeader>
-          <CardContent>
-            {accounts.length === 0 ? (
+          </div>
+
+          {accounts.length === 0 ? (
+            <div className="dashboard-card">
               <div className="text-center py-4 text-muted-foreground">
                 <p>Nenhuma conta cadastrada</p>
                 <p className="text-sm">Adicione contas para controlar seus saldos</p>
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {accounts.map(account => (
-                    <div
-                      key={account.id}
-                      className="apple-card apple-card-1 p-4"
-                      style={{ borderColor: account.color + "50" }}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-2xl">{account.icon}</span>
-                          <span className="font-medium truncate">{account.name}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 opacity-60 hover:opacity-100"
-                          onClick={() => recalculateAccountBalance(account.id)}
-                          title="Recalcular saldo"
-                        >
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="dashboard-grid cols-2">
+                {accounts.map(account => (
+                  <div
+                    key={account.id}
+                    className="dashboard-card"
+                    style={{ borderColor: account.color + "50" }}
+                  >
+                    <div className="card-header">
+                      <div className="card-icon" style={{ background: account.color + "20" }}>
+                        {account.icon}
                       </div>
-                      <p className="text-lg font-bold" style={{ color: account.color }}>
-                        R$ {Number(account.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                      </p>
+                      <h3 className="card-title">{account.name}</h3>
                     </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
-                  <div className="flex items-center gap-2">
-                    <PiggyBank className="h-5 w-5 text-primary" />
-                    <span className="font-medium">Saldo Total</span>
-                  </div>
-                  <span className="text-xl font-bold text-primary">
-                    R$ {totalAccountBalance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Gráficos */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Gráfico de Pizza - Despesas por Categoria */}
-          <div className="apple-card apple-card-2 p-6">
-            <h3 className="text-lg font-semibold mb-4">Despesas por Categoria</h3>
-            <div>
-              {expensesByCategory.length > 0 ? (
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={expensesByCategory}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={3}
-                      dataKey="value"
+                    <p className="card-value" style={{ color: account.color }}>
+                      R$ {Number(account.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </p>
+                    <button 
+                      className="card-action secondary"
+                      onClick={() => recalculateAccountBalance(account.id)}
                     >
-                      {expensesByCategory.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
-                      contentStyle={{ 
-                        backgroundColor: "hsl(var(--card))", 
-                        border: "1px solid hsl(var(--border))", 
-                        borderRadius: "8px",
-                        color: "hsl(var(--foreground))"
-                      }}
-                      labelStyle={{ color: "hsl(var(--foreground))" }}
-                      itemStyle={{ color: "hsl(var(--foreground))" }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                      <RefreshCw className="h-4 w-4" /> Atualizar saldo
+                    </button>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Saldo Total */}
+              <div className="dashboard-card primary">
+                <div className="card-header">
+                  <div className="card-icon primary">
+                    <PiggyBank className="h-5 w-5" />
+                  </div>
+                  <h3 className="card-title">Saldo Total</h3>
+                </div>
+                <p className="card-value positive">
+                  R$ {totalAccountBalance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Seção: Gráficos */}
+        <section className="dashboard-section">
+          <h2 className="section-title">📊 Visão Geral</h2>
+          
+          <div className="dashboard-grid cols-2">
+            {/* Gráfico de Pizza - Despesas por Categoria */}
+            <div className="dashboard-card">
+              <h3 className="card-title" style={{ marginBottom: '16px' }}>Despesas por Categoria</h3>
+              {expensesByCategory.length > 0 ? (
+                <>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie
+                        data={expensesByCategory}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {expensesByCategory.map((_, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        formatter={(value: number) => `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
+                        contentStyle={{ 
+                          backgroundColor: "hsl(var(--card))", 
+                          border: "1px solid hsl(var(--border))", 
+                          borderRadius: "8px",
+                          color: "hsl(var(--foreground))"
+                        }}
+                        labelStyle={{ color: "hsl(var(--foreground))" }}
+                        itemStyle={{ color: "hsl(var(--foreground))" }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-wrap justify-center gap-3 mt-4">
+                    {expensesByCategory.map((cat, i) => (
+                      <div key={cat.name} className="flex items-center gap-1.5">
+                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                        <span className="text-xs text-muted-foreground">{cat.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : (
                 <p className="text-muted-foreground text-center py-16">Sem despesas neste mês</p>
               )}
-              {expensesByCategory.length > 0 && (
-                <div className="flex flex-wrap justify-center gap-3 mt-4">
-                  {expensesByCategory.map((cat, i) => (
-                    <div key={cat.name} className="flex items-center gap-1.5">
-                      <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
-                      <span className="text-xs text-muted-foreground">{cat.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Gráfico de Barras - Receitas x Despesas */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Receitas x Despesas</CardTitle>
-            </CardHeader>
-            <CardContent>
+            {/* Gráfico de Barras - Receitas x Despesas */}
+            <div className="dashboard-card">
+              <h3 className="card-title" style={{ marginBottom: '16px' }}>Receitas x Despesas</h3>
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={comparisonData} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -983,16 +975,15 @@ export default function Finances() {
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
+        </section>
 
-        {/* Últimas Transações */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Transações do Mês</CardTitle>
-          </CardHeader>
-          <CardContent>
+        {/* Seção: Transações do Mês */}
+        <section className="dashboard-section">
+          <h2 className="section-title">📋 Transações do Mês</h2>
+          
+          <div className="dashboard-card">
             {hasDuplicates && (
               <Alert className="mb-4 border-amber-500/30 bg-amber-500/10">
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
@@ -1001,6 +992,7 @@ export default function Finances() {
                 </AlertDescription>
               </Alert>
             )}
+            
             {transactions.length === 0 ? (
               <EmptyState
                 icon={<Wallet className="h-8 w-8" />}
@@ -1021,13 +1013,13 @@ export default function Finances() {
                   <div 
                     key={transaction.id} 
                     className={cn(
-                      "flex items-center justify-between p-4 rounded-xl border transition-all",
+                      "transaction-item",
                       isDuplicate(transaction.id) && "ring-2 ring-amber-500/50",
                       transaction.is_paid 
-                        ? "bg-muted/20 border-border/30" 
+                        ? "paid" 
                         : transaction.type === "income"
-                          ? "bg-cyan-500/5 border-cyan-500/20"
-                          : "bg-yellow-500/5 border-yellow-500/20"
+                          ? "pending-income"
+                          : "pending"
                     )}
                   >
                     <div className="flex-1">
@@ -1126,8 +1118,8 @@ export default function Finances() {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
         {/* Dialog de Edição */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
