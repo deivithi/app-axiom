@@ -803,7 +803,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      pay_transaction_atomic: {
+        Args: { p_transaction_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      unpay_transaction_atomic: {
+        Args: { p_transaction_id: string; p_user_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       memory_type:
