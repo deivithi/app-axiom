@@ -4,10 +4,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Mail, Eye, EyeOff, ArrowRight, User } from 'lucide-react';
+import { Loader2, Mail, Eye, EyeOff, ArrowRight, User, Check, X } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { StarryBackground } from '@/components/ui/starry-background';
 import axiomLogo from '@/assets/axiom-logo.png';
+import { signUpSchema, signInSchema, getPasswordStrength } from '@/lib/validations';
+import { cn } from '@/lib/utils';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -15,12 +17,32 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  const passwordStrength = getPasswordStrength(password);
+  
+  // Password requirements check
+  const passwordRequirements = [
+    { label: 'Mínimo 8 caracteres', met: password.length >= 8 },
+    { label: 'Uma letra maiúscula', met: /[A-Z]/.test(password) },
+    { label: 'Uma letra minúscula', met: /[a-z]/.test(password) },
+    { label: 'Um número', met: /[0-9]/.test(password) },
+    { label: 'Um caractere especial', met: /[^A-Za-z0-9]/.test(password) },
+  ];
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationErrors([]);
+    
+    const result = signInSchema.safeParse({ email, password });
+    if (!result.success) {
+      setValidationErrors(result.error.errors.map(err => err.message));
+      return;
+    }
+    
     setLoading(true);
     const { error } = await signIn(email, password);
     if (error) {
@@ -39,6 +61,19 @@ export default function Auth() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationErrors([]);
+    
+    const result = signUpSchema.safeParse({ email, password, fullName });
+    if (!result.success) {
+      setValidationErrors(result.error.errors.map(err => err.message));
+      toast({
+        title: 'Erro de validação',
+        description: result.error.errors[0].message,
+        variant: 'destructive'
+      });
+      return;
+    }
+    
     setLoading(true);
     const { error } = await signUp(email, password, fullName);
     if (error) {
@@ -147,6 +182,7 @@ export default function Auth() {
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         required
+                        maxLength={255}
                       />
                       <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
                     </div>
@@ -163,6 +199,7 @@ export default function Auth() {
                         value={password}
                         onChange={e => setPassword(e.target.value)}
                         required
+                        maxLength={128}
                       />
                       <button 
                         type="button"
@@ -174,6 +211,15 @@ export default function Auth() {
                       </button>
                     </div>
                   </div>
+
+                  {/* Validation Errors */}
+                  {validationErrors.length > 0 && (
+                    <div className="text-sm text-destructive space-y-1">
+                      {validationErrors.map((err, i) => (
+                        <p key={i}>• {err}</p>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Forgot Password */}
                   <a href="#" className="inline-block text-sm text-muted-foreground hover:text-primary transition-colors">
@@ -235,6 +281,7 @@ export default function Auth() {
                         value={fullName}
                         onChange={e => setFullName(e.target.value)}
                         required
+                        maxLength={100}
                       />
                       <User className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
                     </div>
@@ -251,6 +298,7 @@ export default function Auth() {
                         value={email}
                         onChange={e => setEmail(e.target.value)}
                         required
+                        maxLength={255}
                       />
                       <Mail className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground pointer-events-none" />
                     </div>
@@ -263,11 +311,11 @@ export default function Auth() {
                       <input 
                         type={showPassword ? "text" : "password"}
                         className="input-premium pr-10"
-                        placeholder="Mínimo 6 caracteres"
+                        placeholder="Crie uma senha forte"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        minLength={6}
                         required
+                        maxLength={128}
                       />
                       <button 
                         type="button"
@@ -278,7 +326,58 @@ export default function Auth() {
                         {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                       </button>
                     </div>
+                    
+                    {/* Password Strength Indicator */}
+                    {password && (
+                      <div className="mt-3 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className={cn(
+                                "h-full transition-all duration-300",
+                                passwordStrength.score <= 2 && "bg-destructive w-1/3",
+                                passwordStrength.score > 2 && passwordStrength.score <= 4 && "bg-warning w-2/3",
+                                passwordStrength.score > 4 && "bg-success w-full"
+                              )}
+                            />
+                          </div>
+                          <span className={cn(
+                            "text-xs font-medium",
+                            passwordStrength.score <= 2 && "text-destructive",
+                            passwordStrength.score > 2 && passwordStrength.score <= 4 && "text-warning",
+                            passwordStrength.score > 4 && "text-success"
+                          )}>
+                            {passwordStrength.label}
+                          </span>
+                        </div>
+                        
+                        {/* Password Requirements */}
+                        <div className="grid grid-cols-2 gap-1">
+                          {passwordRequirements.map((req, i) => (
+                            <div key={i} className="flex items-center gap-1.5 text-xs">
+                              {req.met ? (
+                                <Check className="h-3 w-3 text-success" />
+                              ) : (
+                                <X className="h-3 w-3 text-muted-foreground" />
+                              )}
+                              <span className={req.met ? "text-success" : "text-muted-foreground"}>
+                                {req.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Validation Errors */}
+                  {validationErrors.length > 0 && (
+                    <div className="text-sm text-destructive space-y-1">
+                      {validationErrors.map((err, i) => (
+                        <p key={i}>• {err}</p>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Submit Button */}
                   <button type="submit" className="btn-gradient" disabled={loading}>

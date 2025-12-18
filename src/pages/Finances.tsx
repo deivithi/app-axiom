@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
+import { transactionSchema, accountSchema } from "@/lib/validations";
 
 interface Transaction {
   id: string;
@@ -258,30 +259,45 @@ export default function Finances() {
   };
 
   const createTransaction = async () => {
-    if (!newTransaction.title || !newTransaction.amount || !newTransaction.category) {
-      toast.error("Preencha todos os campos obrigatórios");
-      return;
-    }
-
-    const referenceMonth = format(selectedMonth, "yyyy-MM");
-
-    const transactionDate = newTransaction.transaction_date || format(new Date(), "yyyy-MM-dd");
-    
-    const { error } = await supabase.from("transactions").insert({
-      user_id: user?.id,
-      title: newTransaction.title,
-      amount: parseFloat(newTransaction.amount),
+    // Validate with zod
+    const validationResult = transactionSchema.safeParse({
+      title: newTransaction.title.trim(),
+      amount: parseFloat(newTransaction.amount) || 0,
       type: newTransaction.type,
       category: newTransaction.category,
       is_fixed: newTransaction.is_fixed,
       is_installment: newTransaction.is_installment,
-      current_installment: newTransaction.is_installment ? 1 : null,
-      total_installments: newTransaction.is_installment ? parseInt(newTransaction.total_installments) : null,
-      transaction_date: transactionDate,
+      total_installments: newTransaction.is_installment ? parseInt(newTransaction.total_installments) || null : null,
       payment_method: newTransaction.payment_method,
+      account_id: newTransaction.account_id || null,
+      transaction_date: newTransaction.transaction_date || format(new Date(), "yyyy-MM-dd"),
+    });
+
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0]?.message || "Dados inválidos";
+      toast.error(firstError);
+      return;
+    }
+
+    const validData = validationResult.data;
+    const referenceMonth = format(selectedMonth, "yyyy-MM");
+    const transactionDate = validData.transaction_date;
+    
+    const { error } = await supabase.from("transactions").insert({
+      user_id: user?.id,
+      title: validData.title,
+      amount: validData.amount,
+      type: validData.type,
+      category: validData.category,
+      is_fixed: validData.is_fixed,
+      is_installment: validData.is_installment,
+      current_installment: validData.is_installment ? 1 : null,
+      total_installments: validData.total_installments,
+      transaction_date: transactionDate,
+      payment_method: validData.payment_method,
       is_paid: false,
-      reference_month: newTransaction.is_fixed ? referenceMonth : null,
-      account_id: newTransaction.account_id || null
+      reference_month: validData.is_fixed ? referenceMonth : null,
+      account_id: validData.account_id
     });
 
     if (error) {
@@ -381,22 +397,43 @@ export default function Finances() {
   const updateTransaction = async () => {
     if (!editingTransaction) return;
 
+    // Validate with zod
+    const validationResult = transactionSchema.safeParse({
+      title: editingTransaction.title?.trim() || '',
+      amount: editingTransaction.amount || 0,
+      type: editingTransaction.type,
+      category: editingTransaction.category,
+      is_fixed: editingTransaction.is_fixed,
+      is_installment: editingTransaction.is_installment,
+      total_installments: editingTransaction.is_installment ? editingTransaction.total_installments : null,
+      payment_method: editingTransaction.payment_method,
+      account_id: editingTransaction.account_id || null,
+      transaction_date: editingTransaction.transaction_date,
+    });
+
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0]?.message || "Dados inválidos";
+      toast.error(firstError);
+      return;
+    }
+
+    const validData = validationResult.data;
     const originalTransaction = transactions.find(t => t.id === editingTransaction.id);
 
     const { error } = await supabase
       .from("transactions")
       .update({
-        title: editingTransaction.title,
-        amount: editingTransaction.amount,
-        type: editingTransaction.type,
-        category: editingTransaction.category,
-        is_fixed: editingTransaction.is_fixed,
-        is_installment: editingTransaction.is_installment,
-        current_installment: editingTransaction.is_installment ? editingTransaction.current_installment : null,
-        total_installments: editingTransaction.is_installment ? editingTransaction.total_installments : null,
-        payment_method: editingTransaction.payment_method,
-        account_id: editingTransaction.account_id || null,
-        transaction_date: editingTransaction.transaction_date
+        title: validData.title,
+        amount: validData.amount,
+        type: validData.type,
+        category: validData.category,
+        is_fixed: validData.is_fixed,
+        is_installment: validData.is_installment,
+        current_installment: validData.is_installment ? editingTransaction.current_installment : null,
+        total_installments: validData.total_installments,
+        payment_method: validData.payment_method,
+        account_id: validData.account_id,
+        transaction_date: validData.transaction_date
       })
       .eq("id", editingTransaction.id);
 
@@ -527,17 +564,28 @@ export default function Finances() {
   };
 
   const createAccount = async () => {
-    if (!newAccount.name) {
-      toast.error("Informe o nome da conta");
-      return;
-    }
-
-    const { error } = await supabase.from("accounts").insert({
-      user_id: user?.id,
-      name: newAccount.name,
+    // Validate with zod
+    const validationResult = accountSchema.safeParse({
+      name: newAccount.name.trim(),
       balance: parseFloat(newAccount.balance) || 0,
       color: newAccount.color,
       icon: newAccount.icon
+    });
+
+    if (!validationResult.success) {
+      const firstError = validationResult.error.errors[0]?.message || "Dados inválidos";
+      toast.error(firstError);
+      return;
+    }
+
+    const validData = validationResult.data;
+
+    const { error } = await supabase.from("accounts").insert({
+      user_id: user?.id,
+      name: validData.name,
+      balance: validData.balance,
+      color: validData.color,
+      icon: validData.icon
     });
 
     if (error) {
