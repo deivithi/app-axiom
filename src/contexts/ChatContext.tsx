@@ -192,6 +192,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           create_habit: '🎯 Hábito criado',
           create_reminder: '⏰ Lembrete criado',
           create_transaction: '💰 Transação registrada',
+          create_batch_transactions: '💰 Transações em lote criadas',
           create_note: '📝 Nota criada',
           create_project: '📁 Projeto criado',
           create_journal_entry: '📖 Diário atualizado',
@@ -335,7 +336,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       is_ai: false
     });
 
-    const aiMessages = messages.slice(-10).map(m => ({
+    const aiMessages = messages.slice(-20).map(m => ({
       role: m.is_ai ? 'assistant' : 'user',
       content: m.content
     }));

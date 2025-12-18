@@ -403,6 +403,35 @@ const tools = [
   {
     type: "function",
     function: {
+      name: "create_batch_transactions",
+      description: "Cria múltiplas transações de uma vez. Use quando o usuário listar vários itens (ex: 'comprei pão (10), leite (5) e café (15)'). Mais eficiente que chamar create_transaction várias vezes.",
+      parameters: {
+        type: "object",
+        properties: {
+          transactions: { 
+            type: "array", 
+            description: "Lista de transações a criar",
+            items: {
+              type: "object",
+              properties: {
+                title: { type: "string", description: "Título/descrição do item" },
+                amount: { type: "number", description: "Valor do item" },
+                category: { type: "string", description: "Categoria do item" }
+              },
+              required: ["title", "amount", "category"]
+            }
+          },
+          type: { type: "string", enum: ["income", "expense"], description: "Tipo para todas as transações" },
+          transaction_date: { type: "string", description: "Data para todas as transações (YYYY-MM-DD)" },
+          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento" }
+        },
+        required: ["transactions", "type", "transaction_date"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
       name: "update_transaction",
       description: "Atualiza uma transação existente. IMPORTANTE: O ID deve ser um UUID real obtido de list_transactions. NUNCA use IDs fictícios.",
       parameters: {
@@ -1794,6 +1823,42 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       const fixedMsg = args.is_fixed ? ` (recorrente - todo dia ${recurrenceDay} de cada mês)` : "";
       const accountMsg = args.account_id ? " Vinculada à conta selecionada." : "";
       return { success: true, transaction: data, message: `Transação "${args.title}"${dateMsg} criada com sucesso!${fixedMsg}${accountMsg} 💰` };
+    }
+
+    case "create_batch_transactions": {
+      const { date: transactionDate, dateStr: transactionDateStr, referenceMonth } = getBrazilDate(args.transaction_date);
+      
+      const transactionsToInsert = args.transactions.map((t: any) => ({
+        user_id: userId,
+        title: t.title,
+        amount: t.amount,
+        type: args.type,
+        category: t.category,
+        is_fixed: false,
+        is_installment: false,
+        payment_method: args.payment_method || "PIX",
+        is_paid: false,
+        transaction_date: transactionDateStr,
+        reference_month: referenceMonth
+      }));
+      
+      const { data, error } = await supabaseAdmin
+        .from("transactions")
+        .insert(transactionsToInsert)
+        .select();
+      
+      if (error) throw error;
+      
+      const total = args.transactions.reduce((sum: number, t: any) => sum + t.amount, 0);
+      const itemsList = args.transactions.map((t: any) => `${t.title} (R$${t.amount.toFixed(2)})`).join(", ");
+      
+      return { 
+        success: true, 
+        transactions: data,
+        count: data.length,
+        total,
+        message: `✅ ${data.length} transações criadas: ${itemsList}. Total: R$ ${total.toFixed(2)} 💰`
+      };
     }
 
     case "update_transaction": {
@@ -4084,6 +4149,29 @@ EXEMPLOS CORRETOS:
   → amount: 200 (800/4), total_installments: 4
 
 REGRA DE OURO: Na dúvida entre valor total ou por parcela, PERGUNTE ao usuário!
+
+🔄 CORREÇÕES DE TRANSAÇÕES (CRÍTICO - DETECTE E CORRIJA!):
+Quando o usuário disser frases como:
+- "na verdade foram X", "errei, eram X", "não era X, era Y", "corrige para X", "na real foram X"
+Isso indica CORREÇÃO de uma transação recente, NÃO criação de nova!
+
+FLUXO OBRIGATÓRIO PARA CORREÇÕES:
+1. PRIMEIRO: chame list_transactions para encontrar a transação recente relacionada
+2. Identifique pelo título/categoria/data semelhante ao contexto anterior
+3. Use update_transaction para corrigir o valor (ou outro campo)
+4. NUNCA crie nova transação quando for correção!
+
+EXEMPLO:
+User: "paguei 50 de uber"
+→ [cria transação: Uber R$50]
+User: "na verdade foram 60"
+→ list_transactions → encontra "Uber" recente → update_transaction(id, amount: 60)
+→ Resposta: "Corrigido! Uber atualizado de R$50 para R$60 ✅"
+
+📦 MÚLTIPLAS TRANSAÇÕES (LOTE):
+Quando usuário listar vários itens (ex: "comprei pão 10, leite 5 e café 15"):
+- Use create_batch_transactions para criar todas de uma vez
+- Mais eficiente e garante consistência de data/tipo
 
 EXEMPLOS DE USO CORRETO:
 - Usuário: "marca o hábito de flexões como feito"
