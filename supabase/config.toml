@@ -36,5 +36,5 @@ verify_jwt = false
 [functions.inject-variables]
 verify_jwt = false
 
-[functions.validate-memory-system]
+[functions.generate-recurring-transactions]
 verify_jwt = false

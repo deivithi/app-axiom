@@ -727,6 +727,7 @@ export type Database = {
           is_paid: boolean
           parent_transaction_id: string | null
           payment_method: string | null
+          recurrence_day: number | null
           reference_month: string | null
           title: string
           total_installments: number | null
@@ -748,6 +749,7 @@ export type Database = {
           is_paid?: boolean
           parent_transaction_id?: string | null
           payment_method?: string | null
+          recurrence_day?: number | null
           reference_month?: string | null
           title: string
           total_installments?: number | null
@@ -769,6 +771,7 @@ export type Database = {
           is_paid?: boolean
           parent_transaction_id?: string | null
           payment_method?: string | null
+          recurrence_day?: number | null
           reference_month?: string | null
           title?: string
           total_installments?: number | null

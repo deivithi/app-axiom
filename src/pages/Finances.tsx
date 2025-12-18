@@ -43,6 +43,7 @@ interface Transaction {
   account_id?: string;
   version?: number;
   transfer_id?: string;
+  recurrence_day?: number;
 }
 
 const PAYMENT_METHODS = ["PIX", "Débito", "Crédito"];
@@ -96,8 +97,11 @@ export default function Finances() {
     total_installments: "",
     payment_method: "PIX",
     account_id: "",
-    transaction_date: format(new Date(), "yyyy-MM-dd")
+    transaction_date: format(new Date(), "yyyy-MM-dd"),
+    recurrence_day: ""
   });
+  
+  const [cascadeUpdateMode, setCascadeUpdateMode] = useState<"single" | "future" | "all">("single");
 
   const [newAccount, setNewAccount] = useState({
     name: "",
@@ -186,8 +190,16 @@ export default function Finances() {
     }
   };
 
+  // Helper to get safe day for a month (handles Feb 31 -> Feb 28 etc)
+  const getSafeDayForMonth = (year: number, month: number, desiredDay: number): number => {
+    const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+    return Math.min(desiredDay, lastDayOfMonth);
+  };
+
   const generateRecurringTransactions = async () => {
     const referenceMonth = format(selectedMonth, "yyyy-MM");
+    const year = selectedMonth.getFullYear();
+    const month = selectedMonth.getMonth();
     
     const { data: fixedTransactions, error: fetchError } = await supabase
       .from("transactions")
@@ -214,6 +226,11 @@ export default function Finances() {
         const originalMonth = format(originalDate, "yyyy-MM");
         
         if (!existing && originalMonth !== referenceMonth) {
+          // Use recurrence_day if set, otherwise use the original day
+          const recurrenceDay = original.recurrence_day || originalDate.getDate();
+          const safeDay = getSafeDayForMonth(year, month, recurrenceDay);
+          const transactionDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
+          
           await supabase.from("transactions").insert({
             user_id: user?.id,
             title: original.title,
@@ -226,7 +243,9 @@ export default function Finances() {
             payment_method: original.payment_method,
             parent_transaction_id: original.id,
             reference_month: referenceMonth,
-            transaction_date: format(startOfMonth(selectedMonth), "yyyy-MM-dd")
+            transaction_date: transactionDate,
+            account_id: original.account_id,
+            recurrence_day: recurrenceDay
           });
         }
       }
@@ -292,6 +311,11 @@ export default function Finances() {
     const referenceMonth = format(selectedMonth, "yyyy-MM");
     const transactionDate = validData.transaction_date;
     
+    // Calculate recurrence_day from the transaction date or user input
+    const recurrenceDay = newTransaction.is_fixed 
+      ? (parseInt(newTransaction.recurrence_day) || new Date(transactionDate + 'T12:00:00').getDate())
+      : null;
+    
     const { error } = await supabase.from("transactions").insert({
       user_id: user?.id,
       title: validData.title,
@@ -306,7 +330,8 @@ export default function Finances() {
       payment_method: validData.payment_method,
       is_paid: false,
       reference_month: validData.is_fixed ? referenceMonth : null,
-      account_id: validData.account_id
+      account_id: validData.account_id,
+      recurrence_day: recurrenceDay
     });
 
     if (error) {
@@ -326,7 +351,8 @@ export default function Finances() {
       total_installments: "",
       payment_method: "PIX",
       account_id: "",
-      transaction_date: format(new Date(), "yyyy-MM-dd")
+      transaction_date: format(new Date(), "yyyy-MM-dd"),
+      recurrence_day: ""
     });
     loadData();
   };
@@ -429,24 +455,34 @@ export default function Finances() {
     const validData = validationResult.data;
     const originalTransaction = transactions.find(t => t.id === editingTransaction.id);
     const currentVersion = originalTransaction?.version || 1;
+    
+    // Check if this is a recurring transaction (has parent or is parent)
+    const isRecurring = editingTransaction.is_fixed && (
+      editingTransaction.parent_transaction_id || 
+      transactions.some(t => t.parent_transaction_id === editingTransaction.id)
+    );
 
-    // Optimistic locking: only update if version matches
+    // Base update data
+    const updateData = {
+      title: validData.title,
+      amount: validData.amount,
+      type: validData.type,
+      category: validData.category,
+      is_fixed: validData.is_fixed,
+      is_installment: validData.is_installment,
+      current_installment: validData.is_installment ? editingTransaction.current_installment : null,
+      total_installments: validData.total_installments,
+      payment_method: validData.payment_method,
+      account_id: validData.account_id,
+      transaction_date: validData.transaction_date,
+      recurrence_day: editingTransaction.recurrence_day,
+      version: currentVersion + 1
+    };
+
+    // Update current transaction
     const { data: updatedData, error } = await supabase
       .from("transactions")
-      .update({
-        title: validData.title,
-        amount: validData.amount,
-        type: validData.type,
-        category: validData.category,
-        is_fixed: validData.is_fixed,
-        is_installment: validData.is_installment,
-        current_installment: validData.is_installment ? editingTransaction.current_installment : null,
-        total_installments: validData.total_installments,
-        payment_method: validData.payment_method,
-        account_id: validData.account_id,
-        transaction_date: validData.transaction_date,
-        version: currentVersion + 1
-      })
+      .update(updateData)
       .eq("id", editingTransaction.id)
       .eq("version", currentVersion)
       .select();
@@ -456,15 +492,93 @@ export default function Finances() {
       return;
     }
 
-    // Check if optimistic lock failed (no rows updated)
     if (!updatedData || updatedData.length === 0) {
       toast.error("Transação foi modificada por outro dispositivo. Recarregando dados...");
       setIsEditDialogOpen(false);
       setEditingTransaction(null);
+      setCascadeUpdateMode("single");
       loadData();
       return;
     }
 
+    // Handle cascading updates for recurring transactions
+    if (isRecurring && cascadeUpdateMode !== "single") {
+      const parentId = editingTransaction.parent_transaction_id || editingTransaction.id;
+      const currentRefMonth = editingTransaction.reference_month || format(selectedMonth, "yyyy-MM");
+      
+      if (cascadeUpdateMode === "all") {
+        // Update parent transaction
+        if (editingTransaction.parent_transaction_id) {
+          await supabase
+            .from("transactions")
+            .update({
+              title: validData.title,
+              amount: validData.amount,
+              type: validData.type,
+              category: validData.category,
+              payment_method: validData.payment_method,
+              account_id: validData.account_id,
+              recurrence_day: editingTransaction.recurrence_day
+            })
+            .eq("id", parentId);
+        }
+        
+        // Update all child transactions
+        await supabase
+          .from("transactions")
+          .update({
+            title: validData.title,
+            amount: validData.amount,
+            type: validData.type,
+            category: validData.category,
+            payment_method: validData.payment_method,
+            account_id: validData.account_id,
+            recurrence_day: editingTransaction.recurrence_day
+          })
+          .eq("parent_transaction_id", parentId)
+          .neq("id", editingTransaction.id);
+          
+        toast.success("Transação e todas as recorrências atualizadas!");
+      } else if (cascadeUpdateMode === "future") {
+        // Update parent if editing a child
+        if (editingTransaction.parent_transaction_id) {
+          await supabase
+            .from("transactions")
+            .update({
+              title: validData.title,
+              amount: validData.amount,
+              type: validData.type,
+              category: validData.category,
+              payment_method: validData.payment_method,
+              account_id: validData.account_id,
+              recurrence_day: editingTransaction.recurrence_day
+            })
+            .eq("id", parentId);
+        }
+        
+        // Update future child transactions (reference_month >= current)
+        await supabase
+          .from("transactions")
+          .update({
+            title: validData.title,
+            amount: validData.amount,
+            type: validData.type,
+            category: validData.category,
+            payment_method: validData.payment_method,
+            account_id: validData.account_id,
+            recurrence_day: editingTransaction.recurrence_day
+          })
+          .eq("parent_transaction_id", parentId)
+          .gte("reference_month", currentRefMonth)
+          .neq("id", editingTransaction.id);
+          
+        toast.success("Transação e recorrências futuras atualizadas!");
+      }
+    } else {
+      toast.success("Transação atualizada!");
+    }
+
+    // Handle account balance adjustments for paid transactions
     if (originalTransaction?.is_paid) {
       const oldAccountId = originalTransaction.account_id;
       const newAccountId = editingTransaction.account_id;
@@ -518,9 +632,9 @@ export default function Finances() {
       }
     }
 
-    toast.success("Transação atualizada!");
     setIsEditDialogOpen(false);
     setEditingTransaction(null);
+    setCascadeUpdateMode("single");
     loadData();
   };
 
@@ -894,6 +1008,20 @@ export default function Finances() {
                     <Label>Despesa Fixa (recorrente)</Label>
                     <Switch checked={newTransaction.is_fixed} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_fixed: v }))} />
                   </div>
+                  {newTransaction.is_fixed && (
+                    <div className="space-y-2">
+                      <Label>Dia do mês para cobrança (1-31)</Label>
+                      <Input 
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={newTransaction.recurrence_day}
+                        onChange={e => setNewTransaction(prev => ({ ...prev, recurrence_day: e.target.value }))}
+                        placeholder="Ex: 5 (todo dia 5)"
+                      />
+                      <p className="text-xs text-muted-foreground">Se não informado, usará o dia da data da transação</p>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <Label>Parcelado</Label>
                     <Switch checked={newTransaction.is_installment} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_installment: v }))} />
@@ -1523,10 +1651,61 @@ export default function Finances() {
                     onCheckedChange={v => setEditingTransaction(prev => prev ? { ...prev, is_fixed: v } : null)} 
                   />
                 </div>
+                {editingTransaction.is_fixed && (
+                  <div className="space-y-2">
+                    <Label>Dia do mês para cobrança (1-31)</Label>
+                    <Input 
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={editingTransaction.recurrence_day || ""}
+                      onChange={e => setEditingTransaction(prev => prev ? { ...prev, recurrence_day: parseInt(e.target.value) || undefined } : null)}
+                      placeholder="Ex: 5 (todo dia 5)"
+                    />
+                  </div>
+                )}
+                {/* Cascading update options for recurring transactions */}
+                {editingTransaction.is_fixed && (editingTransaction.parent_transaction_id || transactions.some(t => t.parent_transaction_id === editingTransaction.id)) && (
+                  <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                    <Label className="text-sm font-medium">Aplicar alterações em:</Label>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="cascadeMode"
+                          checked={cascadeUpdateMode === "single"}
+                          onChange={() => setCascadeUpdateMode("single")}
+                          className="accent-primary"
+                        />
+                        <span className="text-sm">Apenas esta instância</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="cascadeMode"
+                          checked={cascadeUpdateMode === "future"}
+                          onChange={() => setCascadeUpdateMode("future")}
+                          className="accent-primary"
+                        />
+                        <span className="text-sm">Esta e as futuras</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="cascadeMode"
+                          checked={cascadeUpdateMode === "all"}
+                          onChange={() => setCascadeUpdateMode("all")}
+                          className="accent-primary"
+                        />
+                        <span className="text-sm">Todas as instâncias</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancelar</Button>
+              <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setCascadeUpdateMode("single"); }}>Cancelar</Button>
               <Button onClick={updateTransaction}>Salvar</Button>
             </DialogFooter>
           </DialogContent>
