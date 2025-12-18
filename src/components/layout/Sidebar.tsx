@@ -238,7 +238,7 @@ export const Sidebar = () => {
       {/* Desktop Sidebar */}
       <aside 
         className={cn(
-          "hidden md:flex flex-col h-screen fixed left-0 top-0",
+          "hidden md:flex flex-col h-screen fixed left-0 top-0 z-fixed",
           "transition-[width] duration-[var(--duration-base)] ease-[var(--ease-smooth)] will-change-[width]",
           collapsed ? "w-16" : "w-64"
         )}
