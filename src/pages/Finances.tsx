@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -213,7 +213,23 @@ export default function Finances() {
       .eq("is_fixed", true)
       .is("parent_transaction_id", null);
 
-    if (fetchError || !fixedTransactions) return;
+    if (fetchError || !fixedTransactions || fixedTransactions.length === 0) return;
+
+    // FIX N+1: Batch query to get all existing instances for this month
+    const parentIds = fixedTransactions.map(t => t.id);
+    const { data: existingInstances } = await supabase
+      .from("transactions")
+      .select("parent_transaction_id")
+      .in("parent_transaction_id", parentIds)
+      .eq("reference_month", referenceMonth);
+
+    // Create a Set for O(1) lookup
+    const existingParentIds = new Set(
+      (existingInstances || []).map(t => t.parent_transaction_id)
+    );
+
+    // Prepare batch insert
+    const transactionsToInsert = [];
 
     for (const original of fixedTransactions) {
       const originalDate = safeParseDateBR(original.transaction_date);
@@ -221,22 +237,17 @@ export default function Finances() {
       if (isAfter(startOfMonth(selectedMonth), startOfMonth(originalDate)) ||
           isSameMonth(selectedMonth, originalDate)) {
         
-        const { data: existing } = await supabase
-          .from("transactions")
-          .select("id")
-          .eq("parent_transaction_id", original.id)
-          .eq("reference_month", referenceMonth)
-          .maybeSingle();
+        // O(1) lookup instead of N queries
+        if (existingParentIds.has(original.id)) continue;
 
         const originalMonth = format(originalDate, "yyyy-MM");
         
-        if (!existing && originalMonth !== referenceMonth) {
-          // Use recurrence_day if set, otherwise use the original day
+        if (originalMonth !== referenceMonth) {
           const recurrenceDay = original.recurrence_day || originalDate.getDate();
           const safeDay = getSafeDayForMonth(year, month, recurrenceDay);
           const transactionDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
           
-          await supabase.from("transactions").insert({
+          transactionsToInsert.push({
             user_id: user?.id,
             title: original.title,
             amount: original.amount,
@@ -254,6 +265,11 @@ export default function Finances() {
           });
         }
       }
+    }
+
+    // Batch insert all transactions at once
+    if (transactionsToInsert.length > 0) {
+      await supabase.from("transactions").insert(transactionsToInsert);
     }
   };
 
@@ -888,24 +904,39 @@ export default function Finances() {
     loadData();
   };
 
-  const totalIncome = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0);
-  const totalExpenses = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
-  const balance = totalIncome - totalExpenses;
-  const totalAccountBalance = accounts.reduce((sum, a) => sum + Number(a.balance), 0);
-  
-  const pendingExpenses = transactions
-    .filter(t => t.type === "expense" && !t.is_paid)
-    .reduce((sum, t) => sum + Number(t.amount), 0);
+  // Memoized calculations for better performance with large datasets
+  const { totalIncome, totalExpenses, balance, pendingExpenses } = useMemo(() => {
+    const income = transactions.filter(t => t.type === "income").reduce((sum, t) => sum + Number(t.amount), 0);
+    const expenses = transactions.filter(t => t.type === "expense").reduce((sum, t) => sum + Number(t.amount), 0);
+    const pending = transactions
+      .filter(t => t.type === "expense" && !t.is_paid)
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    
+    return {
+      totalIncome: income,
+      totalExpenses: expenses,
+      balance: income - expenses,
+      pendingExpenses: pending
+    };
+  }, [transactions]);
 
-  const expensesByCategory = EXPENSE_CATEGORIES.map(cat => ({
-    name: cat,
-    value: transactions.filter(t => t.type === "expense" && t.category === cat).reduce((sum, t) => sum + Number(t.amount), 0)
-  })).filter(item => item.value > 0);
+  const totalAccountBalance = useMemo(() => 
+    accounts.reduce((sum, a) => sum + Number(a.balance), 0),
+    [accounts]
+  );
 
-  const comparisonData = [
+  const expensesByCategory = useMemo(() => 
+    EXPENSE_CATEGORIES.map(cat => ({
+      name: cat,
+      value: transactions.filter(t => t.type === "expense" && t.category === cat).reduce((sum, t) => sum + Number(t.amount), 0)
+    })).filter(item => item.value > 0),
+    [transactions]
+  );
+
+  const comparisonData = useMemo(() => [
     { name: "Receitas", value: totalIncome, fill: "#10B981" },
     { name: "Despesas", value: totalExpenses, fill: "#EF4444" }
-  ];
+  ], [totalIncome, totalExpenses]);
 
   const navigateMonth = (direction: "prev" | "next") => {
     setSelectedMonth(prev => direction === "prev" ? subMonths(prev, 1) : addMonths(prev, 1));

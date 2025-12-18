@@ -60,34 +60,45 @@ serve(async (req) => {
 
     console.log(`Found ${fixedTransactions?.length || 0} fixed parent transactions`);
 
-    let created = 0;
+    if (!fixedTransactions || fixedTransactions.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: "No fixed transactions to process",
+          date: brazil.dateStr,
+          referenceMonth: brazil.referenceMonth
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // FIX N+1: Batch query to get all existing instances for this month
+    const parentIds = fixedTransactions.map(t => t.id);
+    const { data: existingInstances, error: existingError } = await supabase
+      .from("transactions")
+      .select("parent_transaction_id")
+      .in("parent_transaction_id", parentIds)
+      .eq("reference_month", brazil.referenceMonth);
+
+    if (existingError) {
+      console.error("Error fetching existing instances:", existingError);
+      throw existingError;
+    }
+
+    // Create a Set for O(1) lookup
+    const existingParentIds = new Set(
+      (existingInstances || []).map(t => t.parent_transaction_id)
+    );
+
+    console.log(`Found ${existingParentIds.size} existing instances for this month`);
+
+    // Prepare batch insert
+    const transactionsToInsert = [];
     let skipped = 0;
 
-    for (const original of fixedTransactions || []) {
-      // Get the recurrence day (default to day 1 if not set)
-      const recurrenceDay = original.recurrence_day || 1;
-      
-      // Calculate the safe day for the current month
-      const safeDay = getSafeDayForMonth(brazil.year, brazil.month, recurrenceDay);
-      
-      // Check if today matches the recurrence day (or safe day)
-      const todayMatchesRecurrence = brazil.day === safeDay;
-      
-      // Also check if an instance for this month already exists
-      const { data: existing, error: existingError } = await supabase
-        .from("transactions")
-        .select("id")
-        .eq("parent_transaction_id", original.id)
-        .eq("reference_month", brazil.referenceMonth)
-        .maybeSingle();
-
-      if (existingError) {
-        console.error(`Error checking existing instance for ${original.id}:`, existingError);
-        continue;
-      }
-
-      // Skip if instance already exists
-      if (existing) {
+    for (const original of fixedTransactions) {
+      // Skip if instance already exists (O(1) lookup instead of N queries)
+      if (existingParentIds.has(original.id)) {
         skipped++;
         continue;
       }
@@ -100,10 +111,16 @@ serve(async (req) => {
         continue;
       }
 
+      // Get the recurrence day (default to day 1 if not set)
+      const recurrenceDay = original.recurrence_day || 1;
+      
+      // Calculate the safe day for the current month
+      const safeDay = getSafeDayForMonth(brazil.year, brazil.month, recurrenceDay);
+      
       // Create instance for this month on the correct day
       const transactionDate = `${brazil.year}-${String(brazil.month + 1).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`;
       
-      const { error: insertError } = await supabase.from("transactions").insert({
+      transactionsToInsert.push({
         user_id: original.user_id,
         title: original.title,
         amount: original.amount,
@@ -119,14 +136,23 @@ serve(async (req) => {
         account_id: original.account_id,
         recurrence_day: recurrenceDay
       });
+    }
+
+    // Batch insert all transactions at once
+    let created = 0;
+    if (transactionsToInsert.length > 0) {
+      const { error: insertError, data: insertedData } = await supabase
+        .from("transactions")
+        .insert(transactionsToInsert)
+        .select("id");
 
       if (insertError) {
-        console.error(`Error creating instance for ${original.id}:`, insertError);
-        continue;
+        console.error("Error batch inserting transactions:", insertError);
+        throw insertError;
       }
 
-      created++;
-      console.log(`Created instance for "${original.title}" on ${transactionDate}`);
+      created = insertedData?.length || 0;
+      console.log(`Batch inserted ${created} transactions`);
     }
 
     console.log(`Job complete: ${created} created, ${skipped} skipped`);

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,19 +13,21 @@ import { MemoryProvider } from "@/contexts/MemoryContext";
 import { MobileToastProvider } from "@/components/mobile/Toast";
 import { Loader2 } from "lucide-react";
 import { StarryBackground } from "@/components/ui/starry-background";
-import Auth from "./pages/Auth";
-import ResetPassword from "./pages/ResetPassword";
-import UpdatePassword from "./pages/UpdatePassword";
-import Intelligence from "./pages/Intelligence";
-import Execution from "./pages/Execution";
-import Habits from "./pages/Habits";
-import Finances from "./pages/Finances";
-import Memory from "./pages/Memory";
-import Settings from "./pages/Settings";
-import MemoryValidation from "./pages/MemoryValidation";
-import PromptLibrary from "./pages/PromptLibrary";
-import PromptAnalysis from "./pages/PromptAnalysis";
-import NotFound from "./pages/NotFound";
+
+// Lazy load pages for code splitting
+const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const UpdatePassword = lazy(() => import("./pages/UpdatePassword"));
+const Intelligence = lazy(() => import("./pages/Intelligence"));
+const Execution = lazy(() => import("./pages/Execution"));
+const Habits = lazy(() => import("./pages/Habits"));
+const Finances = lazy(() => import("./pages/Finances"));
+const Memory = lazy(() => import("./pages/Memory"));
+const Settings = lazy(() => import("./pages/Settings"));
+const MemoryValidation = lazy(() => import("./pages/MemoryValidation"));
+const PromptLibrary = lazy(() => import("./pages/PromptLibrary"));
+const PromptAnalysis = lazy(() => import("./pages/PromptAnalysis"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -84,27 +86,39 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Suspense fallback component
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background relative">
+      <StarryBackground />
+      <Loader2 className="h-8 w-8 animate-spin text-primary relative z-10" />
+    </div>
+  );
+}
+
 function AppRoutes() {
   useGlobalChatShortcut();
   
   return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/intelligence" replace />} />
-      <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
-      <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
-      <Route path="/update-password" element={<UpdatePassword />} />
-      <Route path="/chat" element={<Navigate to="/intelligence" replace />} />
-      <Route path="/intelligence" element={<ProtectedRoute><Intelligence /></ProtectedRoute>} />
-      <Route path="/execution" element={<ProtectedRoute><Execution /></ProtectedRoute>} />
-      <Route path="/habits" element={<ProtectedRoute><Habits /></ProtectedRoute>} />
-      <Route path="/finances" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
-      <Route path="/memory" element={<ProtectedRoute><Memory /></ProtectedRoute>} />
-      <Route path="/memory-validation" element={<ProtectedRoute><MemoryValidation /></ProtectedRoute>} />
-      <Route path="/prompts" element={<ProtectedRoute><PromptLibrary /></ProtectedRoute>} />
-      <Route path="/prompts/:id" element={<ProtectedRoute><PromptAnalysis /></ProtectedRoute>} />
-      <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route path="/" element={<Navigate to="/intelligence" replace />} />
+        <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+        <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+        <Route path="/update-password" element={<UpdatePassword />} />
+        <Route path="/chat" element={<Navigate to="/intelligence" replace />} />
+        <Route path="/intelligence" element={<ProtectedRoute><Intelligence /></ProtectedRoute>} />
+        <Route path="/execution" element={<ProtectedRoute><Execution /></ProtectedRoute>} />
+        <Route path="/habits" element={<ProtectedRoute><Habits /></ProtectedRoute>} />
+        <Route path="/finances" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
+        <Route path="/memory" element={<ProtectedRoute><Memory /></ProtectedRoute>} />
+        <Route path="/memory-validation" element={<ProtectedRoute><MemoryValidation /></ProtectedRoute>} />
+        <Route path="/prompts" element={<ProtectedRoute><PromptLibrary /></ProtectedRoute>} />
+        <Route path="/prompts/:id" element={<ProtectedRoute><PromptAnalysis /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   );
 }
 
