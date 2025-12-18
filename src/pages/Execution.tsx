@@ -137,18 +137,18 @@ export default function Execution() {
   });
 
   const loadTasks = async () => {
-    const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false }).limit(200);
     setTasks((data || []) as Task[]);
     setLoading(false);
   };
 
   const loadProjects = async () => {
-    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
+    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false }).limit(100);
     setProjects((data || []) as Project[]);
   };
 
   const loadProjectTasks = async () => {
-    const { data } = await supabase.from('project_tasks').select('*');
+    const { data } = await supabase.from('project_tasks').select('*').limit(500);
     setProjectTasks(data || []);
   };
 
@@ -324,7 +324,7 @@ export default function Execution() {
                       </div>
                       <div>
                         <Label>Descrição</Label>
-                        <Textarea value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} placeholder="Descrição opcional" />
+                        <Textarea value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} placeholder="Descrição opcional" maxLength={1000} />
                       </div>
                       <div>
                         <Label>Prioridade</Label>
@@ -355,7 +355,7 @@ export default function Execution() {
                       </div>
                       <div>
                         <Label>Descrição</Label>
-                        <Textarea value={editingTask.description || ''} onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })} />
+                        <Textarea value={editingTask.description || ''} onChange={(e) => setEditingTask({ ...editingTask, description: e.target.value })} maxLength={1000} />
                       </div>
                       <div>
                         <Label>Prioridade</Label>

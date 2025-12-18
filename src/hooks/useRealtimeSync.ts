@@ -31,8 +31,6 @@ export function useRealtimeSync<T extends { id: string; user_id?: string }>(
           filter: `user_id=eq.${userId}`,
         },
         (payload: RealtimePostgresChangesPayload<T>) => {
-          console.log(`[Realtime] ${tableName}:`, payload.eventType, payload);
-          
           if (payload.eventType === 'INSERT' && onInsert) {
             onInsert(payload.new as T);
           } else if (payload.eventType === 'UPDATE' && onUpdate) {
@@ -42,12 +40,9 @@ export function useRealtimeSync<T extends { id: string; user_id?: string }>(
           }
         }
       )
-      .subscribe((status) => {
-        console.log(`[Realtime] ${tableName} subscription:`, status);
-      });
+      .subscribe();
 
     return () => {
-      console.log(`[Realtime] Unsubscribing from ${tableName}`);
       supabase.removeChannel(channel);
     };
   }, [userId, tableName, onInsert, onUpdate, onDelete]);
@@ -76,8 +71,6 @@ export function useRealtimeSyncCustomFilter<T extends { id: string }>(
           filter: `${filterColumn}=eq.${filterValue}`,
         },
         (payload: RealtimePostgresChangesPayload<T>) => {
-          console.log(`[Realtime] ${tableName}:`, payload.eventType, payload);
-          
           if (payload.eventType === 'INSERT' && onInsert) {
             onInsert(payload.new as T);
           } else if (payload.eventType === 'UPDATE' && onUpdate) {

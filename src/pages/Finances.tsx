@@ -235,7 +235,8 @@ export default function Finances() {
       .eq("user_id", user?.id)
       .gte("transaction_date", monthStart)
       .lte("transaction_date", monthEnd)
-      .order("transaction_date", { ascending: true });
+      .order("transaction_date", { ascending: true })
+      .limit(500);
 
     if (error) {
       toast.error("Erro ao carregar transações");

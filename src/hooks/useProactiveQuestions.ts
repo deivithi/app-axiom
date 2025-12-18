@@ -36,8 +36,8 @@ export function useProactiveQuestions(userId: string | undefined) {
 
       // Type assertion since the table is new and not in types yet
       setQuestions((data as unknown as ProactiveQuestion[]) || []);
-    } catch (error) {
-      console.error('Error loading proactive questions:', error);
+    } catch {
+      // Silent fail
     } finally {
       setLoading(false);
     }
@@ -65,8 +65,8 @@ export function useProactiveQuestions(userId: string | undefined) {
         // Reload questions to show the new one
         await loadQuestions();
       }
-    } catch (error) {
-      console.error('Error triggering analysis:', error);
+    } catch {
+      // Silent fail
     }
   }, [userId, loadQuestions]);
 
@@ -85,8 +85,8 @@ export function useProactiveQuestions(userId: string | undefined) {
       setQuestions(prev => prev.map(q => 
         q.id === questionId ? { ...q, status: 'sent' as const, sent_at: new Date().toISOString() } : q
       ));
-    } catch (error) {
-      console.error('Error marking question as sent:', error);
+    } catch {
+      // Silent fail
     }
   }, []);
 
@@ -109,8 +109,8 @@ export function useProactiveQuestions(userId: string | undefined) {
         title: '✅ Resposta registrada',
         description: 'Axiom processou sua resposta'
       });
-    } catch (error) {
-      console.error('Error answering question:', error);
+    } catch {
+      // Silent fail
     }
   }, [toast]);
 
@@ -129,8 +129,8 @@ export function useProactiveQuestions(userId: string | undefined) {
         title: '📌 Pergunta salva',
         description: 'Você pode responder depois via histórico'
       });
-    } catch (error) {
-      console.error('Error dismissing question:', error);
+    } catch {
+      // Silent fail
     }
   }, [toast]);
 
