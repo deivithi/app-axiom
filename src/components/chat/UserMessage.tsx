@@ -21,12 +21,14 @@ const formatTimestamp = (timestamp: string) => {
 
 export function UserMessage({ content, timestamp, avatarUrl }: UserMessageProps) {
   return (
-    <div className="chat-message user flex items-end gap-3 justify-end animate-fade-in">
-      <div className="flex flex-col items-end max-w-[80%]">
-        <div className="bg-primary text-primary-foreground rounded-2xl rounded-br-md px-4 py-3">
-          <div className="message-content whitespace-pre-wrap">{content}</div>
+    <div className="chat-message user flex items-end gap-3">
+      <div className="flex flex-col flex-1">
+        <div className="message-bubble">
+          <div className="message-content whitespace-pre-wrap">
+            {content}
+          </div>
         </div>
-        <span className="text-[10px] text-muted-foreground mt-1 mr-1">
+        <span className="message-timestamp">
           {formatTimestamp(timestamp)}
         </span>
       </div>
@@ -34,11 +36,11 @@ export function UserMessage({ content, timestamp, avatarUrl }: UserMessageProps)
         <img 
           src={avatarUrl} 
           alt="Você"
-          className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-primary/50"
+          className="message-avatar border border-primary/30"
         />
       ) : (
-        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-          <User className="w-4 h-4 text-muted-foreground" />
+        <div className="message-avatar-placeholder">
+          <User className="w-4 h-4 text-muted-foreground/70" />
         </div>
       )}
     </div>
