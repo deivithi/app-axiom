@@ -29,6 +29,9 @@ const PromptLibrary = lazy(() => import("./pages/PromptLibrary"));
 const PromptAnalysis = lazy(() => import("./pages/PromptAnalysis"));
 const CancelDeletion = lazy(() => import("./pages/CancelDeletion"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const Install = lazy(() => import("./pages/Install"));
+
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 const queryClient = new QueryClient();
 
@@ -101,27 +104,31 @@ function AppRoutes() {
   useGlobalChatShortcut();
   
   return (
-    <Suspense fallback={<PageLoader />}>
-      <Routes>
-        <Route path="/" element={<Navigate to="/intelligence" replace />} />
-        <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
-        <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
-        <Route path="/update-password" element={<UpdatePassword />} />
-        <Route path="/chat" element={<Navigate to="/intelligence" replace />} />
-        <Route path="/intelligence" element={<ProtectedRoute><Intelligence /></ProtectedRoute>} />
-        <Route path="/execution" element={<ProtectedRoute><Execution /></ProtectedRoute>} />
-        <Route path="/habits" element={<ProtectedRoute><Habits /></ProtectedRoute>} />
-        <Route path="/finances" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
-        <Route path="/memory" element={<ProtectedRoute><Memory /></ProtectedRoute>} />
-        <Route path="/memory-validation" element={<ProtectedRoute><MemoryValidation /></ProtectedRoute>} />
-        <Route path="/prompts" element={<ProtectedRoute><PromptLibrary /></ProtectedRoute>} />
-        <Route path="/prompts/:id" element={<ProtectedRoute><PromptAnalysis /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/cancel-deletion/:token" element={<CancelDeletion />} />
-        <Route path="/confirm-deletion/:token" element={<CancelDeletion />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Suspense>
+    <>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/" element={<Navigate to="/intelligence" replace />} />
+          <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+          <Route path="/reset-password" element={<PublicRoute><ResetPassword /></PublicRoute>} />
+          <Route path="/update-password" element={<UpdatePassword />} />
+          <Route path="/install" element={<Install />} />
+          <Route path="/chat" element={<Navigate to="/intelligence" replace />} />
+          <Route path="/intelligence" element={<ProtectedRoute><Intelligence /></ProtectedRoute>} />
+          <Route path="/execution" element={<ProtectedRoute><Execution /></ProtectedRoute>} />
+          <Route path="/habits" element={<ProtectedRoute><Habits /></ProtectedRoute>} />
+          <Route path="/finances" element={<ProtectedRoute><Finances /></ProtectedRoute>} />
+          <Route path="/memory" element={<ProtectedRoute><Memory /></ProtectedRoute>} />
+          <Route path="/memory-validation" element={<ProtectedRoute><MemoryValidation /></ProtectedRoute>} />
+          <Route path="/prompts" element={<ProtectedRoute><PromptLibrary /></ProtectedRoute>} />
+          <Route path="/prompts/:id" element={<ProtectedRoute><PromptAnalysis /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/cancel-deletion/:token" element={<CancelDeletion />} />
+          <Route path="/confirm-deletion/:token" element={<CancelDeletion />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </Suspense>
+      <InstallPrompt delay={30000} />
+    </>
   );
 }
 

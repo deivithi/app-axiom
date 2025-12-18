@@ -1,14 +1,19 @@
 {
+  "id": "/",
   "name": "Axiom - Estrategista de Vida com IA",
   "short_name": "Axiom",
   "description": "O único estrategista que conecta seu dinheiro, seus hábitos e seus projetos",
+  "lang": "pt-BR",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#0B0B0F",
   "theme_color": "#2563EB",
-  "scope": "/",
   "categories": ["productivity", "finance", "lifestyle"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-72.png",
@@ -71,6 +76,28 @@
       "purpose": "maskable any"
     }
   ],
-  "screenshots": [],
-  "prefer_related_applications": false
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "Ver sua inteligência e score",
+      "url": "/intelligence",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Finanças",
+      "short_name": "Finanças",
+      "description": "Gerenciar suas finanças",
+      "url": "/finances",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Hábitos",
+      "short_name": "Hábitos",
+      "description": "Acompanhar seus hábitos",
+      "url": "/habits",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": []
 }
