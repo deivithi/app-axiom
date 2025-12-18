@@ -3754,7 +3754,54 @@ serve(async (req) => {
 - Use tom acolhedor mas orientado a ação`
     };
 
+    // ===== CONTEXTO TEMPORAL DINÂMICO =====
+    const now = new Date();
+    // Ajustar para horário de Brasília (UTC-3)
+    const brazilTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    
+    const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    const meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    
+    const diaSemana = diasSemana[brazilTime.getDay()];
+    const dia = brazilTime.getDate();
+    const mes = meses[brazilTime.getMonth()];
+    const ano = brazilTime.getFullYear();
+    const mesNum = String(brazilTime.getMonth() + 1).padStart(2, '0');
+    const diaNum = String(dia).padStart(2, '0');
+    
+    // Calcular ontem
+    const ontem = new Date(brazilTime);
+    ontem.setDate(ontem.getDate() - 1);
+    const ontemDia = String(ontem.getDate()).padStart(2, '0');
+    const ontemMes = String(ontem.getMonth() + 1).padStart(2, '0');
+    const ontemAno = ontem.getFullYear();
+    
+    // Calcular anteontem
+    const anteontem = new Date(brazilTime);
+    anteontem.setDate(anteontem.getDate() - 2);
+    const anteontemDia = String(anteontem.getDate()).padStart(2, '0');
+    const anteontemMes = String(anteontem.getMonth() + 1).padStart(2, '0');
+    const anteontemAno = anteontem.getFullYear();
+    
+    const temporalContext = `📅 CALENDÁRIO E DATA ATUAL (CRÍTICO - USE SEMPRE PARA DATAS):
+HOJE: ${diaSemana}, ${dia} de ${mes} de ${ano}
+DATA HOJE (YYYY-MM-DD): ${ano}-${mesNum}-${diaNum}
+ONTEM: ${ontem.getDate()} de ${meses[ontem.getMonth()]} → ${ontemAno}-${ontemMes}-${ontemDia}
+ANTEONTEM: ${anteontem.getDate()} de ${meses[anteontem.getMonth()]} → ${anteontemAno}-${anteontemMes}-${anteontemDia}
+MÊS ATUAL: ${mes} (${mesNum}/${ano})
+
+⚠️ REGRAS OBRIGATÓRIAS PARA DATAS EM TRANSAÇÕES/TAREFAS:
+- "hoje" ou "agora" ou sem mencionar data → use ${ano}-${mesNum}-${diaNum}
+- "ontem" → use ${ontemAno}-${ontemMes}-${ontemDia}
+- "anteontem" → use ${anteontemAno}-${anteontemMes}-${anteontemDia}
+- "dia X" (sem mês) → assume mês atual: ${ano}-${mesNum}-[X com 2 dígitos]
+- "dia X de [mês]" → use o mês especificado
+- NUNCA invente datas! Use SEMPRE o calendário acima como referência.
+- SEMPRE passe transaction_date no formato YYYY-MM-DD ao criar transações.`;
+
     const systemPrompt = `Você é Axiom, Consultor Estratégico Pessoal do(a) ${userName}.
+
+${temporalContext}
 
 ${personalityPrompts[personalityMode] || personalityPrompts.direto}
 
