@@ -130,7 +130,7 @@
   
   --color-text-primary: hsl(var(--foreground));
   --color-text-secondary: hsl(var(--muted-foreground));
-  --color-text-tertiary: hsl(215 16% 47%);
+  --color-text-tertiary: hsl(215 16% 55%); /* WCAG AA contrast 4.5:1 */
   
   --color-primary: hsl(var(--primary));
   --color-primary-hover: hsl(var(--primary-hover));
@@ -3288,4 +3288,49 @@
   .bottom-nav-label {
     display: none;
   }
+}
+
+/* =====================================================
+   ACCESSIBILITY - SKIP LINK & FOCUS STYLES
+   ===================================================== */
+
+/* Skip link for keyboard navigation */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: var(--space-3) var(--space-4);
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  z-index: 9999;
+  text-decoration: none;
+  transition: top var(--duration-fast) var(--ease-smooth);
+}
+
+.skip-link:focus {
+  top: var(--space-4);
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Global focus-visible styles */
+*:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Remove outline for mouse clicks (keep for keyboard) */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Ensure buttons have visible focus even inside complex components */
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
 }

@@ -108,7 +108,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
               aria-expanded={!collapsed}
               aria-controls="sidebar-nav"
             >
-              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+              {collapsed ? <ChevronRight className="h-4 w-4" aria-hidden="true" /> : <ChevronLeft className="h-4 w-4" aria-hidden="true" />}
             </button>
           )}
         </div>
@@ -163,7 +163,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
                 onClick={handleThemeToggle}
                 aria-label={theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro'}
               >
-                {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                {theme === 'dark' ? <Sun className="h-5 w-5" aria-hidden="true" /> : <Moon className="h-5 w-5" aria-hidden="true" />}
               </Button>
             </TooltipTrigger>
             <TooltipContent side={collapsed ? "right" : "top"}>Alternar tema</TooltipContent>
@@ -179,7 +179,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
                 onClick={handleRefresh}
                 aria-label="Atualizar página"
               >
-                <RefreshCw className="h-5 w-5" />
+                <RefreshCw className="h-5 w-5" aria-hidden="true" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side={collapsed ? "right" : "top"}>Atualizar</TooltipContent>
@@ -195,7 +195,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
                 onClick={signOut}
                 aria-label="Sair da conta"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-5 w-5" aria-hidden="true" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side={collapsed ? "right" : "top"}>Sair</TooltipContent>
@@ -226,7 +226,7 @@ export const Sidebar = () => {
           onClick={() => setMobileOpen(true)}
           aria-label="Abrir menu de navegação"
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-5 w-5" aria-hidden="true" />
         </Button>
       </div>
 

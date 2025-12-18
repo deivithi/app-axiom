@@ -84,13 +84,18 @@ const BottomNavigation = memo(() => {
                     className={cn(
                       "relative z-10 w-6 h-6 flex-shrink-0 transition-all duration-200",
                       active ? "text-primary scale-110" : "text-muted-foreground"
-                    )} 
+                    )}
+                    aria-hidden="true"
                   />
                   
                   {/* Badge */}
                   {item.badge && item.badge > 0 && (
-                    <span className="absolute -top-1 -right-1 z-20 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9px] font-bold text-destructive-foreground bg-destructive rounded-full">
-                      {item.badge > 99 ? '99+' : item.badge}
+                    <span 
+                      className="absolute -top-1 -right-1 z-20 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9px] font-bold text-destructive-foreground bg-destructive rounded-full"
+                      role="status"
+                      aria-label={`${item.badge} ${item.badge === 1 ? 'item pendente' : 'itens pendentes'}`}
+                    >
+                      <span aria-hidden="true">{item.badge > 99 ? '99+' : item.badge}</span>
                     </span>
                   )}
                 </div>
@@ -136,7 +141,7 @@ const BottomNavigation = memo(() => {
             "bg-primary text-primary-foreground",
             "shadow-lg shadow-primary/30"
           )}>
-            <MessageSquare className="w-5 h-5" />
+            <MessageSquare className="w-5 h-5" aria-hidden="true" />
           </div>
         </button>
       </div>

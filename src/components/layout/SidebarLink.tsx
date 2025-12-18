@@ -44,8 +44,8 @@ export const SidebarLink = memo(({ link, collapsed, onClose, className }: Sideba
           color: isActive ? 'var(--color-primary-foreground)' : 'inherit',
           boxShadow: isActive ? 'var(--shadow-glow)' : 'none'
         }}
-      >
-        {link.icon}
+        >
+        <span aria-hidden="true">{link.icon}</span>
         
         {/* Mini badge quando colapsado */}
         {collapsed && link.badge !== undefined && link.badge !== 0 && (

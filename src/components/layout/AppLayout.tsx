@@ -31,16 +31,21 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       {!isMobile && <Sidebar />}
       
       {/* Main Content (Center) */}
-      <main className={cn(
-        "min-h-screen relative z-10",
-        "transition-all duration-200 ease-out",
-        "pt-safe-top",
-        // Desktop: sidebar margins
-        !isMobile && (open ? "md:ml-64" : "md:ml-16"),
-        !isMobile && marginClass,
-        // Mobile: bottom nav padding
-        isMobile && "pb-bottom-nav"
-      )}>
+      <main 
+        id="main-content"
+        tabIndex={-1}
+        className={cn(
+          "min-h-screen relative z-10",
+          "transition-all duration-200 ease-out",
+          "pt-safe-top",
+          "focus:outline-none",
+          // Desktop: sidebar margins
+          !isMobile && (open ? "md:ml-64" : "md:ml-16"),
+          !isMobile && marginClass,
+          // Mobile: bottom nav padding
+          isMobile && "pb-bottom-nav"
+        )}
+      >
         {children}
       </main>
       
