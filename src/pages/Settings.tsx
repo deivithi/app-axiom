@@ -6,11 +6,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Loader2, Save, Trash2, AlertTriangle, Upload, User, Target, Compass, Handshake } from "lucide-react";
+import { Loader2, Save, Trash2, AlertTriangle, Upload, User, Target, Compass, Handshake, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { exportUserData, downloadUserData } from "@/lib/exportUserData";
 
 type PersonalityMode = "direto" | "sabio" | "parceiro";
 
@@ -25,8 +26,23 @@ export default function Settings() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [personalityMode, setPersonalityMode] = useState<PersonalityMode>("direto");
   const [savingMode, setSavingMode] = useState(false);
+
+  const handleExportData = async () => {
+    if (!user) return;
+    setIsExporting(true);
+    try {
+      const data = await exportUserData(user.id);
+      downloadUserData(data, `axiom-dados-${new Date().toISOString().split('T')[0]}.json`);
+      toast.success("Dados exportados com sucesso! 📦");
+    } catch {
+      toast.error("Erro ao exportar dados");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -99,8 +115,7 @@ export default function Settings() {
 
       setAvatarUrl(urlWithTimestamp);
       toast.success("Foto atualizada! 📸");
-    } catch (error) {
-      console.error('Upload error:', error);
+    } catch {
       toast.error("Erro ao fazer upload da foto");
     }
 
@@ -124,8 +139,7 @@ export default function Settings() {
 
       setAvatarUrl(null);
       toast.success("Foto removida");
-    } catch (error) {
-      console.error('Remove error:', error);
+    } catch {
       toast.error("Erro ao remover foto");
     }
   };
@@ -185,8 +199,8 @@ export default function Settings() {
         await supabase.storage
           .from('avatars')
           .remove([`${user?.id}/avatar.png`, `${user?.id}/avatar.jpg`, `${user?.id}/avatar.jpeg`, `${user?.id}/avatar.webp`]);
-      } catch (storageError) {
-        console.error('Storage cleanup error:', storageError);
+      } catch {
+        // Silent fail on storage cleanup
       }
 
       // Reset user profile (keep the profile, just clear context)
@@ -200,8 +214,7 @@ export default function Settings() {
       setDeleteConfirmation("");
       setUserContext("");
       setAvatarUrl(null);
-    } catch (error) {
-      console.error('Delete error:', error);
+    } catch {
       toast.error("Erro ao excluir dados");
     }
     
@@ -403,6 +416,7 @@ export default function Settings() {
               onChange={e => setUserContext(e.target.value)}
               placeholder="Ex: Tenho 28 anos, sou desenvolvedor em SP. Meu objetivo principal é construir um negócio próprio nos próximos 2 anos. Meus maiores desafios são procrastinação e gestão financeira. Acordo às 7h e trabalho das 9h às 18h. Nos fins de semana gosto de estudar e fazer exercícios..."
               className="min-h-[200px] resize-none"
+              maxLength={5000}
             />
             <Button onClick={saveContext} disabled={saving} className="w-full sm:w-auto">
               {saving ? (
@@ -411,6 +425,32 @@ export default function Settings() {
                 <Save className="h-4 w-4 mr-2" />
               )}
               Salvar Contexto
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Exportação de Dados - LGPD */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              📦 Exportar Meus Dados (LGPD)
+            </CardTitle>
+            <CardDescription>
+              Baixe uma cópia de todos os seus dados em formato JSON. Isso inclui transações, hábitos, tarefas, projetos, notas, memórias e mais.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button 
+              variant="outline" 
+              onClick={handleExportData}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
+              {isExporting ? "Exportando..." : "Baixar Meus Dados"}
             </Button>
           </CardContent>
         </Card>

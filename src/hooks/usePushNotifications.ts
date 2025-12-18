@@ -81,8 +81,8 @@ export function usePushNotifications() {
       if (data?.notification_preferences) {
         setPreferences(parsePreferences(data.notification_preferences));
       }
-    } catch (error) {
-      console.error('Error checking subscription:', error);
+    } catch {
+      // Silent fail
     }
     setLoading(false);
   }, [user]);
@@ -108,7 +108,6 @@ export function usePushNotifications() {
 
     if (!VAPID_PUBLIC_KEY) {
       toast.error('Configuração de notificações incompleta');
-      console.error('VAPID_PUBLIC_KEY not configured');
       return false;
     }
 
@@ -161,8 +160,7 @@ export function usePushNotifications() {
       setIsSubscribed(true);
       toast.success('Notificações ativadas! 🔔');
       return true;
-    } catch (error) {
-      console.error('Subscribe error:', error);
+    } catch {
       toast.error('Erro ao ativar notificações');
       return false;
     } finally {
@@ -197,8 +195,7 @@ export function usePushNotifications() {
       setIsSubscribed(false);
       toast.success('Notificações desativadas');
       return true;
-    } catch (error) {
-      console.error('Unsubscribe error:', error);
+    } catch {
       toast.error('Erro ao desativar notificações');
       return false;
     } finally {
@@ -229,8 +226,7 @@ export function usePushNotifications() {
 
       setPreferences(newPreferences);
       return true;
-    } catch (error) {
-      console.error('Update preferences error:', error);
+    } catch {
       toast.error('Erro ao salvar preferências');
       return false;
     }
@@ -256,8 +252,7 @@ export function usePushNotifications() {
 
       if (error) throw error;
       toast.success('Notificação de teste enviada!');
-    } catch (error) {
-      console.error('Test notification error:', error);
+    } catch {
       toast.error('Erro ao enviar notificação de teste');
     }
   };

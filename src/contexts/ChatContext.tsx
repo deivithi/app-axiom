@@ -149,7 +149,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       .range(from, to);
     
     if (error) {
-      console.error('Error loading messages:', error);
+      // Silent fail - messages will be empty
     } else if (data) {
       const reversed = [...data].reverse();
       if (prepend) {
@@ -258,7 +258,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         throw new Error(result.error || 'Falha na transcrição');
       }
     } catch (error) {
-      console.error('Transcription error:', error);
       toast({
         title: 'Erro na transcrição',
         description: error instanceof Error ? error.message : 'Erro desconhecido',
@@ -298,8 +297,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           title: '🎤 Gravando...',
           description: 'Fale sua mensagem e clique novamente para enviar'
         });
-      } catch (error) {
-        console.error('Microphone error:', error);
+      } catch {
         toast({
           title: 'Erro',
           description: 'Não foi possível acessar o microfone',
@@ -423,7 +421,6 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         });
       }
     } catch (error) {
-      console.error('Chat error:', error);
       toast({
         title: 'Erro',
         description: error instanceof Error ? error.message : 'Erro ao enviar mensagem',

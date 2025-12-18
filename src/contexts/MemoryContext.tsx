@@ -140,8 +140,8 @@ export function MemoryProvider({ children }: { children: React.ReactNode }) {
 
       setRecentConversations(conversations || []);
 
-    } catch (error) {
-      console.error('Error fetching memories:', error);
+    } catch {
+      // Silent fail - memories will be empty
     } finally {
       setIsLoading(false);
     }
@@ -157,8 +157,7 @@ export function MemoryProvider({ children }: { children: React.ReactNode }) {
 
       if (error) throw error;
       return data.memories || [];
-    } catch (error) {
-      console.error('Error searching memories:', error);
+    } catch {
       return [];
     }
   }, [user]);
@@ -185,8 +184,8 @@ export function MemoryProvider({ children }: { children: React.ReactNode }) {
           .eq('id', memoryId)
           .eq('user_id', user.id);
       }
-    } catch (error) {
-      console.error('Error tracking memory usage:', error);
+    } catch {
+      // Silent fail
     }
   }, [user]);
 
@@ -201,8 +200,8 @@ export function MemoryProvider({ children }: { children: React.ReactNode }) {
         .eq('user_id', user.id);
 
       await refreshMemories();
-    } catch (error) {
-      console.error('Error archiving memory:', error);
+    } catch {
+      // Silent fail
     }
   }, [user, refreshMemories]);
 

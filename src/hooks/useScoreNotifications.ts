@@ -36,8 +36,8 @@ export function useScoreNotifications() {
         
         previousScoreRef.current = newScore;
       }
-    } catch (error) {
-      console.error('Error calculating score:', error);
+    } catch {
+      // Silent fail
     } finally {
       isCalculatingRef.current = false;
     }

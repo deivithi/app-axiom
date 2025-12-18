@@ -64,7 +64,6 @@ export default function PromptLibrary() {
       .order("updated_at", { ascending: false });
 
     if (error) {
-      console.error("Error loading prompts:", error);
       toast.error("Erro ao carregar prompts");
     } else {
       setPrompts(data || []);
@@ -101,8 +100,7 @@ export default function PromptLibrary() {
       // Generate diagnosis in background
       generateDiagnosis(data.id, newPrompt.prompt_text);
       loadPrompts();
-    } catch (error) {
-      console.error("Error creating prompt:", error);
+    } catch {
       toast.error("Erro ao criar prompt");
     }
     setCreating(false);
@@ -131,8 +129,7 @@ export default function PromptLibrary() {
 
       loadPrompts();
       toast.success("Diagnóstico gerado!");
-    } catch (error) {
-      console.error("Error generating diagnosis:", error);
+    } catch {
       await supabase
         .from("prompt_library")
         .update({ analysis_status: "failed" })
@@ -226,6 +223,7 @@ export default function PromptLibrary() {
                 <Textarea
                   placeholder="Digite seu prompt aqui..."
                   className="min-h-[200px]"
+                  maxLength={10000}
                   value={newPrompt.prompt_text}
                   onChange={e => setNewPrompt(p => ({ ...p, prompt_text: e.target.value }))}
                 />

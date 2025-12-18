@@ -97,7 +97,8 @@ export default function Habits() {
     const { data, error } = await supabase
       .from('habits')
       .select('*')
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(100);
 
     if (error) {
       toast({ title: 'Erro', description: 'Erro ao carregar hábitos', variant: 'destructive' });
@@ -115,7 +116,8 @@ export default function Habits() {
       .from('habit_logs')
       .select('*')
       .gte('completed_at', format(start, 'yyyy-MM-dd'))
-      .lte('completed_at', format(end, 'yyyy-MM-dd'));
+      .lte('completed_at', format(end, 'yyyy-MM-dd'))
+      .limit(1000);
 
     setLogs(data || []);
   };

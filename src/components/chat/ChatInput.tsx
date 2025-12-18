@@ -148,6 +148,7 @@ export function ChatInput({
             placeholder="Converse com Axiom..."
             className="chat-input-field"
             rows={1}
+            maxLength={4000}
             disabled={isLoading || isTranscribing || disabled}
           />
         )}

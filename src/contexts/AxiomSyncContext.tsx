@@ -43,8 +43,6 @@ export function AxiomSyncProvider({ children }: { children: React.ReactNode }) {
 
     // Notify all subscribers
     subscribersRef.current.forEach(callback => callback(action));
-
-    console.log('[AxiomSync] UI Action:', action);
   }, []);
 
   const subscribeToActions = useCallback((callback: (action: UIAction) => void) => {
