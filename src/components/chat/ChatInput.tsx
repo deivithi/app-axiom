@@ -101,6 +101,7 @@ export function ChatInput({
           type="button"
           onClick={onToggleRecording}
           disabled={isLoading || isTranscribing || disabled}
+          aria-label={isTranscribing ? "Transcrevendo áudio..." : isRecording ? "Parar gravação" : "Gravar áudio"}
           className={cn(
             "chat-mic-button",
             isRecording && "text-destructive"
@@ -108,18 +109,18 @@ export function ChatInput({
         >
           {isRecording && (
             <>
-              <span className="chat-mic-pulse-ring" />
-              <span className="chat-mic-pulse-ring delay-1" />
-              <span className="chat-mic-pulse-ring delay-2" />
+              <span className="chat-mic-pulse-ring" aria-hidden="true" />
+              <span className="chat-mic-pulse-ring delay-1" aria-hidden="true" />
+              <span className="chat-mic-pulse-ring delay-2" aria-hidden="true" />
             </>
           )}
           
           {isTranscribing ? (
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
           ) : isRecording ? (
-            <Square className="h-5 w-5 fill-current" />
+            <Square className="h-5 w-5 fill-current" aria-hidden="true" />
           ) : (
-            <Mic className="h-5 w-5 text-muted-foreground" />
+            <Mic className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
           )}
         </button>
 
@@ -158,17 +159,19 @@ export function ChatInput({
           type="button"
           onClick={handleSend}
           disabled={isLoading || !value.trim() || isRecording || disabled}
+          aria-label={isSending ? "Mensagem enviada" : isLoading ? "Enviando..." : "Enviar mensagem"}
+          aria-disabled={!value.trim() || isLoading}
           className={cn(
             "chat-send-button",
             isSending && "sending"
           )}
         >
           {isSending ? (
-            <Check className="h-4 w-4 text-white" />
+            <Check className="h-4 w-4 text-white" aria-hidden="true" />
           ) : isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin text-white" />
+            <Loader2 className="h-4 w-4 animate-spin text-white" aria-hidden="true" />
           ) : (
-            <Send className="h-4 w-4 text-white" />
+            <Send className="h-4 w-4 text-white" aria-hidden="true" />
           )}
         </button>
       </div>
