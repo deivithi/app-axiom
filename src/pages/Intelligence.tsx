@@ -61,9 +61,50 @@ export default function Intelligence() {
   const [loadingScore, setLoadingScore] = useState(true);
   const [lastInsight, setLastInsight] = useState<LastInsight | null>(null);
   const [userAnalysis, setUserAnalysis] = useState<UserAnalysis | null>(null);
+  const [generatingFirstReport, setGeneratingFirstReport] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+
+  const getNextMondayDate = () => {
+    const now = new Date();
+    const daysUntilMonday = (8 - now.getDay()) % 7 || 7;
+    const nextMonday = new Date(now);
+    nextMonday.setDate(now.getDate() + daysUntilMonday);
+    nextMonday.setHours(7, 0, 0, 0);
+    return nextMonday.toLocaleDateString('pt-BR', { 
+      weekday: 'long', 
+      day: '2-digit', 
+      month: '2-digit'
+    }) + ' às 7h';
+  };
+
+  const generateFirstWeeklyReport = async () => {
+    setGeneratingFirstReport(true);
+    try {
+      const { error } = await supabase.functions.invoke('generate-weekly-report', {
+        body: { trigger: 'manual', user_id: user?.id }
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Relatório gerado! 📊",
+        description: "Seu primeiro insight semanal está pronto.",
+      });
+
+      await loadLastInsight();
+    } catch (error) {
+      console.error('Error generating report:', error);
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Não foi possível gerar o relatório.",
+      });
+    } finally {
+      setGeneratingFirstReport(false);
+    }
+  };
 
   useEffect(() => {
     if (user) {
@@ -530,13 +571,39 @@ export default function Intelligence() {
               </div>
               {lastInsight ? (
                 <div className="space-y-3">
-                  <p className="text-xs text-muted-foreground">{lastInsight.date}</p>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>📅 Gerado em: {lastInsight.date}</span>
+                    <span>🔄 Próximo: {getNextMondayDate()}</span>
+                  </div>
                   <p className="text-sm whitespace-pre-wrap">{lastInsight.content}</p>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Nenhum insight semanal gerado ainda. O Axiom gera automaticamente um relatório toda semana. 📅
-                </p>
+                <div className="text-center py-4 space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum insight semanal gerado ainda.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    📅 O Axiom gera automaticamente toda <strong>segunda-feira às 7h</strong>.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={generateFirstWeeklyReport}
+                    disabled={generatingFirstReport}
+                  >
+                    {generatingFirstReport ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Gerando...
+                      </>
+                    ) : (
+                      <>
+                        <BarChart3 className="h-4 w-4 mr-2" />
+                        Gerar Primeiro Relatório
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
             </AppleCard>
           </div>
