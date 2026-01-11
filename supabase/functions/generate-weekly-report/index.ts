@@ -258,12 +258,14 @@ ${profile?.user_context ? `Contexto: ${profile.user_context}` : ''}
 
 Padrões detectados: ${patterns.map(p => p.title).join(', ') || 'Nenhum crítico'}
 
-Escreva uma análise CURTA (máx 3 parágrafos) que:
-1. Destaque o ponto mais importante da semana (positivo ou negativo)
-2. Identifique um padrão comportamental
-3. Termine com uma pergunta provocativa
-
-Use tom direto, emojis naturais, sem formalidade.`;
+REGRAS CRÍTICAS:
+1. NÃO USE MARKDOWN - escreva texto normal sem ** ou --- ou qualquer formatação especial
+2. Use emojis naturalmente para dar vida ao texto 🎯💡🔥📈
+3. Máximo 3 parágrafos curtos
+4. Destaque o ponto mais importante da semana
+5. Identifique um padrão comportamental
+6. Termine com uma pergunta provocativa
+7. Tom: mentor amigo, direto, sem formalidade corporativa`;
 
         const aiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -310,12 +312,15 @@ Use tom direto, emojis naturais, sem formalidade.`;
           ai_analysis: aiAnalysis
         };
 
-        // Save as message in chat
-        const welcomeContent = `📊 **Axiom Insights** - Semana ${new Date(weekStartStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${new Date(weekEndStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+        // Format week dates
+        const weekDateFormatted = `${new Date(weekStartStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} a ${new Date(weekEndStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`;
+
+        // Save as message in chat (simple summary)
+        const welcomeContent = `📊 Axiom Insights - Semana ${weekDateFormatted}
 
 Bom dia, ${userName}! Seu relatório semanal está pronto.
 
-**Score:** ${currentScore} ${scoreChange >= 0 ? '📈' : '📉'} (${scoreChange >= 0 ? '+' : ''}${scoreChange})`;
+Score: ${currentScore} ${scoreChange >= 0 ? '📈' : '📉'} (${scoreChange >= 0 ? '+' : ''}${scoreChange})`;
 
         const { data: savedMessage, error: saveError } = await supabase
           .from('messages')
@@ -332,29 +337,25 @@ Bom dia, ${userName}! Seu relatório semanal está pronto.
           continue;
         }
 
-        // Update message with payload (since we can't add custom fields directly to messages, 
-        // we'll store the full report as a separate message with special marker)
-        const fullReportContent = `📊 **Relatório Completo da Semana**
+        // Build the full report content WITHOUT markdown
+        const fullReportContent = `📊 Relatório da Semana ${weekDateFormatted}
 
 ${aiAnalysis}
 
----
-
-**📈 Métricas da Semana:**
+📈 Métricas da Semana:
 • Tarefas: ${completedTasks}/${totalTasks} (${taskRate}%)
 • Hábitos ativos: ${uniqueHabitsCompleted}/${totalHabits}
 • Receitas: R$${income.toFixed(2)}
 • Despesas: R$${expenses.toFixed(2)}
 • Saldo: R$${(income - expenses).toFixed(2)}
 
-${patterns.length > 0 ? `**⚠️ Padrões Detectados:**
-${patterns.map(p => `• ${p.title}: ${p.description}`).join('\n')}` : ''}
+${patterns.length > 0 ? `⚠️ Padrões Detectados:
+${patterns.map(p => `• ${p.title}: ${p.description}`).join('\n')}
 
-${recommendations.length > 0 ? `**💡 Recomendações:**
-${recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}` : ''}
+` : ''}${recommendations.length > 0 ? `💡 Recomendações:
+${recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 
----
-❓ **Pergunta da Semana:** ${questionOfWeek}`;
+` : ''}❓ Pergunta da Semana: ${questionOfWeek}`;
 
         // Save the full report as a follow-up message
         await supabase
