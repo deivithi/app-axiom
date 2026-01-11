@@ -32,7 +32,7 @@ interface ScoreBreakdown {
   execution: { score: number; tasksCompleted: number; tasksTotal: number; rate: number };
   financial: { score: number; monthsPositive: number; totalMonths: number; rate: number };
   habits: { score: number; daysWithCompletion: number; totalDays: number; rate: number };
-  projects: { score: number; activeProjects: number; projectsWithProgress: number; rate: number };
+  projects: { score: number; recentlyCompleted: number; activeProjects: number; activeWithProgress: number; rate: number };
   clarity: { score: number; notesWithInsights: number; totalNotes: number; rate: number };
 }
 
@@ -88,23 +88,41 @@ async function calculateScoreBreakdown(supabase: any, userId: string): Promise<S
   const habitsRate = daysWithCompletion / 30;
   const habitsScore = Math.round(habitsRate * 200);
 
-  // 4. PROJECTS: Projects with progress in last 7 days
+  // 4. PROJECTS: Score based on completion AND activity
   const sevenDaysAgo = new Date(now);
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+  const thirtyDaysAgoDate = new Date(now);
+  thirtyDaysAgoDate.setDate(thirtyDaysAgoDate.getDate() - 30);
 
-  const { data: projects } = await supabase
+  // Fetch ALL projects (active AND completed)
+  const { data: allProjects } = await supabase
     .from("projects")
-    .select("id, updated_at, status")
-    .eq("user_id", userId)
-    .eq("status", "active");
+    .select("id, updated_at, status, created_at")
+    .eq("user_id", userId);
 
-  const activeProjects = projects?.length || 0;
-  const projectsWithProgress = projects?.filter((p: any) => 
-    new Date(p.updated_at) >= sevenDaysAgo
+  // Projects completed in last 30 days (big achievement!)
+  const recentlyCompleted = allProjects?.filter((p: any) => 
+    p.status === "completed" && 
+    new Date(p.updated_at) >= thirtyDaysAgoDate
   ).length || 0;
-  const projectsRate = activeProjects > 0 ? (projectsWithProgress / activeProjects) : 0;
-  const projectsScore = Math.round(projectsRate * 200);
+
+  // Active projects with activity in last 7 days
+  const activeProjects = allProjects?.filter((p: any) => p.status === "active") || [];
+  const activeWithProgress = activeProjects.filter((p: any) => 
+    new Date(p.updated_at) >= sevenDaysAgo
+  ).length;
+
+  // Calculate score:
+  // - Each recently completed project = 50 points (max 100)
+  // - Active projects with progress = up to 100 points
+  const completionPoints = Math.min(recentlyCompleted * 50, 100);
+  const activityRate = activeProjects.length > 0 
+    ? (activeWithProgress / activeProjects.length) 
+    : (recentlyCompleted > 0 ? 1 : 0); // If no active but completed something, count as 100%
+  const activityPoints = Math.round(activityRate * 100);
+
+  const projectsScore = completionPoints + activityPoints;
+  const projectsRate = Math.round((projectsScore / 200) * 100);
 
   // 5. CLARITY: Notes with AI insights processed (last 30 days)
   const { data: notes } = await supabase
@@ -132,7 +150,7 @@ async function calculateScoreBreakdown(supabase: any, userId: string): Promise<S
     execution: { score: executionScore, tasksCompleted, tasksTotal, rate: Math.round(executionRate * 100) },
     financial: { score: financialScore, monthsPositive, totalMonths, rate: Math.round(financialRate * 100) },
     habits: { score: habitsScore, daysWithCompletion, totalDays: 30, rate: Math.round(habitsRate * 100) },
-    projects: { score: projectsScore, activeProjects, projectsWithProgress, rate: Math.round(projectsRate * 100) },
+    projects: { score: projectsScore, recentlyCompleted, activeProjects: activeProjects.length, activeWithProgress, rate: projectsRate },
     clarity: { score: clarityScore, notesWithInsights, totalNotes, rate: Math.round(clarityRate * 100) },
   };
 }
