@@ -40,9 +40,12 @@ interface ScoreHistoryItem {
 }
 
 interface LastInsight {
-  week: string;
-  score: number | null;
-  change: number | null;
+  content: string;
+  date: string;
+}
+
+interface UserAnalysis {
+  content: string;
   date: string;
 }
 
@@ -57,6 +60,7 @@ export default function Intelligence() {
   const [scoreHistory, setScoreHistory] = useState<ScoreHistoryItem[]>([]);
   const [loadingScore, setLoadingScore] = useState(true);
   const [lastInsight, setLastInsight] = useState<LastInsight | null>(null);
+  const [userAnalysis, setUserAnalysis] = useState<UserAnalysis | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -67,6 +71,7 @@ export default function Intelligence() {
       loadScore();
       loadScoreHistory();
       loadLastInsight();
+      loadUserAnalysis();
     }
   }, [user]);
 
@@ -75,25 +80,71 @@ export default function Intelligence() {
       const { data } = await supabase
         .from('messages')
         .select('content, created_at')
+        .eq('user_id', user?.id)
         .eq('is_ai', true)
-        .ilike('content', '%Axiom Insights%')
+        .or('content.ilike.%📊 Relatório da Semana%,content.ilike.%📊 Relatório Completo%')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
       if (data) {
-        const weekMatch = data.content.match(/Semana\s+(\d{2}\/\d{2})\s+a\s+(\d{2}\/\d{2})/);
-        const scoreMatch = data.content.match(/Score:\s*(\d+)\s*(📈|📉)\s*\(([+-]?\d+)\)/);
+        // Remove markdown formatting from content
+        const cleanContent = data.content
+          .replace(/\*\*/g, '')
+          .replace(/---/g, '')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
         
         setLastInsight({
-          week: weekMatch ? `${weekMatch[1]} - ${weekMatch[2]}` : 'N/A',
-          score: scoreMatch ? parseInt(scoreMatch[1]) : null,
-          change: scoreMatch ? parseInt(scoreMatch[3]) : null,
-          date: new Date(data.created_at).toLocaleDateString('pt-BR')
+          content: cleanContent,
+          date: new Date(data.created_at).toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
         });
       }
     } catch (error) {
       // No insights yet
+    }
+  };
+
+  const loadUserAnalysis = async () => {
+    try {
+      const { data } = await supabase
+        .from('messages')
+        .select('content, created_at')
+        .eq('user_id', user?.id)
+        .eq('is_ai', true)
+        .ilike('content', '%🧠 Análise Pessoal%')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (data) {
+        // Remove the marker and clean up the content
+        const cleanContent = data.content
+          .replace('🧠 Análise Pessoal\n\n', '')
+          .replace(/\*\*/g, '')
+          .replace(/---/g, '')
+          .trim();
+        
+        setUserAnalysis({
+          content: cleanContent,
+          date: new Date(data.created_at).toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        });
+        setAiInsight(cleanContent);
+      }
+    } catch (error) {
+      // No analysis yet
     }
   };
 
@@ -242,7 +293,28 @@ export default function Intelligence() {
       });
 
       if (response.data?.insights) {
-        setAiInsight(response.data.insights);
+        const insights = response.data.insights;
+        setAiInsight(insights);
+        
+        // Persist the analysis in the database
+        await supabase.from('messages').insert({
+          user_id: user?.id,
+          content: `🧠 Análise Pessoal\n\n${insights}`,
+          is_ai: true
+        });
+
+        // Update local state with the new analysis
+        setUserAnalysis({
+          content: insights,
+          date: new Date().toLocaleDateString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          })
+        });
+        
         toast({ title: '✨ Análise gerada!', description: 'Axiom analisou sua semana' });
       }
     } catch (error) {
@@ -426,49 +498,45 @@ export default function Intelligence() {
                   ) : (
                     <>
                       <TrendingUp className="h-4 w-4 mr-2" />
-                      Gerar Análise
+                      Gerar Nova Análise
                     </>
                   )}
                 </Button>
               </div>
               {aiInsight ? (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{aiInsight}</p>
+                <div className="space-y-2">
+                  {userAnalysis?.date && (
+                    <p className="text-xs text-muted-foreground">{userAnalysis.date}</p>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap">{aiInsight}</p>
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Clique em "Gerar Análise" para receber insights personalizados sobre sua semana
+                  Clique em "Gerar Nova Análise" para receber insights personalizados sobre sua semana
                 </p>
               )}
             </AppleCard>
 
             {/* Last Weekly Insight */}
             <AppleCard elevation={1} className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                <h3 className="text-lg font-semibold">Último Insight Semanal</h3>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-semibold">Último Insight Semanal</h3>
+                </div>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                  ⚡ Gerado automaticamente
+                </span>
               </div>
               {lastInsight ? (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Semana {lastInsight.week}</span>
-                    <span className="text-xs text-muted-foreground">{lastInsight.date}</span>
-                  </div>
-                  {lastInsight.score && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold">{lastInsight.score}</span>
-                      {lastInsight.change && (
-                        <span className={`text-sm ${lastInsight.change >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                          {lastInsight.change >= 0 ? '↑' : '↓'} {Math.abs(lastInsight.change)}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <Button variant="link" className="p-0 h-auto" onClick={() => navigate('/')}>
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    Ver conversa completa
-                  </Button>
+                  <p className="text-xs text-muted-foreground">{lastInsight.date}</p>
+                  <p className="text-sm whitespace-pre-wrap">{lastInsight.content}</p>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Nenhum insight semanal gerado ainda</p>
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum insight semanal gerado ainda. O Axiom gera automaticamente um relatório toda semana. 📅
+                </p>
               )}
             </AppleCard>
           </div>
