@@ -1,11 +1,24 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ===== INPUT VALIDATION =====
+const MessageSchema = z.object({
+  role: z.string(),
+  content: z.string().max(50000)
+});
+
+const ExtractMemoriesRequestSchema = z.object({
+  userId: z.string().uuid('Invalid userId format'),
+  conversationId: z.string().uuid().optional().nullable(),
+  messages: z.array(MessageSchema).min(1).max(100)
+});
 
 // Generate embedding using OpenAI
 async function generateEmbedding(text: string, openAIApiKey: string): Promise<number[] | null> {
@@ -41,7 +54,21 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, conversationId, messages } = await req.json();
+    // Validate input
+    const body = await req.json();
+    const parseResult = ExtractMemoriesRequestSchema.safeParse(body);
+    
+    if (!parseResult.success) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Invalid input",
+          details: parseResult.error.errors.map(e => e.message)
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { userId, conversationId, messages } = parseResult.data;
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

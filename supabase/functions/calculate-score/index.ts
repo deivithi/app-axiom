@@ -1,10 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ===== INPUT VALIDATION =====
+const ScoreRequestSchema = z.object({
+  userId: z.string().uuid('Invalid userId format'),
+  saveHistory: z.boolean().optional().default(true)
+});
 
 // ===== HELPERS PARA TIMEZONE DO BRASIL =====
 function getBrazilDateStr(date?: Date): string {
@@ -140,11 +147,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { userId, saveHistory = true } = await req.json();
-
-    if (!userId) {
-      throw new Error("userId is required");
+    // Validate input
+    const body = await req.json();
+    const parseResult = ScoreRequestSchema.safeParse(body);
+    
+    if (!parseResult.success) {
+      return new Response(JSON.stringify({ 
+        error: "Invalid input",
+        details: parseResult.error.errors.map(e => e.message)
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
+    
+    const { userId, saveHistory } = parseResult.data;
 
     console.log(`Calculating score for user: ${userId}`);
 

@@ -1,10 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ===== INPUT VALIDATION =====
+const WeeklyReportRequestSchema = z.object({
+  trigger: z.string().max(50).optional(),
+  user_id: z.string().uuid('Invalid user_id format').optional()
+});
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -43,7 +50,22 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { trigger, user_id: specificUserId } = await req.json();
+    
+    // Validate input
+    const body = await req.json();
+    const parseResult = WeeklyReportRequestSchema.safeParse(body);
+    
+    if (!parseResult.success) {
+      return new Response(JSON.stringify({ 
+        error: "Invalid input",
+        details: parseResult.error.errors.map(e => e.message)
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    
+    const { trigger, user_id: specificUserId } = parseResult.data;
 
     console.log(`Weekly report generation triggered: ${trigger || 'manual'}`);
 

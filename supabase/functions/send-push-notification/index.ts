@@ -1,10 +1,25 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ===== INPUT VALIDATION =====
+const NotificationRequestSchema = z.object({
+  userId: z.string().uuid('Invalid userId format'),
+  title: z.string().min(1, 'Title required').max(100, 'Title too long'),
+  body: z.string().min(1, 'Body required').max(500, 'Body too long'),
+  type: z.enum(['reminder', 'proactive_question', 'score_drop', 'weekly_report', 'bill_due', 'test']),
+  url: z.string().url().optional(),
+  tag: z.string().max(50).optional(),
+  actions: z.array(z.object({
+    action: z.string(),
+    title: z.string()
+  })).optional()
+});
 
 const VAPID_PUBLIC_KEY = Deno.env.get("VAPID_PUBLIC_KEY")!;
 const VAPID_PRIVATE_KEY = Deno.env.get("VAPID_PRIVATE_KEY")!;
@@ -46,15 +61,21 @@ serve(async (req) => {
   }
 
   try {
-    const payload: NotificationPayload = await req.json();
-    const { userId, title, body, type, url, tag, actions } = payload;
-
-    if (!userId || !title || !body) {
+    // Validate input
+    const body_raw = await req.json();
+    const parseResult = NotificationRequestSchema.safeParse(body_raw);
+    
+    if (!parseResult.success) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: userId, title, body" }),
+        JSON.stringify({ 
+          error: "Invalid input",
+          details: parseResult.error.errors.map(e => e.message)
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    const { userId, title, body, type, url, tag, actions } = parseResult.data;
 
     console.log(`Sending push notification to user ${userId}: ${title}`);
 
