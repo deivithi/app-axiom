@@ -1616,9 +1616,17 @@ export default function Finances() {
                   >
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {(editingTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
+                      {/* Inclui a categoria atual se não estiver na lista padrão */}
+                      {(() => {
+                        const baseCategories = editingTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+                        const currentCategory = editingTransaction.category;
+                        const categories = currentCategory && !baseCategories.includes(currentCategory)
+                          ? [currentCategory, ...baseCategories]
+                          : baseCategories;
+                        return categories.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ));
+                      })()}
                     </SelectContent>
                   </Select>
                 </div>

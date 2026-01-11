@@ -38,9 +38,45 @@ export const signInSchema = z.object({
 
 // ==================== TRANSACTION SCHEMAS ====================
 
-// Category lists for validation
-export const EXPENSE_CATEGORIES = ["Alimentação", "Transporte", "Moradia", "Saúde", "Educação", "Lazer", "Compras", "Assinaturas", "Transferência", "Outros"];
-export const INCOME_CATEGORIES = ["Salário", "Freelance", "Investimentos", "Vendas", "Transferência", "Outros"];
+// Category lists for validation - sincronizado com Axiom CFO
+export const EXPENSE_CATEGORIES = [
+  "Alimentação",
+  "Mercado",
+  "Transporte",
+  "Moradia",
+  "Saúde",
+  "Saúde/Suplementos",
+  "Farmácia",
+  "Educação",
+  "Lazer",
+  "Compras",
+  "Eletrônicos",
+  "Assinaturas",
+  "Assinaturas/Software",
+  "Casa/Escritório",
+  "Cuidados pessoais",
+  "Pet",
+  "Telefonia",
+  "Investimentos",
+  "Poupança/Reserva de Emergência",
+  "Dívidas/Empréstimos",
+  "Impostos/Tributos",
+  "Presentes/Doações",
+  "Doações/Dízimo",
+  "Transferência",
+  "Outros"
+];
+
+export const INCOME_CATEGORIES = [
+  "Salário",
+  "Salário/Remuneração",
+  "Freelance",
+  "Investimentos",
+  "Vendas",
+  "Empréstimos/Recebimentos",
+  "Transferência",
+  "Outros"
+];
 
 // Date range constants
 const MAX_FUTURE_DAYS = 365; // 1 year in the future
