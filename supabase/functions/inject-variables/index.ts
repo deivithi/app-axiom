@@ -1,10 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// ===== INPUT VALIDATION =====
+const InjectVariablesRequestSchema = z.object({
+  promptTemplate: z.string().min(1).max(50000, 'Prompt template too long'),
+  userId: z.string().uuid('Invalid userId format')
+});
 
 interface UserContext {
   usuario_nome: string;
@@ -30,14 +37,21 @@ serve(async (req) => {
   }
 
   try {
-    const { promptTemplate, userId } = await req.json();
-
-    if (!promptTemplate || !userId) {
+    // Validate input
+    const body = await req.json();
+    const parseResult = InjectVariablesRequestSchema.safeParse(body);
+    
+    if (!parseResult.success) {
       return new Response(
-        JSON.stringify({ error: "promptTemplate and userId are required" }),
+        JSON.stringify({ 
+          error: "Invalid input",
+          details: parseResult.error.errors.map(e => e.message)
+        }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+    
+    const { promptTemplate, userId } = parseResult.data;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

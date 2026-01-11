@@ -1,6 +1,28 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+
+// ===== INPUT VALIDATION SCHEMAS =====
+const MessageSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system', 'tool']),
+  content: z.string().max(50000, 'Message content too long').optional(),
+  tool_calls: z.array(z.object({
+    id: z.string(),
+    type: z.string(),
+    function: z.object({
+      name: z.string(),
+      arguments: z.string()
+    })
+  })).optional(),
+  tool_call_id: z.string().optional()
+}).refine(data => data.content !== undefined || data.tool_calls !== undefined, {
+  message: 'Either content or tool_calls must be provided'
+});
+
+const ChatRequestSchema = z.object({
+  messages: z.array(MessageSchema).min(1, 'At least one message required').max(100, 'Too many messages')
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -3808,7 +3830,22 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    // Validate input
+    const body = await req.json();
+    const parseResult = ChatRequestSchema.safeParse(body);
+    
+    if (!parseResult.success) {
+      console.error("Validation error:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ 
+          error: "Dados de entrada inválidos",
+          details: parseResult.error.errors.map(e => e.message)
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const { messages } = parseResult.data;
     const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
