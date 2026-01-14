@@ -17,6 +17,16 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const openaiKey = Deno.env.get("OPENAI_API_KEY")!;
 
+// Formatação de moeda brasileira
+const formatCurrency = (value: number): string => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
 interface WeeklyReportPayload {
   week_start: string;
   week_end: string;
@@ -196,7 +206,7 @@ serve(async (req) => {
           patterns.push({
             type: 'spending_high',
             title: `Alto gasto em ${category}`,
-            description: `R$${amount.toFixed(0)} esta semana`,
+            description: `${formatCurrency(amount)} esta semana`,
             severity: amount > 500 ? 'critical' : 'warning'
           });
         }
@@ -226,7 +236,7 @@ serve(async (req) => {
         const highlights: string[] = [];
         if (completedTasks > 0) highlights.push(`✅ ${completedTasks} tarefas concluídas`);
         if (habitLogs.length > 0) highlights.push(`🎯 ${habitLogs.length} dias de hábitos completados`);
-        if (income > 0) highlights.push(`💰 R$${income.toFixed(0)} em receitas`);
+        if (income > 0) highlights.push(`💰 ${formatCurrency(income)} em receitas`);
         if (notes.length > 0 || journal.length > 0) {
           highlights.push(`📝 ${notes.length + journal.length} reflexões registradas`);
         }
@@ -240,7 +250,7 @@ serve(async (req) => {
           recommendations.push('Revise suas tarefas e priorize as 3 mais importantes');
         }
         if (expenses > income && income > 0) {
-          recommendations.push(`Reduza gastos - você está no vermelho R$${(expenses - income).toFixed(0)}`);
+          recommendations.push(`Reduza gastos - você está no vermelho ${formatCurrency(expenses - income)}`);
         }
         if (brokenStreaks.length > 0) {
           recommendations.push(`Retome o hábito \"${brokenStreaks[0].title}\" hoje`);
@@ -252,7 +262,7 @@ serve(async (req) => {
 Score: ${currentScore} (${scoreChange >= 0 ? '+' : ''}${scoreChange})
 Tarefas: ${completedTasks}/${totalTasks} (${taskRate}%)
 Hábitos: ${uniqueHabitsCompleted}/${totalHabits} ativos
-Finanças: R$${income.toFixed(0)} receitas, R$${expenses.toFixed(0)} gastos
+Finanças: ${formatCurrency(income)} receitas, ${formatCurrency(expenses)} gastos
 Projetos: ${projects.length} ativos, ${projectsUpdatedThisWeek} atualizados
 ${profile?.user_context ? `Contexto: ${profile.user_context}` : ''}
 
@@ -337,25 +347,23 @@ Score: ${currentScore} ${scoreChange >= 0 ? '📈' : '📉'} (${scoreChange >= 0
           continue;
         }
 
-        // Build the full report content WITHOUT markdown
+        // Build the full report content - compact format with proper currency
+        const balance = income - expenses;
+        const habitsWithStreak = habits.filter(h => h.current_streak > 0).length;
+        
         const fullReportContent = `📊 Relatório da Semana ${weekDateFormatted}
 
 ${aiAnalysis}
 
-📈 Métricas da Semana:
-• Tarefas: ${completedTasks}/${totalTasks} (${taskRate}%)
-• Hábitos ativos: ${uniqueHabitsCompleted}/${totalHabits}
-• Receitas: R$${income.toFixed(2)}
-• Despesas: R$${expenses.toFixed(2)}
-• Saldo: R$${(income - expenses).toFixed(2)}
+📈 Métricas: ${completedTasks}/${totalTasks} tarefas (${taskRate}%) • ${habitsWithStreak}/${totalHabits} hábitos ativos
 
-${patterns.length > 0 ? `⚠️ Padrões Detectados:
-${patterns.map(p => `• ${p.title}: ${p.description}`).join('\n')}
+💰 Financeiro: Receitas ${formatCurrency(income)} | Despesas ${formatCurrency(expenses)} | Saldo ${formatCurrency(balance)}
+${patterns.length > 0 ? `
+⚠️ Atenção: ${patterns.map(p => `${p.title}`).join(' • ')}` : ''}${recommendations.length > 0 ? `
 
-` : ''}${recommendations.length > 0 ? `💡 Recomendações:
-${recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}
+💡 Dicas: ${recommendations.join(' • ')}` : ''}
 
-` : ''}❓ Pergunta da Semana: ${questionOfWeek}`;
+❓ ${questionOfWeek}`;
 
         // Save the full report as a follow-up message
         await supabase
