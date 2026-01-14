@@ -337,7 +337,8 @@ Score: ${currentScore} ${scoreChange >= 0 ? '📈' : '📉'} (${scoreChange >= 0
           .insert({
             user_id: userId,
             content: welcomeContent,
-            is_ai: true
+            is_ai: true,
+            message_type: 'weekly_report'
           })
           .select()
           .single();
@@ -365,13 +366,14 @@ ${patterns.length > 0 ? `
 
 ❓ ${questionOfWeek}`;
 
-        // Save the full report as a follow-up message
+        // Save the full report as a follow-up message (not in chat)
         await supabase
           .from('messages')
           .insert({
             user_id: userId,
             content: fullReportContent,
-            is_ai: true
+            is_ai: true,
+            message_type: 'weekly_report'
           });
 
         results.push({ userId, success: true, messageId: savedMessage?.id });

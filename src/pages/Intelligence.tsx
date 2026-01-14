@@ -337,11 +337,12 @@ export default function Intelligence() {
         const insights = response.data.insights;
         setAiInsight(insights);
         
-        // Persist the analysis in the database
+        // Persist the analysis in the database (not in chat)
         await supabase.from('messages').insert({
           user_id: user?.id,
           content: `🧠 Análise Pessoal\n\n${insights}`,
-          is_ai: true
+          is_ai: true,
+          message_type: 'personal_analysis'
         });
 
         // Update local state with the new analysis

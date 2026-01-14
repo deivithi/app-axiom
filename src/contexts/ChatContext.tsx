@@ -145,6 +145,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     const { data, error } = await supabase
       .from('messages')
       .select('*')
+      .eq('message_type', 'chat')
       .order('created_at', { ascending: false })
       .range(from, to);
     
