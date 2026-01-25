@@ -1,165 +1,111 @@
 
-## Plano: Migrar Chat Principal para z.ai
+## Plano: Corrigir Streaming de Respostas na z.ai
 
-### Objetivo
-Substituir a integração OpenAI (GPT-5.2) pela z.ai (GLM-4.7) apenas no chat principal do Axiom, mantendo as demais funções (análise de padrões, relatórios semanais, extração de memórias) como estão.
+### Problema Identificado
 
----
+A z.ai possui um parâmetro específico **`tool_stream`** que não existe na OpenAI. Sem ele, o modelo executa as tools corretamente, mas **não envia a resposta textual final** para o usuário.
 
-### Sobre a z.ai
+### Causa Técnica
 
-A z.ai é uma API compatível com o formato OpenAI, o que significa que a migração será simples:
-- **URL Base:** `https://api.z.ai/api/paas/v4/chat/completions`
-- **Autenticação:** Bearer token (igual OpenAI)
-- **Modelos:** `glm-4.7` (flagship), `glm-4.7-flash`, `glm-4.6`, `glm-4.5`
-- **Recursos:** Streaming, Function Calling e Response Format compatíveis
+Nos logs, vemos:
+1. ✅ Tool executada com sucesso: `create_transaction` ou `delete_transaction`
+2. ❌ Múltiplos erros de parse JSON: `"Unterminated string in JSON at position X"`
+3. ❌ `BadResource: Bad resource ID` - stream encerrado prematuramente
+4. ❌ Sem resposta de texto enviada ao frontend
 
----
+O problema está na falta do parâmetro `tool_stream: true` nas chamadas à API z.ai.
 
-### Arquivos a serem modificados
+### Diferenças z.ai vs OpenAI
 
-| Arquivo | Mudança |
-|---------|---------|
-| `supabase/functions/chat/index.ts` | Trocar endpoint e modelo da OpenAI para z.ai |
-
-**Arquivos NÃO afetados** (continuam usando OpenAI/Lovable AI):
-- `analyze-patterns/index.ts` - Continua com OpenAI
-- `generate-weekly-report/index.ts` - Continua com OpenAI
-- `extract-memories/index.ts` - Continua com Lovable AI Gateway
+| Recurso | OpenAI | z.ai |
+|---------|--------|------|
+| Streaming de texto | `stream: true` | `stream: true` |
+| Streaming de tool calls | automático | **requer `tool_stream: true`** |
+| Campo reasoning | não existe | `delta.reasoning_content` |
 
 ---
 
-### Mudanças necessárias
+### Alterações Necessárias
 
-#### 1. Adicionar secret ZAI_API_KEY
+**Arquivo:** `supabase/functions/chat/index.ts`
 
-Será necessário armazenar sua chave API da z.ai como um secret:
-- **Nome:** `ZAI_API_KEY`
-- **Valor:** Sua chave da API z.ai
+#### 1. Chamada inicial (linha ~4270)
 
----
-
-#### 2. Modificar `supabase/functions/chat/index.ts`
-
-**Linha ~4270 (chamada inicial):**
-
-```text
+```typescript
 // ANTES:
-const openAIApiKey = Deno.env.get("OPENAI_API_KEY")!;
-...
-const response = await fetch("https://api.openai.com/v1/chat/completions", {
-  ...
-  headers: {
-    Authorization: `Bearer ${openAIApiKey}`,
-  },
-  body: JSON.stringify({
-    model: "gpt-5.2",
-    ...
-  })
-});
+body: JSON.stringify({
+  model: "glm-4.7",
+  messages: [...],
+  tools,
+  tool_choice: "auto",
+  stream: true
+})
 
 // DEPOIS:
-const zaiApiKey = Deno.env.get("ZAI_API_KEY")!;
-...
-const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
-  ...
-  headers: {
-    Authorization: `Bearer ${zaiApiKey}`,
-  },
-  body: JSON.stringify({
-    model: "glm-4.7",
-    ...
-  })
-});
+body: JSON.stringify({
+  model: "glm-4.7",
+  messages: [...],
+  tools,
+  tool_choice: "auto",
+  stream: true,
+  tool_stream: true  // ← ADICIONAR
+})
 ```
 
-**Linha ~4386 (chamada de follow-up para tool calls):**
+#### 2. Chamada de follow-up (linha ~4392)
 
-```text
+```typescript
 // ANTES:
-const followUpResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-  headers: {
-    Authorization: `Bearer ${openAIApiKey}`,
-  },
-  body: JSON.stringify({
-    model: "gpt-5.2",
-    ...
-  })
-});
+body: JSON.stringify({
+  model: "glm-4.7",
+  messages: currentMessages,
+  tools,
+  tool_choice: "auto",
+  stream: true
+})
 
 // DEPOIS:
-const followUpResponse = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
-  headers: {
-    Authorization: `Bearer ${zaiApiKey}`,
-  },
-  body: JSON.stringify({
-    model: "glm-4.7",
-    ...
-  })
-});
-```
-
-**Atualizar logs para refletir o novo modelo:**
-
-```text
-// ANTES:
-console.log(`Processing chat for user: ${userName} (${user.id}) with model: gpt-5.2`);
-
-// DEPOIS:
-console.log(`Processing chat for user: ${userName} (${user.id}) with model: glm-4.7 (z.ai)`);
-```
-
-**Atualizar mensagens de erro:**
-
-```text
-// ANTES:
-console.error("OpenAI API error:", errorText);
-throw new Error(`OpenAI API error: ${response.status}`);
-
-// DEPOIS:
-console.error("z.ai API error:", errorText);
-throw new Error(`z.ai API error: ${response.status}`);
+body: JSON.stringify({
+  model: "glm-4.7",
+  messages: currentMessages,
+  tools,
+  tool_choice: "auto",
+  stream: true,
+  tool_stream: true  // ← ADICIONAR
+})
 ```
 
 ---
 
-### Resumo das alterações
+### Resumo das Alterações
 
 ```text
 Arquivo: supabase/functions/chat/index.ts
 
-Pontos de alteração:
-  1. Variável de ambiente: OPENAI_API_KEY → ZAI_API_KEY
-  2. Endpoint: api.openai.com → api.z.ai/api/paas/v4
-  3. Modelo: gpt-5.2 → glm-4.7
-  4. Logs e mensagens de erro
-  
-Total de locais: 2 chamadas fetch + logs
+Mudanças:
+  1. Adicionar tool_stream: true na chamada inicial (~linha 4285)
+  2. Adicionar tool_stream: true na chamada de follow-up (~linha 4397)
+
+Total: 2 linhas adicionadas
 ```
 
 ---
 
-### Compatibilidade verificada
+### Resultado Esperado
 
-| Recurso | OpenAI | z.ai | Status |
-|---------|--------|------|--------|
-| Chat Completions | Sim | Sim | Compatível |
-| Streaming | Sim | Sim | Compatível |
-| Function Calling (tools) | Sim | Sim | Compatível |
-| tool_choice: auto | Sim | Sim | Compatível |
-| Formato de resposta | Idêntico | Idêntico | Compatível |
+Após a correção:
+- ✅ Axiom executará a tool (criar/deletar transação, etc.)
+- ✅ Axiom responderá com mensagem de confirmação como antes
+- ✅ Streaming funcionará normalmente para texto e tool calls
+- ✅ Comportamento idêntico ao que tinha com OpenAI
 
 ---
 
-### Próximo passo necessário
+### Por que isso funciona
 
-Antes de implementar, preciso que você adicione sua chave API z.ai como secret. Usarei a ferramenta para solicitar isso na implementação.
+O parâmetro `tool_stream: true` instrui a z.ai a:
+1. Enviar chunks de tool calls em tempo real durante o streaming
+2. Manter o stream aberto para enviar a resposta textual após a execução das tools
+3. Evitar o encerramento prematuro que causa os erros de parse JSON parciais
 
----
-
-### Resultado esperado
-
-- Chat do Axiom utilizará z.ai (GLM-4.7) para todas as conversas
-- Function calling continuará funcionando (criar tarefas, hábitos, transações, etc.)
-- Streaming de respostas funcionará normalmente
-- Funções secundárias continuam inalteradas com seus providers atuais
+Sem este parâmetro, a z.ai pode estar tentando enviar as tool calls de forma não-incremental, causando chunks JSON malformados e perdendo a resposta final.
