@@ -489,7 +489,9 @@ const tools = [
           },
           type: { type: "string", enum: ["income", "expense"], description: "Tipo para todas as transações" },
           transaction_date: { type: "string", description: "Data para todas as transações (YYYY-MM-DD)" },
-          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento" }
+          payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento" },
+          account_id: { type: "string", description: "UUID da conta bancária para todas as transações (opcional). Obtenha de list_accounts." },
+          is_paid: { type: "boolean", description: "Se todas as transações já foram pagas (default: false). Se usuário disse 'paguei' ou 'gastei', use true." }
         },
         required: ["transactions", "type", "transaction_date"]
       }
@@ -1827,8 +1829,11 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       const { date: transactionDate, dateStr: transactionDateStr, referenceMonth } = getBrazilDate(args.transaction_date);
       
       // PARCELAS: Criar todas as parcelas a partir da data informada
+      // CORREÇÃO 4: Suporte a is_paid na primeira parcela
       if (args.is_installment && args.total_installments && args.total_installments > 1) {
+        const isPaidFirstInstallment = args.is_paid === true;
         const installments = [];
+        
         for (let i = 1; i <= args.total_installments; i++) {
           // USAR MÉTODO SEGURO PARA ADICIONAR MESES (evita overflow de dias)
           const installmentDate = addMonthsSafe(transactionDate, i - 1);
@@ -1847,8 +1852,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
             current_installment: i,
             total_installments: args.total_installments,
             payment_method: args.payment_method || "Crédito",
-            is_paid: false,
-            transaction_date: instDateStr, // Usa string formatada corretamente
+            // CORREÇÃO 4: Primeira parcela pode estar paga, demais não
+            is_paid: i === 1 ? isPaidFirstInstallment : false,
+            transaction_date: instDateStr,
             reference_month: instMonth,
             account_id: args.account_id || null
           });
@@ -1861,11 +1867,33 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         
         if (error) throw error;
         
+        // CORREÇÃO 4: Se primeira parcela paga E tem conta, atualizar saldo
+        if (isPaidFirstInstallment && args.account_id) {
+          const { data: account } = await supabaseAdmin
+            .from("accounts")
+            .select("balance")
+            .eq("id", args.account_id)
+            .eq("user_id", userId)
+            .single();
+          
+          if (account) {
+            const delta = args.type === "income" ? Number(args.amount) : -Number(args.amount);
+            await supabaseAdmin
+              .from("accounts")
+              .update({ balance: Number(account.balance) + delta })
+              .eq("id", args.account_id);
+            console.log(`Installment: First installment paid, account ${args.account_id} updated, delta: ${delta}`);
+          }
+        }
+        
         // Calcular datas de início e fim para mensagem
         const lastDate = addMonthsSafe(transactionDate, args.total_installments - 1);
         const firstMonth = transactionDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         const lastMonth = lastDate.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
         const totalValue = args.amount * args.total_installments;
+        
+        const paidMsg = isPaidFirstInstallment ? " 1ª parcela já paga! ✅" : "";
+        const accountMsg = isPaidFirstInstallment && args.account_id ? " Saldo da conta atualizado!" : "";
         
         return { 
           success: true, 
@@ -1874,7 +1902,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
           amount_per_installment: args.amount,
           total_value: totalValue,
           first_installment_date: transactionDateStr,
-          message: `🛒 Compra parcelada criada! "${args.title}" em ${args.total_installments}x de R$ ${args.amount.toFixed(2)} (total: R$ ${totalValue.toFixed(2)}). Parcelas lançadas de ${firstMonth} até ${lastMonth}, iniciando em ${transactionDate.toLocaleDateString('pt-BR')}.`
+          message: `🛒 Compra parcelada criada! "${args.title}" em ${args.total_installments}x de R$ ${args.amount.toFixed(2)} (total: R$ ${totalValue.toFixed(2)}). Parcelas lançadas de ${firstMonth} até ${lastMonth}, iniciando em ${transactionDate.toLocaleDateString('pt-BR')}.${paidMsg}${accountMsg}`
         };
       }
       
@@ -1933,6 +1961,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     case "create_batch_transactions": {
       const { date: transactionDate, dateStr: transactionDateStr, referenceMonth } = getBrazilDate(args.transaction_date);
       
+      // CORREÇÃO 3: Suporte a account_id e is_paid em lote
+      const isPaid = args.is_paid === true;
+      
       const transactionsToInsert = args.transactions.map((t: any) => ({
         user_id: userId,
         title: t.title,
@@ -1942,9 +1973,10 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         is_fixed: false,
         is_installment: false,
         payment_method: args.payment_method || "PIX",
-        is_paid: false,
+        is_paid: isPaid,  // ← USAR valor do args
         transaction_date: transactionDateStr,
-        reference_month: referenceMonth
+        reference_month: referenceMonth,
+        account_id: args.account_id || null  // ← VINCULAR CONTA
       }));
       
       const { data, error } = await supabaseAdmin
@@ -1954,19 +1986,104 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       
       if (error) throw error;
       
-      const total = args.transactions.reduce((sum: number, t: any) => sum + t.amount, 0);
-      const itemsList = args.transactions.map((t: any) => `${t.title} (R$${t.amount.toFixed(2)})`).join(", ");
+      const total = args.transactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+      
+      // CORREÇÃO 3: Se pago E tem conta, atualizar saldo
+      if (isPaid && args.account_id) {
+        const { data: account } = await supabaseAdmin
+          .from("accounts")
+          .select("balance")
+          .eq("id", args.account_id)
+          .eq("user_id", userId)
+          .single();
+        
+        if (account) {
+          // Para despesas, subtrai; para receitas, soma
+          const delta = args.type === "income" ? total : -total;
+          await supabaseAdmin
+            .from("accounts")
+            .update({ balance: Number(account.balance) + delta })
+            .eq("id", args.account_id);
+          console.log(`Batch: Account ${args.account_id} balance updated, delta: ${delta}`);
+        }
+      }
+      
+      const itemsList = args.transactions.map((t: any) => `${t.title} (R$${Number(t.amount).toFixed(2)})`).join(", ");
+      const paidMsg = isPaid ? " ✅ Já pagas!" : "";
+      const accountMsg = isPaid && args.account_id ? " Saldo da conta atualizado!" : "";
       
       return { 
         success: true, 
         transactions: data,
         count: data.length,
         total,
-        message: `✅ ${data.length} transações criadas: ${itemsList}. Total: R$ ${total.toFixed(2)} 💰`
+        message: `✅ ${data.length} transações criadas: ${itemsList}. Total: R$ ${total.toFixed(2)}${paidMsg}${accountMsg} 💰`
       };
     }
 
     case "update_transaction": {
+      // CORREÇÃO 1: Buscar transação ANTES para detectar mudanças em is_paid e amount
+      const { data: existingTxn, error: fetchError } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("id", args.id)
+        .eq("user_id", userId)
+        .single();
+      
+      if (fetchError || !existingTxn) {
+        throw new Error("Transação não encontrada");
+      }
+      
+      // CORREÇÃO 1: Se is_paid está mudando, usar funções atômicas
+      if (args.is_paid !== undefined && args.is_paid !== existingTxn.is_paid) {
+        if (args.is_paid === true) {
+          // false → true: usar pay_transaction_atomic
+          const { error: rpcError } = await supabaseAdmin.rpc('pay_transaction_atomic', {
+            p_transaction_id: args.id,
+            p_user_id: userId
+          });
+          if (rpcError) throw rpcError;
+          console.log(`update_transaction: Used pay_transaction_atomic for ${args.id}`);
+        } else {
+          // true → false: usar unpay_transaction_atomic
+          const { error: rpcError } = await supabaseAdmin.rpc('unpay_transaction_atomic', {
+            p_transaction_id: args.id,
+            p_user_id: userId
+          });
+          if (rpcError) throw rpcError;
+          console.log(`update_transaction: Used unpay_transaction_atomic for ${args.id}`);
+        }
+      }
+      
+      // CORREÇÃO 1: Se amount está mudando E transação está/ficará paga, ajustar saldo
+      const willBePaid = args.is_paid !== undefined ? args.is_paid : existingTxn.is_paid;
+      const accountId = args.account_id !== undefined ? args.account_id : existingTxn.account_id;
+      
+      if (args.amount !== undefined && args.amount !== existingTxn.amount && willBePaid && accountId) {
+        const oldAmount = Number(existingTxn.amount);
+        const newAmount = Number(args.amount);
+        const delta = existingTxn.type === "income" 
+          ? (newAmount - oldAmount)  // Receita: diferença positiva = mais dinheiro
+          : (oldAmount - newAmount); // Despesa: diferença negativa = devolver dinheiro
+        
+        if (delta !== 0) {
+          const { data: account } = await supabaseAdmin
+            .from("accounts")
+            .select("balance")
+            .eq("id", accountId)
+            .single();
+          
+          if (account) {
+            await supabaseAdmin
+              .from("accounts")
+              .update({ balance: Number(account.balance) + delta })
+              .eq("id", accountId);
+            console.log(`update_transaction: Adjusted account balance by ${delta} for amount change`);
+          }
+        }
+      }
+      
+      // Atualizar outros campos (exceto is_paid que já foi tratado)
       const updateData: any = {};
       if (args.title) updateData.title = args.title;
       if (args.amount !== undefined) updateData.amount = args.amount;
@@ -1974,34 +2091,76 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       if (args.category) updateData.category = args.category;
       if (args.transaction_date) updateData.transaction_date = args.transaction_date;
       if (args.payment_method) updateData.payment_method = args.payment_method;
-      if (args.is_paid !== undefined) updateData.is_paid = args.is_paid;
       if (args.account_id !== undefined) updateData.account_id = args.account_id || null;
+      // NÃO incluir is_paid aqui - já foi tratado atomicamente
 
-      const { data, error } = await supabaseAdmin.from("transactions").update(updateData).eq("id", args.id).eq("user_id", userId).select().single();
-      if (error) throw error;
+      if (Object.keys(updateData).length > 0) {
+        const { error: updateError } = await supabaseAdmin
+          .from("transactions")
+          .update(updateData)
+          .eq("id", args.id)
+          .eq("user_id", userId);
+        if (updateError) throw updateError;
+      }
+      
+      // Buscar transação atualizada para resposta
+      const { data } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("id", args.id)
+        .single();
       
       const dateMsg = args.transaction_date ? ` data alterada para ${new Date(args.transaction_date + 'T12:00:00').toLocaleDateString('pt-BR')}` : "";
-      const paidMsg = args.is_paid === true ? " e marcada como paga ✅" : (args.is_paid === false ? " e marcada como pendente" : "");
-      return { success: true, transaction: data, message: `Transação "${data.title}" atualizada${dateMsg}${paidMsg}!` };
+      const paidMsg = args.is_paid === true ? " e marcada como paga ✅ (saldo atualizado)" : (args.is_paid === false ? " e marcada como pendente (saldo revertido)" : "");
+      const amountMsg = args.amount !== undefined && args.amount !== existingTxn.amount ? ` valor de R$${existingTxn.amount} para R$${args.amount}` : "";
+      return { success: true, transaction: data, message: `Transação "${data.title}" atualizada${amountMsg}${dateMsg}${paidMsg}!` };
     }
 
     case "delete_transaction": {
-      // Check if it's an original fixed transaction and delete its instances
+      // CORREÇÃO 2: Buscar transação completa ANTES de deletar para reverter saldo
       const { data: transaction } = await supabaseAdmin
         .from("transactions")
-        .select("is_fixed, parent_transaction_id, title")
+        .select("*")
         .eq("id", args.id)
         .eq("user_id", userId)
         .single();
       
-      if (transaction?.is_fixed && !transaction.parent_transaction_id) {
-        // Delete all recurring instances
+      if (!transaction) {
+        throw new Error("Transação não encontrada");
+      }
+      
+      // CORREÇÃO 2: Se transação estava paga E tinha conta vinculada, reverter saldo
+      if (transaction.is_paid && transaction.account_id) {
+        const { data: account } = await supabaseAdmin
+          .from("accounts")
+          .select("balance")
+          .eq("id", transaction.account_id)
+          .single();
+        
+        if (account) {
+          // Reverter: despesa -> devolve dinheiro (+), receita -> remove dinheiro (-)
+          const delta = transaction.type === "expense" 
+            ? Number(transaction.amount)   // Devolver dinheiro gasto
+            : -Number(transaction.amount); // Remover receita
+          
+          await supabaseAdmin
+            .from("accounts")
+            .update({ balance: Number(account.balance) + delta })
+            .eq("id", transaction.account_id);
+          console.log(`delete_transaction: Reverted account balance by ${delta} for paid transaction`);
+        }
+      }
+      
+      // Deletar instâncias recorrentes se for transação fixa original
+      if (transaction.is_fixed && !transaction.parent_transaction_id) {
         await supabaseAdmin.from("transactions").delete().eq("parent_transaction_id", args.id);
       }
       
       const { error } = await supabaseAdmin.from("transactions").delete().eq("id", args.id).eq("user_id", userId);
       if (error) throw error;
-      return { success: true, message: `Transação "${transaction?.title || ''}" excluída com sucesso` };
+      
+      const revertMsg = transaction.is_paid && transaction.account_id ? " Saldo da conta revertido!" : "";
+      return { success: true, message: `Transação "${transaction.title}" excluída com sucesso!${revertMsg}` };
     }
 
     case "list_transactions": {
@@ -4279,6 +4438,13 @@ EXEMPLOS CORRETOS:
 
 REGRA DE OURO: Na dúvida entre valor total ou por parcela, PERGUNTE ao usuário!
 
+⚠️ REGRA CRÍTICA PARA PAGAMENTOS (SIGA SEMPRE!):
+- Para MARCAR transação como PAGA → use APENAS pay_transaction
+- Para DESMARCAR transação como paga → use APENAS unpay_transaction  
+- NUNCA use update_transaction para mudar is_paid! As funções pay/unpay são atômicas e garantem sincronização do saldo.
+- update_transaction é APENAS para: título, valor, categoria, data, método de pagamento, conta vinculada
+- Se usou update_transaction erroneamente para is_paid, o sistema irá redirecionar automaticamente para as funções atômicas
+
 🔄 CORREÇÕES DE TRANSAÇÕES (CRÍTICO - DETECTE E CORRIJA!):
 Quando o usuário disser frases como:
 - "na verdade foram X", "errei, eram X", "não era X, era Y", "corrige para X", "na real foram X"
@@ -4300,7 +4466,9 @@ User: "na verdade foram 60"
 📦 MÚLTIPLAS TRANSAÇÕES (LOTE):
 Quando usuário listar vários itens (ex: "comprei pão 10, leite 5 e café 15"):
 - Use create_batch_transactions para criar todas de uma vez
-- Mais eficiente e garante consistência de data/tipo
+- Se disser "paguei" ou "gastei", use is_paid: true
+- Se mencionar conta (ex: "no Nubank"), use account_id
+- Mais eficiente e garante consistência de data/tipo/conta
 
 EXEMPLOS DE USO CORRETO:
 - Usuário: "marca o hábito de flexões como feito"
