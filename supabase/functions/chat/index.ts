@@ -3846,12 +3846,12 @@ serve(async (req) => {
     }
     
     const { messages } = parseResult.data;
-    const openAIApiKey = Deno.env.get("OPENAI_API_KEY");
+    const zaiApiKey = Deno.env.get("ZAI_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!openAIApiKey) {
-      throw new Error("OPENAI_API_KEY não configurada");
+    if (!zaiApiKey) {
+      throw new Error("ZAI_API_KEY não configurada");
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -4267,16 +4267,16 @@ Após aplicar o template:
 
 Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja genérico - seja específico e direcionado.`;
 
-    console.log(`Processing chat for user: ${userName} (${user.id}) with model: gpt-5.2`);
+    console.log(`Processing chat for user: ${userName} (${user.id}) with model: glm-4.7 (z.ai)`);
 
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${openAIApiKey}`,
+        Authorization: `Bearer ${zaiApiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-5.2",
+        model: "glm-4.7",
         messages: [{ role: "system", content: systemPrompt }, ...messages],
         tools,
         tool_choice: "auto",
@@ -4286,8 +4286,8 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("OpenAI API error:", errorText);
-      throw new Error(`OpenAI API error: ${response.status}`);
+      console.error("z.ai API error:", errorText);
+      throw new Error(`z.ai API error: ${response.status}`);
     }
 
     const reader = response.body?.getReader();
@@ -4383,14 +4383,14 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
                       
                       // Chamada de follow-up COM tools e tool_choice para permitir mais chamadas
                       console.log(`Follow-up API call ${iteration}...`);
-                      const followUpResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+                      const followUpResponse = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
                         method: "POST",
                         headers: {
-                          Authorization: `Bearer ${openAIApiKey}`,
+                          Authorization: `Bearer ${zaiApiKey}`,
                           "Content-Type": "application/json"
                         },
                         body: JSON.stringify({
-                          model: "gpt-5.2",
+                          model: "glm-4.7",
                           messages: currentMessages,
                           tools,
                           tool_choice: "auto",
