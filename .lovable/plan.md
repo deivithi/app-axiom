@@ -194,4 +194,3 @@ Teste 5: "comprei TV de 3000 em 10x, já paguei a primeira"
 ```
 
 **Status: ✅ PRONTO PARA PRODUÇÃO**
-
