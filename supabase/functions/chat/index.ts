@@ -4280,7 +4280,8 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
         messages: [{ role: "system", content: systemPrompt }, ...messages],
         tools,
         tool_choice: "auto",
-        stream: true
+        stream: true,
+        tool_stream: true
       })
     });
 
@@ -4389,12 +4390,13 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
                           Authorization: `Bearer ${zaiApiKey}`,
                           "Content-Type": "application/json"
                         },
-                        body: JSON.stringify({
+                      body: JSON.stringify({
                           model: "glm-4.7",
                           messages: currentMessages,
                           tools,
                           tool_choice: "auto",
-                          stream: true
+                          stream: true,
+                          tool_stream: true
                         })
                       });
                       
