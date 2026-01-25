@@ -4269,7 +4269,171 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
 
     console.log(`Processing chat for user: ${userName} (${user.id}) with model: glm-4.7 (z.ai)`);
 
-    const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+    // ========== NON-STREAMING PARA TOOL CALLS ==========
+    // A z.ai fragmenta JSON de tool_calls de forma imprevisível.
+    // Solução: usar stream: false para detectar/executar tools,
+    // e stream: true apenas para a resposta final de texto.
+    
+    let executedActions: string[] = [];
+    let currentMessages: any[] = [
+      { role: "system", content: systemPrompt },
+      ...messages
+    ];
+    
+    // Limite de segurança para loops de ferramentas
+    const MAX_TOOL_ITERATIONS = 10;
+    let iteration = 0;
+    
+    // Loop de processamento de tool calls (non-streaming)
+    while (iteration < MAX_TOOL_ITERATIONS) {
+      iteration++;
+      console.log(`[z.ai] Iteration ${iteration}: Making non-streaming request...`);
+      
+      const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${zaiApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "glm-4.7",
+          messages: currentMessages,
+          tools,
+          tool_choice: "auto",
+          stream: false  // NON-STREAMING para parsing confiável
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("[z.ai] API error:", errorText);
+        throw new Error(`z.ai API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const choice = data.choices?.[0];
+      const finishReason = choice?.finish_reason;
+      const message = choice?.message;
+      
+      console.log(`[z.ai] Iteration ${iteration}: finish_reason=${finishReason}, has_tool_calls=${!!message?.tool_calls?.length}`);
+      
+      // Se não há tool_calls, sair do loop e fazer streaming da resposta
+      if (finishReason !== "tool_calls" || !message?.tool_calls?.length) {
+        console.log(`[z.ai] No more tool calls, preparing final streaming response...`);
+        
+        // Se já temos conteúdo de texto, usá-lo diretamente
+        if (message?.content) {
+          console.log(`[z.ai] Using non-streamed content from last response`);
+          
+          const encoder = new TextEncoder();
+          const stream = new ReadableStream({
+            async start(controller) {
+              // Enviar o conteúdo de texto
+              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: message.content })}\n\n`));
+              
+              // Enviar ações executadas
+              if (executedActions.length > 0) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ actions: executedActions })}\n\n`));
+              }
+              
+              // Trigger memory extraction
+              if (messages && messages.length >= 4) {
+                const recentMessages = messages.slice(-8);
+                console.log(`[Memory] Triggering extract-memories for user ${user.id}`);
+                
+                fetch(`${supabaseUrl}/functions/v1/extract-memories`, {
+                  method: "POST",
+                  headers: {
+                    "Authorization": `Bearer ${supabaseServiceKey}`,
+                    "Content-Type": "application/json"
+                  },
+                  body: JSON.stringify({
+                    userId: user.id,
+                    conversationId: conversationId,
+                    messages: recentMessages
+                  })
+                }).catch(err => console.error("[Memory] Extract error:", err));
+              }
+              
+              controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+              controller.close();
+            }
+          });
+          
+          return new Response(stream, {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "text/event-stream",
+              "Cache-Control": "no-cache",
+              Connection: "keep-alive"
+            }
+          });
+        }
+        
+        // Caso contrário, fazer chamada final com streaming
+        break;
+      }
+      
+      // Processar tool_calls
+      const toolCalls = message.tool_calls;
+      console.log(`[z.ai] Tool calls received: ${toolCalls.map((tc: any) => tc.function?.name).join(", ")}`);
+      
+      const toolResults: any[] = [];
+      for (const tc of toolCalls) {
+        try {
+          const funcName = tc.function?.name;
+          const funcArgs = JSON.parse(tc.function?.arguments || "{}");
+          console.log(`[z.ai] Executing tool: ${funcName}`, JSON.stringify(funcArgs).substring(0, 200));
+          
+          const result = await executeTool(supabaseAdmin, user.id, funcName, funcArgs);
+          console.log(`[z.ai] Tool result for ${funcName}:`, JSON.stringify(result).substring(0, 300));
+          
+          toolResults.push({
+            tool_call_id: tc.id,
+            role: "tool",
+            content: JSON.stringify(result)
+          });
+          
+          if (result.success) {
+            executedActions.push(funcName);
+          }
+        } catch (e) {
+          console.error(`[z.ai] Tool execution error for ${tc.function?.name}:`, e);
+          toolResults.push({
+            tool_call_id: tc.id,
+            role: "tool",
+            content: JSON.stringify({ error: String(e) })
+          });
+        }
+      }
+      
+      // Adicionar a mensagem do assistente com tool_calls e os resultados
+      currentMessages.push({
+        role: "assistant",
+        content: null,
+        tool_calls: toolCalls.map((tc: any) => ({
+          id: tc.id,
+          type: "function",
+          function: {
+            name: tc.function?.name,
+            arguments: tc.function?.arguments
+          }
+        }))
+      });
+      currentMessages.push(...toolResults);
+      
+      console.log(`[z.ai] Added tool results to context, continuing loop...`);
+    }
+    
+    if (iteration >= MAX_TOOL_ITERATIONS) {
+      console.warn("[z.ai] Max tool iterations reached!");
+    }
+    
+    // ========== CHAMADA FINAL COM STREAMING ==========
+    // Após processar todas as tools, fazer streaming da resposta final
+    console.log(`[z.ai] Making final streaming request after ${iteration} tool iteration(s)...`);
+    
+    const finalResponse = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${zaiApiKey}`,
@@ -4277,31 +4441,27 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
       },
       body: JSON.stringify({
         model: "glm-4.7",
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-        tools,
-        tool_choice: "auto",
-        stream: true,
-        tool_stream: true
+        messages: currentMessages,
+        stream: true  // STREAMING para resposta final
+        // SEM tools - já foram processadas
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("z.ai API error:", errorText);
-      throw new Error(`z.ai API error: ${response.status}`);
+    if (!finalResponse.ok) {
+      const errorText = await finalResponse.text();
+      console.error("[z.ai] Final response error:", errorText);
+      throw new Error(`z.ai API error: ${finalResponse.status}`);
     }
 
-    const reader = response.body?.getReader();
+    const reader = finalResponse.body?.getReader();
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-
-    let toolCalls: any[] = [];
-    let executedActions: string[] = [];
 
     const stream = new ReadableStream({
       async start(controller) {
         try {
           let buffer = '';
+          
           while (true) {
             const { done, value } = await reader!.read();
             if (done) break;
@@ -4322,162 +4482,9 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
               try {
                 const parsed = JSON.parse(data);
                 const delta = parsed.choices?.[0]?.delta;
-                const finishReason = parsed.choices?.[0]?.finish_reason;
-
-                if (delta?.tool_calls) {
-                  for (const tc of delta.tool_calls) {
-                    if (tc.index !== undefined) {
-                      if (!toolCalls[tc.index]) {
-                        toolCalls[tc.index] = { id: tc.id, function: { name: "", arguments: "" } };
-                      }
-                      if (tc.function?.name) toolCalls[tc.index].function.name = tc.function.name;
-                      if (tc.function?.arguments) toolCalls[tc.index].function.arguments += tc.function.arguments;
-                    }
-                  }
-                }
 
                 if (delta?.content) {
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: delta.content })}\n\n`));
-                }
-
-                if (finishReason === "tool_calls" && toolCalls.length > 0) {
-                  console.log(`Tool calls received: ${toolCalls.map(tc => tc.function.name).join(", ")}`);
-                  
-                  // Loop para processar múltiplas chamadas de ferramentas em sequência
-                  let currentMessages = [
-                    { role: "system", content: systemPrompt },
-                    ...messages
-                  ];
-                  let currentToolCalls = [...toolCalls];
-                  let maxIterations = 10; // Limite de segurança
-                  let iteration = 0;
-                  
-                  while (currentToolCalls.length > 0 && iteration < maxIterations) {
-                    iteration++;
-                    console.log(`Tool iteration ${iteration}: executing ${currentToolCalls.map(tc => tc.function.name).join(", ")}`);
-                    
-                    const toolResults = [];
-                    for (const tc of currentToolCalls) {
-                      try {
-                        const args = JSON.parse(tc.function.arguments);
-                        console.log(`Executing tool: ${tc.function.name}`, JSON.stringify(args));
-                        const result = await executeTool(supabaseAdmin, user.id, tc.function.name, args);
-                        console.log(`Tool result for ${tc.function.name}:`, JSON.stringify(result).substring(0, 500));
-                        toolResults.push({ tool_call_id: tc.id, role: "tool", content: JSON.stringify(result) });
-                        
-                        if (result.success) {
-                          executedActions.push(tc.function.name);
-                        }
-                      } catch (e) {
-                        console.error("Tool execution error:", e);
-                        toolResults.push({ tool_call_id: tc.id, role: "tool", content: JSON.stringify({ error: String(e) }) });
-                      }
-                    }
-                    
-                    // Adicionar a chamada do assistente com tool_calls e os resultados
-                    currentMessages.push({
-                      role: "assistant",
-                      content: undefined,
-                      tool_calls: currentToolCalls.map(tc => ({
-                        id: tc.id,
-                        type: "function",
-                        function: { name: tc.function.name, arguments: tc.function.arguments }
-                      }))
-                    });
-                    currentMessages.push(...toolResults);
-                    
-                    // Fazer nova chamada para obter resposta ou mais tool_calls
-                    const followUpResponse = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
-                      method: "POST",
-                      headers: {
-                        "Authorization": `Bearer ${zaiApiKey}`,
-                        "Content-Type": "application/json"
-                      },
-                      body: JSON.stringify({
-                        model: "glm-4.7",
-                        messages: currentMessages,
-                        tools,
-                        tool_choice: "auto",
-                        stream: true,
-                        tool_stream: true
-                      })
-                    });
-                    
-                    if (!followUpResponse.ok) {
-                      console.error("Follow-up response error:", await followUpResponse.text());
-                      break;
-                    }
-                    
-                    const followUpReader = followUpResponse.body?.getReader();
-                    let newToolCalls: any[] = [];
-                    let gotTextResponse = false;
-                    let fuBuffer = '';
-                    
-                    while (true) {
-                      const { done: fuDone, value: fuValue } = await followUpReader!.read();
-                      if (fuDone) break;
-                      
-                      fuBuffer += decoder.decode(fuValue, { stream: true });
-                      let fuNewlineIndex: number;
-                      
-                      while ((fuNewlineIndex = fuBuffer.indexOf('\n')) !== -1) {
-                        const fuLine = fuBuffer.slice(0, fuNewlineIndex).trim();
-                        fuBuffer = fuBuffer.slice(fuNewlineIndex + 1);
-                        
-                        if (!fuLine || fuLine.startsWith(':')) continue;
-                        if (!fuLine.startsWith("data: ")) continue;
-                        
-                        const fuData = fuLine.slice(6).trim();
-                        if (fuData === "[DONE]") continue;
-                        
-                        try {
-                          const fuParsed = JSON.parse(fuData);
-                          const fuDelta = fuParsed.choices?.[0]?.delta;
-                          const fuFinishReason = fuParsed.choices?.[0]?.finish_reason;
-                          
-                          // Capturar novas tool_calls
-                          if (fuDelta?.tool_calls) {
-                            for (const tc of fuDelta.tool_calls) {
-                              if (tc.index !== undefined) {
-                                if (!newToolCalls[tc.index]) {
-                                  newToolCalls[tc.index] = { id: tc.id, function: { name: "", arguments: "" } };
-                                }
-                                if (tc.function?.name) newToolCalls[tc.index].function.name = tc.function.name;
-                                if (tc.function?.arguments) newToolCalls[tc.index].function.arguments += tc.function.arguments;
-                              }
-                            }
-                          }
-                          
-                          // Enviar conteúdo de texto
-                          if (fuDelta?.content) {
-                            gotTextResponse = true;
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: fuDelta.content })}\n\n`));
-                          }
-                          
-                          // Log finish reason
-                          if (fuFinishReason) {
-                            console.log(`Follow-up ${iteration} finish_reason: ${fuFinishReason}`);
-                          }
-                        } catch {
-                          // JSON incompleto - fragmento será acumulado no próximo chunk
-                        }
-                      }
-                    }
-                    
-                    // Se há novas tool_calls, continuar o loop
-                    if (newToolCalls.length > 0 && newToolCalls.some(tc => tc && tc.function?.name)) {
-                      currentToolCalls = newToolCalls.filter(tc => tc && tc.function?.name);
-                      console.log(`New tool calls detected: ${currentToolCalls.map(tc => tc.function.name).join(", ")}`);
-                    } else {
-                      // Sem mais tool_calls, sair do loop
-                      currentToolCalls = [];
-                      console.log(`No more tool calls, finishing after ${iteration} iteration(s)`);
-                    }
-                  }
-                  
-                  if (iteration >= maxIterations) {
-                    console.warn("Max tool iterations reached!");
-                  }
                 }
               } catch {
                 // JSON incompleto - fragmento será acumulado no próximo chunk
@@ -4491,12 +4498,10 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
 
           // Trigger automatic memory extraction in background (non-blocking)
           if (messages && messages.length >= 4) {
-            // Use last 8 messages for memory extraction context
             const recentMessages = messages.slice(-8);
             
             console.log(`[Memory] Triggering extract-memories for user ${user.id} with ${recentMessages.length} messages`);
             
-            // Fire and forget - don't await, don't block the response
             fetch(`${supabaseUrl}/functions/v1/extract-memories`, {
               method: "POST",
               headers: {
