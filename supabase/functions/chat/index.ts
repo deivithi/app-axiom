@@ -87,6 +87,49 @@ function addMonthsSafe(baseDate: Date, monthsToAdd: number): Date {
   return result;
 }
 
+// ===== FUNÇÃO PARA SANITIZAR ARGUMENTOS DA Z.AI =====
+// A z.ai (GLM-4.7) às vezes serializa booleanos como strings ("true"/"false")
+// e números como strings, causando falhas silenciosas. Esta função corrige.
+function sanitizeZaiArgs(args: any): any {
+  if (!args || typeof args !== 'object') return args;
+  
+  const sanitized = { ...args };
+  
+  // Campos booleanos que devem ser convertidos
+  const booleanFields = [
+    'is_paid', 'is_fixed', 'is_installment', 'is_recurring', 'is_pinned', 
+    'is_completed', 'completed', 'include_completed'
+  ];
+  
+  for (const field of booleanFields) {
+    if (sanitized[field] !== undefined) {
+      // Converte string "true"/"false" para boolean
+      if (sanitized[field] === 'true' || sanitized[field] === true) {
+        sanitized[field] = true;
+      } else if (sanitized[field] === 'false' || sanitized[field] === false) {
+        sanitized[field] = false;
+      }
+    }
+  }
+  
+  // Campos numéricos que devem ser convertidos
+  const numberFields = [
+    'amount', 'balance', 'total_installments', 'recurrence_day', 'days', 
+    'limit', 'target_amount', 'current_amount', 'progress'
+  ];
+  
+  for (const field of numberFields) {
+    if (sanitized[field] !== undefined && typeof sanitized[field] === 'string') {
+      const parsed = parseFloat(sanitized[field]);
+      if (!isNaN(parsed)) {
+        sanitized[field] = parsed;
+      }
+    }
+  }
+  
+  return sanitized;
+}
+
 // ===== RATE LIMITING =====
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_MAX = 60; // 60 requests
@@ -402,7 +445,7 @@ const tools = [
     type: "function",
     function: {
       name: "create_transaction",
-      description: "Cria uma nova transação financeira (receita ou despesa). CRÍTICO: SEMPRE envie transaction_date (YYYY-MM-DD) - consulte CALENDÁRIO no system prompt para a data correta. Se usuário não mencionar data, use a data de HOJE. NUNCA omita transaction_date! Suporta: transações simples, fixas (is_fixed=true com recurrence_day), ou parceladas (is_installment=true + total_installments). Para parcelas, amount é o valor DE CADA PARCELA. Para transações fixas, use recurrence_day para definir o dia do mês em que a transação recorre (ex: 'todo dia 5').",
+      description: "Cria uma nova transação financeira (receita ou despesa). CRÍTICO: SEMPRE envie transaction_date (YYYY-MM-DD) - consulte CALENDÁRIO no system prompt para a data correta. Se usuário não mencionar data, use a data de HOJE. NUNCA omita transaction_date! Suporta: transações simples, fixas (is_fixed=true com recurrence_day), ou parceladas (is_installment=true + total_installments). Para parcelas, amount é o valor DE CADA PARCELA. Para transações fixas, use recurrence_day para definir o dia do mês em que a transação recorre (ex: 'todo dia 5'). IMPORTANTE: Se o usuário diz 'gastei' ou 'paguei', significa que a transação JÁ FOI PAGA, então use is_paid=true.",
       parameters: {
         type: "object",
         properties: {
@@ -411,12 +454,13 @@ const tools = [
           type: { type: "string", enum: ["income", "expense"], description: "Tipo: receita ou despesa" },
           category: { type: "string", description: "Categoria da transação" },
           transaction_date: { type: "string", description: "OBRIGATÓRIO: Data no formato YYYY-MM-DD. Use CALENDÁRIO do system prompt. Se não mencionada pelo usuário, use HOJE. NUNCA deixe em branco!" },
+          is_paid: { type: "boolean", description: "Se a transação já foi paga. Use is_paid=true quando usuário diz 'gastei', 'paguei', 'comprei' (ação já realizada). Use is_paid=false para despesas futuras ou planejadas." },
           is_fixed: { type: "boolean", description: "Se é uma despesa fixa/recorrente (aparece todos os meses). Use com recurrence_day para definir o dia." },
           recurrence_day: { type: "number", description: "Dia do mês para transações fixas (1-31). Ex: 5 para 'todo dia 5', 10 para 'todo dia 10'. Se usuário mencionar 'dia 5' ou 'todo dia 5', use recurrence_day=5. Se não informado, usa o dia de transaction_date." },
           is_installment: { type: "boolean", description: "Se é uma compra parcelada (ex: 10x, 12x). Use junto com total_installments" },
           total_installments: { type: "number", description: "Número total de parcelas (ex: 10 para 10x, 12 para 12x). Obrigatório quando is_installment=true" },
           payment_method: { type: "string", enum: ["PIX", "Débito", "Crédito"], description: "Forma de pagamento. Para parcelas, geralmente é Crédito" },
-          account_id: { type: "string", description: "UUID da conta bancária vinculada (opcional). Obtenha de list_accounts. Ao pagar, o saldo será sincronizado." }
+          account_id: { type: "string", description: "UUID da conta bancária vinculada (opcional). Obtenha de list_accounts. Quando is_paid=true E account_id está definido, o saldo da conta será atualizado automaticamente." }
         },
         required: ["title", "amount", "type", "category", "transaction_date"]
       }
@@ -506,7 +550,21 @@ const tools = [
     type: "function",
     function: {
       name: "pay_transaction",
-      description: "Marca uma transação como paga. IMPORTANTE: O ID deve ser um UUID real obtido de list_transactions.",
+      description: "Marca uma transação como paga e atualiza automaticamente o saldo da conta vinculada. IMPORTANTE: O ID deve ser um UUID real obtido de list_transactions.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "UUID da transação (obtenha de list_transactions primeiro)" }
+        },
+        required: ["id"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "unpay_transaction",
+      description: "Marca uma transação como NÃO paga (reverte pagamento) e atualiza automaticamente o saldo da conta vinculada. IMPORTANTE: O ID deve ser um UUID real obtido de list_transactions.",
       parameters: {
         type: "object",
         properties: {
@@ -1532,8 +1590,10 @@ async function calculateHabitStreak(supabaseAdmin: any, habitId: string, userId:
   return { current_streak: currentStreak, best_streak: bestStreak };
 }
 
-async function executeTool(supabaseAdmin: any, userId: string, toolName: string, args: any) {
-  console.log(`Executing tool: ${toolName}`, args);
+async function executeTool(supabaseAdmin: any, userId: string, toolName: string, rawArgs: any) {
+  // SANITIZAR ARGUMENTOS DA Z.AI - converte "true"/"false" strings para booleans
+  const args = sanitizeZaiArgs(rawArgs);
+  console.log(`Executing tool: ${toolName}`, { rawArgs, sanitizedArgs: args });
 
   switch (toolName) {
     // TASKS
@@ -1824,6 +1884,9 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         ? (args.recurrence_day || transactionDate.getDate())
         : null;
       
+      // CORREÇÃO CRÍTICA: Usar is_paid do args (após sanitização)
+      const isPaid = args.is_paid === true;
+      
       const { data, error } = await supabaseAdmin.from("transactions").insert({
         user_id: userId,
         title: args.title,
@@ -1833,7 +1896,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         is_fixed: args.is_fixed || false,
         is_installment: false,
         payment_method: args.payment_method || "PIX",
-        is_paid: false,
+        is_paid: isPaid,  // ← USAR valor sanitizado ao invés de hardcoded false
         transaction_date: transactionDateStr,
         reference_month: args.is_fixed ? referenceMonth : null,
         account_id: args.account_id || null,
@@ -1841,10 +1904,30 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       }).select().single();
       if (error) throw error;
       
+      // CORREÇÃO CRÍTICA: Se criada como paga E tem conta vinculada, atualizar saldo
+      if (isPaid && args.account_id) {
+        const { data: account } = await supabaseAdmin
+          .from("accounts")
+          .select("balance")
+          .eq("id", args.account_id)
+          .eq("user_id", userId)
+          .single();
+        
+        if (account) {
+          const delta = args.type === "income" ? Number(args.amount) : -Number(args.amount);
+          await supabaseAdmin
+            .from("accounts")
+            .update({ balance: Number(account.balance) + delta })
+            .eq("id", args.account_id);
+          console.log(`Account balance updated: ${args.account_id}, delta: ${delta}`);
+        }
+      }
+      
       const dateMsg = args.transaction_date ? ` para ${transactionDate.toLocaleDateString('pt-BR')}` : "";
       const fixedMsg = args.is_fixed ? ` (recorrente - todo dia ${recurrenceDay} de cada mês)` : "";
-      const accountMsg = args.account_id ? " Vinculada à conta selecionada." : "";
-      return { success: true, transaction: data, message: `Transação "${args.title}"${dateMsg} criada com sucesso!${fixedMsg}${accountMsg} 💰` };
+      const paidMsg = isPaid ? " ✅ Já paga!" : "";
+      const accountMsg = isPaid && args.account_id ? " Saldo da conta atualizado!" : (args.account_id ? " Vinculada à conta." : "");
+      return { success: true, transaction: data, message: `Transação "${args.title}"${dateMsg} criada com sucesso!${fixedMsg}${paidMsg}${accountMsg} 💰` };
     }
 
     case "create_batch_transactions": {
@@ -1953,47 +2036,49 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     case "pay_transaction": {
-      // Buscar transação para obter account_id e amount
-      const { data: txn, error: fetchError } = await supabaseAdmin
-        .from("transactions")
-        .select("*")
-        .eq("id", args.id)
-        .eq("user_id", userId)
-        .single();
+      // CORREÇÃO: Usar função RPC atômica (race-condition safe) como o frontend
+      const { error: rpcError } = await supabaseAdmin.rpc('pay_transaction_atomic', {
+        p_transaction_id: args.id,
+        p_user_id: userId
+      });
       
-      if (fetchError || !txn) throw new Error("Transação não encontrada");
-      
-      // Marcar como paga
-      const { data, error } = await supabaseAdmin
-        .from("transactions")
-        .update({ is_paid: true })
-        .eq("id", args.id)
-        .eq("user_id", userId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Sincronizar saldo da conta se vinculada
-      if (txn.account_id) {
-        const { data: account } = await supabaseAdmin
-          .from("accounts")
-          .select("balance")
-          .eq("id", txn.account_id)
-          .eq("user_id", userId)
-          .single();
-        
-        if (account) {
-          const delta = txn.type === "income" ? Number(txn.amount) : -Number(txn.amount);
-          await supabaseAdmin
-            .from("accounts")
-            .update({ balance: Number(account.balance) + delta })
-            .eq("id", txn.account_id);
-        }
+      if (rpcError) {
+        console.error("pay_transaction_atomic error:", rpcError);
+        throw new Error(rpcError.message || "Erro ao pagar transação");
       }
       
-      const accountMsg = txn.account_id ? " Saldo da conta atualizado!" : "";
-      return { success: true, transaction: data, message: `Transação "${data.title}" marcada como paga! ✅💰${accountMsg}` };
+      // Buscar transação atualizada para resposta
+      const { data } = await supabaseAdmin
+        .from("transactions")
+        .select("*, accounts(name)")
+        .eq("id", args.id)
+        .single();
+      
+      const accountMsg = data?.account_id ? ` Saldo da conta "${data.accounts?.name || 'vinculada'}" atualizado!` : "";
+      return { success: true, transaction: data, message: `Transação "${data?.title}" marcada como paga! ✅💰${accountMsg}` };
+    }
+    
+    case "unpay_transaction": {
+      // NOVA TOOL: Reverter pagamento usando função RPC atômica
+      const { error: rpcError } = await supabaseAdmin.rpc('unpay_transaction_atomic', {
+        p_transaction_id: args.id,
+        p_user_id: userId
+      });
+      
+      if (rpcError) {
+        console.error("unpay_transaction_atomic error:", rpcError);
+        throw new Error(rpcError.message || "Erro ao reverter pagamento");
+      }
+      
+      // Buscar transação atualizada para resposta
+      const { data } = await supabaseAdmin
+        .from("transactions")
+        .select("*, accounts(name)")
+        .eq("id", args.id)
+        .single();
+      
+      const accountMsg = data?.account_id ? ` Saldo da conta "${data.accounts?.name || 'vinculada'}" revertido!` : "";
+      return { success: true, transaction: data, message: `Transação "${data?.title}" marcada como NÃO paga! ⏳${accountMsg}` };
     }
 
     case "list_pending_transactions": {
