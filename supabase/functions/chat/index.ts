@@ -4301,181 +4301,186 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          let buffer = '';
           while (true) {
             const { done, value } = await reader!.read();
             if (done) break;
 
-            const chunk = decoder.decode(value);
-            const lines = chunk.split("\n").filter(line => line.trim() !== "");
+            buffer += decoder.decode(value, { stream: true });
+            let newlineIndex: number;
+            
+            while ((newlineIndex = buffer.indexOf('\n')) !== -1) {
+              const line = buffer.slice(0, newlineIndex).trim();
+              buffer = buffer.slice(newlineIndex + 1);
+              
+              if (!line || line.startsWith(':')) continue;
+              if (!line.startsWith("data: ")) continue;
+              
+              const data = line.slice(6).trim();
+              if (data === "[DONE]") continue;
 
-            for (const line of lines) {
-              if (line.startsWith("data: ")) {
-                const data = line.slice(6);
-                if (data === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(data);
+                const delta = parsed.choices?.[0]?.delta;
+                const finishReason = parsed.choices?.[0]?.finish_reason;
 
-                try {
-                  const parsed = JSON.parse(data);
-                  const delta = parsed.choices?.[0]?.delta;
-                  const finishReason = parsed.choices?.[0]?.finish_reason;
-
-                  if (delta?.tool_calls) {
-                    for (const tc of delta.tool_calls) {
-                      if (tc.index !== undefined) {
-                        if (!toolCalls[tc.index]) {
-                          toolCalls[tc.index] = { id: tc.id, function: { name: "", arguments: "" } };
-                        }
-                        if (tc.function?.name) toolCalls[tc.index].function.name = tc.function.name;
-                        if (tc.function?.arguments) toolCalls[tc.index].function.arguments += tc.function.arguments;
+                if (delta?.tool_calls) {
+                  for (const tc of delta.tool_calls) {
+                    if (tc.index !== undefined) {
+                      if (!toolCalls[tc.index]) {
+                        toolCalls[tc.index] = { id: tc.id, function: { name: "", arguments: "" } };
                       }
+                      if (tc.function?.name) toolCalls[tc.index].function.name = tc.function.name;
+                      if (tc.function?.arguments) toolCalls[tc.index].function.arguments += tc.function.arguments;
                     }
                   }
+                }
 
-                  if (delta?.content) {
-                    controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: delta.content })}\n\n`));
-                  }
+                if (delta?.content) {
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: delta.content })}\n\n`));
+                }
 
-                  if (finishReason === "tool_calls" && toolCalls.length > 0) {
-                    console.log(`Tool calls received: ${toolCalls.map(tc => tc.function.name).join(", ")}`);
+                if (finishReason === "tool_calls" && toolCalls.length > 0) {
+                  console.log(`Tool calls received: ${toolCalls.map(tc => tc.function.name).join(", ")}`);
+                  
+                  // Loop para processar múltiplas chamadas de ferramentas em sequência
+                  let currentMessages = [
+                    { role: "system", content: systemPrompt },
+                    ...messages
+                  ];
+                  let currentToolCalls = [...toolCalls];
+                  let maxIterations = 10; // Limite de segurança
+                  let iteration = 0;
+                  
+                  while (currentToolCalls.length > 0 && iteration < maxIterations) {
+                    iteration++;
+                    console.log(`Tool iteration ${iteration}: executing ${currentToolCalls.map(tc => tc.function.name).join(", ")}`);
                     
-                    // Loop para processar múltiplas chamadas de ferramentas em sequência
-                    let currentMessages = [
-                      { role: "system", content: systemPrompt },
-                      ...messages
-                    ];
-                    let currentToolCalls = [...toolCalls];
-                    let maxIterations = 10; // Limite de segurança
-                    let iteration = 0;
-                    
-                    while (currentToolCalls.length > 0 && iteration < maxIterations) {
-                      iteration++;
-                      console.log(`Tool iteration ${iteration}: executing ${currentToolCalls.map(tc => tc.function.name).join(", ")}`);
-                      
-                      const toolResults = [];
-                      for (const tc of currentToolCalls) {
-                        try {
-                          const args = JSON.parse(tc.function.arguments);
-                          console.log(`Executing tool: ${tc.function.name}`, JSON.stringify(args));
-                          const result = await executeTool(supabaseAdmin, user.id, tc.function.name, args);
-                          console.log(`Tool result for ${tc.function.name}:`, JSON.stringify(result).substring(0, 500));
-                          toolResults.push({ tool_call_id: tc.id, role: "tool", content: JSON.stringify(result) });
-                          
-                          if (result.success) {
-                            executedActions.push(tc.function.name);
-                          }
-                        } catch (e) {
-                          console.error("Tool execution error:", e);
-                          toolResults.push({ tool_call_id: tc.id, role: "tool", content: JSON.stringify({ error: String(e) }) });
+                    const toolResults = [];
+                    for (const tc of currentToolCalls) {
+                      try {
+                        const args = JSON.parse(tc.function.arguments);
+                        console.log(`Executing tool: ${tc.function.name}`, JSON.stringify(args));
+                        const result = await executeTool(supabaseAdmin, user.id, tc.function.name, args);
+                        console.log(`Tool result for ${tc.function.name}:`, JSON.stringify(result).substring(0, 500));
+                        toolResults.push({ tool_call_id: tc.id, role: "tool", content: JSON.stringify(result) });
+                        
+                        if (result.success) {
+                          executedActions.push(tc.function.name);
                         }
+                      } catch (e) {
+                        console.error("Tool execution error:", e);
+                        toolResults.push({ tool_call_id: tc.id, role: "tool", content: JSON.stringify({ error: String(e) }) });
                       }
-                      
-                      // Adicionar assistant message com tool_calls e resultados
-                      currentMessages = [
-                        ...currentMessages,
-                        { 
-                          role: "assistant", 
-                          tool_calls: currentToolCalls.map(tc => ({
-                            id: tc.id,
-                            type: "function",
-                            function: { name: tc.function.name, arguments: tc.function.arguments }
-                          }))
-                        },
-                        ...toolResults
-                      ];
-                      
-                      // Chamada de follow-up COM tools e tool_choice para permitir mais chamadas
-                      console.log(`Follow-up API call ${iteration}...`);
-                      const followUpResponse = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
-                        method: "POST",
-                        headers: {
-                          Authorization: `Bearer ${zaiApiKey}`,
-                          "Content-Type": "application/json"
-                        },
+                    }
+                    
+                    // Adicionar a chamada do assistente com tool_calls e os resultados
+                    currentMessages.push({
+                      role: "assistant",
+                      content: undefined,
+                      tool_calls: currentToolCalls.map(tc => ({
+                        id: tc.id,
+                        type: "function",
+                        function: { name: tc.function.name, arguments: tc.function.arguments }
+                      }))
+                    });
+                    currentMessages.push(...toolResults);
+                    
+                    // Fazer nova chamada para obter resposta ou mais tool_calls
+                    const followUpResponse = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+                      method: "POST",
+                      headers: {
+                        "Authorization": `Bearer ${zaiApiKey}`,
+                        "Content-Type": "application/json"
+                      },
                       body: JSON.stringify({
-                          model: "glm-4.7",
-                          messages: currentMessages,
-                          tools,
-                          tool_choice: "auto",
-                          stream: true,
-                          tool_stream: true
-                        })
-                      });
+                        model: "glm-4.7",
+                        messages: currentMessages,
+                        tools,
+                        tool_choice: "auto",
+                        stream: true,
+                        tool_stream: true
+                      })
+                    });
+                    
+                    if (!followUpResponse.ok) {
+                      console.error("Follow-up response error:", await followUpResponse.text());
+                      break;
+                    }
+                    
+                    const followUpReader = followUpResponse.body?.getReader();
+                    let newToolCalls: any[] = [];
+                    let gotTextResponse = false;
+                    let fuBuffer = '';
+                    
+                    while (true) {
+                      const { done: fuDone, value: fuValue } = await followUpReader!.read();
+                      if (fuDone) break;
                       
-                      if (!followUpResponse.ok) {
-                        const errorText = await followUpResponse.text();
-                        console.error("Follow-up API error:", errorText);
-                        break;
-                      }
+                      fuBuffer += decoder.decode(fuValue, { stream: true });
+                      let fuNewlineIndex: number;
                       
-                      // Processar resposta do follow-up
-                      const followUpReader = followUpResponse.body?.getReader();
-                      let newToolCalls: any[] = [];
-                      let gotTextResponse = false;
-                      
-                      while (true) {
-                        const { done: fuDone, value: fuValue } = await followUpReader!.read();
-                        if (fuDone) break;
+                      while ((fuNewlineIndex = fuBuffer.indexOf('\n')) !== -1) {
+                        const fuLine = fuBuffer.slice(0, fuNewlineIndex).trim();
+                        fuBuffer = fuBuffer.slice(fuNewlineIndex + 1);
                         
-                        const fuChunk = decoder.decode(fuValue);
-                        const fuLines = fuChunk.split("\n").filter(l => l.trim() !== "");
+                        if (!fuLine || fuLine.startsWith(':')) continue;
+                        if (!fuLine.startsWith("data: ")) continue;
                         
-                        for (const fuLine of fuLines) {
-                          if (fuLine.startsWith("data: ")) {
-                            const fuData = fuLine.slice(6);
-                            if (fuData === "[DONE]") continue;
-                            
-                            try {
-                              const fuParsed = JSON.parse(fuData);
-                              const fuDelta = fuParsed.choices?.[0]?.delta;
-                              const fuFinishReason = fuParsed.choices?.[0]?.finish_reason;
-                              
-                              // Capturar novas tool_calls
-                              if (fuDelta?.tool_calls) {
-                                for (const tc of fuDelta.tool_calls) {
-                                  if (tc.index !== undefined) {
-                                    if (!newToolCalls[tc.index]) {
-                                      newToolCalls[tc.index] = { id: tc.id, function: { name: "", arguments: "" } };
-                                    }
-                                    if (tc.function?.name) newToolCalls[tc.index].function.name = tc.function.name;
-                                    if (tc.function?.arguments) newToolCalls[tc.index].function.arguments += tc.function.arguments;
-                                  }
+                        const fuData = fuLine.slice(6).trim();
+                        if (fuData === "[DONE]") continue;
+                        
+                        try {
+                          const fuParsed = JSON.parse(fuData);
+                          const fuDelta = fuParsed.choices?.[0]?.delta;
+                          const fuFinishReason = fuParsed.choices?.[0]?.finish_reason;
+                          
+                          // Capturar novas tool_calls
+                          if (fuDelta?.tool_calls) {
+                            for (const tc of fuDelta.tool_calls) {
+                              if (tc.index !== undefined) {
+                                if (!newToolCalls[tc.index]) {
+                                  newToolCalls[tc.index] = { id: tc.id, function: { name: "", arguments: "" } };
                                 }
+                                if (tc.function?.name) newToolCalls[tc.index].function.name = tc.function.name;
+                                if (tc.function?.arguments) newToolCalls[tc.index].function.arguments += tc.function.arguments;
                               }
-                              
-                              // Enviar conteúdo de texto
-                              if (fuDelta?.content) {
-                                gotTextResponse = true;
-                                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: fuDelta.content })}\n\n`));
-                              }
-                              
-                              // Log finish reason
-                              if (fuFinishReason) {
-                                console.log(`Follow-up ${iteration} finish_reason: ${fuFinishReason}`);
-                              }
-                            } catch (parseError) {
-                              console.error("Follow-up parse error:", parseError);
                             }
                           }
+                          
+                          // Enviar conteúdo de texto
+                          if (fuDelta?.content) {
+                            gotTextResponse = true;
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: fuDelta.content })}\n\n`));
+                          }
+                          
+                          // Log finish reason
+                          if (fuFinishReason) {
+                            console.log(`Follow-up ${iteration} finish_reason: ${fuFinishReason}`);
+                          }
+                        } catch {
+                          // JSON incompleto - fragmento será acumulado no próximo chunk
                         }
-                      }
-                      
-                      // Se há novas tool_calls, continuar o loop
-                      if (newToolCalls.length > 0 && newToolCalls.some(tc => tc && tc.function?.name)) {
-                        currentToolCalls = newToolCalls.filter(tc => tc && tc.function?.name);
-                        console.log(`New tool calls detected: ${currentToolCalls.map(tc => tc.function.name).join(", ")}`);
-                      } else {
-                        // Sem mais tool_calls, sair do loop
-                        currentToolCalls = [];
-                        console.log(`No more tool calls, finishing after ${iteration} iteration(s)`);
                       }
                     }
                     
-                    if (iteration >= maxIterations) {
-                      console.warn("Max tool iterations reached!");
+                    // Se há novas tool_calls, continuar o loop
+                    if (newToolCalls.length > 0 && newToolCalls.some(tc => tc && tc.function?.name)) {
+                      currentToolCalls = newToolCalls.filter(tc => tc && tc.function?.name);
+                      console.log(`New tool calls detected: ${currentToolCalls.map(tc => tc.function.name).join(", ")}`);
+                    } else {
+                      // Sem mais tool_calls, sair do loop
+                      currentToolCalls = [];
+                      console.log(`No more tool calls, finishing after ${iteration} iteration(s)`);
                     }
                   }
-                } catch (toolError) {
-                  console.error("Tool processing error:", toolError);
+                  
+                  if (iteration >= maxIterations) {
+                    console.warn("Max tool iterations reached!");
+                  }
                 }
+              } catch {
+                // JSON incompleto - fragmento será acumulado no próximo chunk
               }
             }
           }
