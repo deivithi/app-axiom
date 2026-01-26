@@ -6,16 +6,17 @@ export interface CurrencyInputProps
   extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange"> {
   value: number | string;
   onChange: (value: number) => void;
-  currency?: string;
 }
 
-const formatCurrency = (value: number, currency: string = "BRL"): string => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+const formatCurrency = (value: number): string => {
+  const isNegative = value < 0;
+  const absValue = Math.abs(value);
+  const parts = absValue.toFixed(2).split('.');
+  const integerPart = parts[0];
+  const decimalPart = parts[1];
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const formattedValue = `${formattedInteger},${decimalPart}`;
+  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
 };
 
 const parseCurrencyInput = (input: string): number => {
@@ -28,23 +29,23 @@ const parseCurrencyInput = (input: string): number => {
 };
 
 const CurrencyInput = React.forwardRef<HTMLInputElement, CurrencyInputProps>(
-  ({ className, value, onChange, currency = "BRL", ...props }, ref) => {
+  ({ className, value, onChange, ...props }, ref) => {
     const [displayValue, setDisplayValue] = React.useState(() => {
       const numValue = typeof value === "string" ? parseFloat(value) || 0 : value;
-      return formatCurrency(numValue, currency);
+      return formatCurrency(numValue);
     });
 
     // Sync display when external value changes
     React.useEffect(() => {
       const numValue = typeof value === "string" ? parseFloat(value) || 0 : value;
-      setDisplayValue(formatCurrency(numValue, currency));
-    }, [value, currency]);
+      setDisplayValue(formatCurrency(numValue));
+    }, [value]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value;
       const numericValue = parseCurrencyInput(inputValue);
       
-      setDisplayValue(formatCurrency(numericValue, currency));
+      setDisplayValue(formatCurrency(numericValue));
       onChange(numericValue);
     };
 

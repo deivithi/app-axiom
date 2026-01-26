@@ -29,6 +29,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Formatação manual de moeda brasileira (R$ 14.961,00)
+const formatCurrency = (value: number): string => {
+  const isNegative = value < 0;
+  const absValue = Math.abs(value);
+  const parts = absValue.toFixed(2).split('.');
+  const integerPart = parts[0];
+  const decimalPart = parts[1];
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const formattedValue = `${formattedInteger},${decimalPart}`;
+  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
+};
+
 // ===== HELPER FUNCTION PARA DATAS NO TIMEZONE DO BRASIL =====
 function getBrazilDate(dateStr?: string): { date: Date; dateStr: string; referenceMonth: string } {
   let date: Date;
@@ -1902,7 +1914,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
           amount_per_installment: args.amount,
           total_value: totalValue,
           first_installment_date: transactionDateStr,
-          message: `🛒 Compra parcelada criada! "${args.title}" em ${args.total_installments}x de R$ ${args.amount.toFixed(2)} (total: R$ ${totalValue.toFixed(2)}). Parcelas lançadas de ${firstMonth} até ${lastMonth}, iniciando em ${transactionDate.toLocaleDateString('pt-BR')}.${paidMsg}${accountMsg}`
+          message: `🛒 Compra parcelada criada! "${args.title}" em ${args.total_installments}x de ${formatCurrency(args.amount)} (total: ${formatCurrency(totalValue)}). Parcelas lançadas de ${firstMonth} até ${lastMonth}, iniciando em ${transactionDate.toLocaleDateString('pt-BR')}.${paidMsg}${accountMsg}`
         };
       }
       
@@ -2008,7 +2020,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         }
       }
       
-      const itemsList = args.transactions.map((t: any) => `${t.title} (R$${Number(t.amount).toFixed(2)})`).join(", ");
+      const itemsList = args.transactions.map((t: any) => `${t.title} (${formatCurrency(Number(t.amount))})`).join(", ");
       const paidMsg = isPaid ? " ✅ Já pagas!" : "";
       const accountMsg = isPaid && args.account_id ? " Saldo da conta atualizado!" : "";
       
@@ -2017,7 +2029,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         transactions: data,
         count: data.length,
         total,
-        message: `✅ ${data.length} transações criadas: ${itemsList}. Total: R$ ${total.toFixed(2)}${paidMsg}${accountMsg} 💰`
+        message: `✅ ${data.length} transações criadas: ${itemsList}. Total: ${formatCurrency(total)}${paidMsg}${accountMsg} 💰`
       };
     }
 
@@ -2185,7 +2197,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
       
       // Criar lista resumida com datas formatadas
       const transactionsList = formattedTransactions.slice(0, 10).map((t: any) => 
-        `- ${t.data_formatada}: ${t.title} | R$ ${Number(t.amount).toFixed(2)} | ${t.type === 'income' ? 'Receita' : 'Despesa'} | ${t.is_paid ? '✅ Pago' : '⏳ Pendente'}`
+        `- ${t.data_formatada}: ${t.title} | ${formatCurrency(Number(t.amount))} | ${t.type === 'income' ? 'Receita' : 'Despesa'} | ${t.is_paid ? '✅ Pago' : '⏳ Pendente'}`
       ).join('\n');
       
       return { 
@@ -2262,7 +2274,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         total_pending: total,
         count: data.length,
         message: data.length > 0 
-          ? `📋 ${data.length} transações pendentes totalizando R$ ${total.toFixed(2)}. Use os IDs para pagar: ${data.map((t: any) => `"${t.title}" (${t.id})`).join(", ")}`
+          ? `📋 ${data.length} transações pendentes totalizando ${formatCurrency(total)}. Use os IDs para pagar: ${data.map((t: any) => `"${t.title}" (${t.id})`).join(", ")}`
           : "🎉 Nenhuma transação pendente! Todas as contas estão em dia."
       };
     }
@@ -2287,7 +2299,7 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         pending,
         paid,
         transactionCount: data.length,
-        message: `💰 Receitas: R$ ${income.toFixed(2)} | 💸 Despesas: R$ ${expenses.toFixed(2)} | ⏳ Pendente: R$ ${pending.toFixed(2)} | 🎯 Saldo: R$ ${(income - expenses).toFixed(2)}`
+        message: `💰 Receitas: ${formatCurrency(income)} | 💸 Despesas: ${formatCurrency(expenses)} | ⏳ Pendente: ${formatCurrency(pending)} | 🎯 Saldo: ${formatCurrency(income - expenses)}`
       };
     }
 
