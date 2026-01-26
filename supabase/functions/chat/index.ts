@@ -549,13 +549,15 @@ const tools = [
     type: "function",
     function: {
       name: "list_transactions",
-      description: "Lista as transações do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar, excluir ou pagar transações.",
+      description: "Lista as transações do usuário. SEMPRE use esta função primeiro para obter os IDs reais (UUIDs) antes de editar, excluir ou pagar transações. IMPORTANTE: Use start_date e end_date para filtrar por período (última semana, mês passado, etc). Consulte o CONTEXTO TEMPORAL no system prompt para as datas corretas.",
       parameters: {
         type: "object",
         properties: {
           type: { type: "string", enum: ["income", "expense"], description: "Filtrar por tipo" },
           is_paid: { type: "boolean", description: "Filtrar por status de pagamento (true=pagas, false=pendentes)" },
-          limit: { type: "number", description: "Número máximo de transações" }
+          start_date: { type: "string", description: "Data inicial do período (YYYY-MM-DD). Ex: para última semana, use a data de 7 dias atrás." },
+          end_date: { type: "string", description: "Data final do período (YYYY-MM-DD). Ex: para última semana, use a data de hoje." },
+          limit: { type: "number", description: "Número máximo de transações (default: 50)" }
         }
       }
     }
@@ -600,8 +602,15 @@ const tools = [
     type: "function",
     function: {
       name: "get_finance_summary",
-      description: "Obtém um resumo financeiro do mês atual incluindo total de receitas, despesas, saldo e valor pendente.",
-      parameters: { type: "object", properties: {} }
+      description: "Obtém um resumo financeiro de um período específico incluindo total de receitas, despesas, saldo e valor pendente. IMPORTANTE: Use o parâmetro period para filtrar (week, month, quarter, custom). Para datas customizadas, use start_date e end_date.",
+      parameters: {
+        type: "object",
+        properties: {
+          period: { type: "string", enum: ["week", "month", "quarter", "custom"], description: "Período de análise: week (última semana), month (mês atual, default), quarter (trimestre), custom (datas específicas)" },
+          start_date: { type: "string", description: "Data inicial para period='custom' (YYYY-MM-DD)" },
+          end_date: { type: "string", description: "Data final para period='custom' (YYYY-MM-DD)" }
+        }
+      }
     }
   },
   // ACCOUNTS
@@ -2177,9 +2186,20 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
 
     case "list_transactions": {
       let query = supabaseAdmin.from("transactions").select("*").eq("user_id", userId);
+      
+      // NOVO: Filtros de data para períodos específicos
+      if (args.start_date) {
+        query = query.gte("transaction_date", args.start_date);
+        console.log(`list_transactions: Filtering from start_date ${args.start_date}`);
+      }
+      if (args.end_date) {
+        query = query.lte("transaction_date", args.end_date);
+        console.log(`list_transactions: Filtering to end_date ${args.end_date}`);
+      }
+      
       if (args.type) query = query.eq("type", args.type);
       if (args.is_paid !== undefined) query = query.eq("is_paid", args.is_paid);
-      const { data, error } = await query.order("transaction_date", { ascending: false }).limit(args.limit || 20);
+      const { data, error } = await query.order("transaction_date", { ascending: false }).limit(args.limit || 50);
       if (error) throw error;
       
       // Formatar transações com datas legíveis em pt-BR
@@ -2280,11 +2300,44 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
     }
 
     case "get_finance_summary": {
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
+      const now = getBrazilNow();
+      let startDate: Date;
+      let endDate: Date = now;
+      let periodLabel = "mês atual";
+      
+      // NOVO: Suporte a múltiplos períodos
+      switch (args.period) {
+        case "week":
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 7);
+          periodLabel = "últimos 7 dias";
+          break;
+        case "quarter":
+          startDate = new Date(now);
+          startDate.setMonth(startDate.getMonth() - 3);
+          periodLabel = "último trimestre";
+          break;
+        case "custom":
+          if (args.start_date && args.end_date) {
+            startDate = new Date(args.start_date + 'T12:00:00');
+            endDate = new Date(args.end_date + 'T12:00:00');
+            periodLabel = `${new Date(args.start_date).toLocaleDateString('pt-BR')} a ${new Date(args.end_date).toLocaleDateString('pt-BR')}`;
+          } else {
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          }
+          break;
+        default: // month
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      }
+      
+      console.log(`get_finance_summary: period=${args.period || 'month'}, startDate=${getBrazilDateStr(startDate)}, endDate=${getBrazilDateStr(endDate)}`);
 
-      const { data, error } = await supabaseAdmin.from("transactions").select("*").eq("user_id", userId).gte("transaction_date", getBrazilDateStr(startOfMonth));
+      const { data, error } = await supabaseAdmin
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId)
+        .gte("transaction_date", getBrazilDateStr(startDate))
+        .lte("transaction_date", getBrazilDateStr(endDate));
       if (error) throw error;
 
       const income = data.filter((t: any) => t.type === "income").reduce((sum: number, t: any) => sum + Number(t.amount), 0);
@@ -2299,7 +2352,10 @@ async function executeTool(supabaseAdmin: any, userId: string, toolName: string,
         pending,
         paid,
         transactionCount: data.length,
-        message: `💰 Receitas: ${formatCurrency(income)} | 💸 Despesas: ${formatCurrency(expenses)} | ⏳ Pendente: ${formatCurrency(pending)} | 🎯 Saldo: ${formatCurrency(income - expenses)}`
+        period: periodLabel,
+        start_date: getBrazilDateStr(startDate),
+        end_date: getBrazilDateStr(endDate),
+        message: `💰 ${periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1)}: Receitas ${formatCurrency(income)} | Despesas ${formatCurrency(expenses)} | Pendente ${formatCurrency(pending)} | Saldo ${formatCurrency(income - expenses)}`
       };
     }
 
@@ -4297,12 +4353,83 @@ Acolha as dificuldades, mas nunca deixe ${userName} estagnado. Apoio + direciona
     const anteontemMes = String(anteontem.getMonth() + 1).padStart(2, '0');
     const anteontemAno = anteontem.getFullYear();
     
+    // ===== NOVO: CÁLCULOS DE PERÍODOS TEMPORAIS =====
+    // Início da semana atual (segunda-feira)
+    const inicioSemanaAtual = new Date(brazilTime);
+    const dayOfWeek = inicioSemanaAtual.getDay();
+    const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    inicioSemanaAtual.setDate(inicioSemanaAtual.getDate() - diffToMonday);
+    const inicioSemanaAtualStr = `${inicioSemanaAtual.getFullYear()}-${String(inicioSemanaAtual.getMonth() + 1).padStart(2, '0')}-${String(inicioSemanaAtual.getDate()).padStart(2, '0')}`;
+    
+    // Fim da semana atual (domingo)
+    const fimSemanaAtual = new Date(inicioSemanaAtual);
+    fimSemanaAtual.setDate(fimSemanaAtual.getDate() + 6);
+    const fimSemanaAtualStr = `${fimSemanaAtual.getFullYear()}-${String(fimSemanaAtual.getMonth() + 1).padStart(2, '0')}-${String(fimSemanaAtual.getDate()).padStart(2, '0')}`;
+    
+    // Semana passada
+    const inicioSemanaPassada = new Date(inicioSemanaAtual);
+    inicioSemanaPassada.setDate(inicioSemanaPassada.getDate() - 7);
+    const inicioSemanaPassadaStr = `${inicioSemanaPassada.getFullYear()}-${String(inicioSemanaPassada.getMonth() + 1).padStart(2, '0')}-${String(inicioSemanaPassada.getDate()).padStart(2, '0')}`;
+    
+    const fimSemanaPassada = new Date(inicioSemanaAtual);
+    fimSemanaPassada.setDate(fimSemanaPassada.getDate() - 1);
+    const fimSemanaPassadaStr = `${fimSemanaPassada.getFullYear()}-${String(fimSemanaPassada.getMonth() + 1).padStart(2, '0')}-${String(fimSemanaPassada.getDate()).padStart(2, '0')}`;
+    
+    // Últimos 7 dias
+    const seteDiasAtras = new Date(brazilTime);
+    seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+    const seteDiasAtrasStr = `${seteDiasAtras.getFullYear()}-${String(seteDiasAtras.getMonth() + 1).padStart(2, '0')}-${String(seteDiasAtras.getDate()).padStart(2, '0')}`;
+    
+    // Últimos 30 dias
+    const trintaDiasAtras = new Date(brazilTime);
+    trintaDiasAtras.setDate(trintaDiasAtras.getDate() - 30);
+    const trintaDiasAtrasStr = `${trintaDiasAtras.getFullYear()}-${String(trintaDiasAtras.getMonth() + 1).padStart(2, '0')}-${String(trintaDiasAtras.getDate()).padStart(2, '0')}`;
+    
+    // Mês passado
+    const inicioMesPassado = new Date(brazilTime.getFullYear(), brazilTime.getMonth() - 1, 1);
+    const inicioMesPassadoStr = `${inicioMesPassado.getFullYear()}-${String(inicioMesPassado.getMonth() + 1).padStart(2, '0')}-01`;
+    const fimMesPassado = new Date(brazilTime.getFullYear(), brazilTime.getMonth(), 0);
+    const fimMesPassadoStr = `${fimMesPassado.getFullYear()}-${String(fimMesPassado.getMonth() + 1).padStart(2, '0')}-${String(fimMesPassado.getDate()).padStart(2, '0')}`;
+    
+    // Início do mês atual
+    const inicioMesAtualStr = `${ano}-${mesNum}-01`;
+    
     const temporalContext = `📅 CALENDÁRIO E DATA ATUAL (CRÍTICO - USE SEMPRE PARA DATAS):
 HOJE: ${diaSemana}, ${dia} de ${mes} de ${ano}
 DATA HOJE (YYYY-MM-DD): ${ano}-${mesNum}-${diaNum}
 ONTEM: ${ontem.getDate()} de ${meses[ontem.getMonth()]} → ${ontemAno}-${ontemMes}-${ontemDia}
 ANTEONTEM: ${anteontem.getDate()} de ${meses[anteontem.getMonth()]} → ${anteontemAno}-${anteontemMes}-${anteontemDia}
 MÊS ATUAL: ${mes} (${mesNum}/${ano})
+
+📆 PERÍODOS CALCULADOS (USE PARA FILTROS FINANCEIROS):
+SEMANA ATUAL: ${inicioSemanaAtualStr} até ${fimSemanaAtualStr}
+SEMANA PASSADA: ${inicioSemanaPassadaStr} até ${fimSemanaPassadaStr}
+ÚLTIMOS 7 DIAS: ${seteDiasAtrasStr} até ${ano}-${mesNum}-${diaNum}
+ÚLTIMOS 30 DIAS: ${trintaDiasAtrasStr} até ${ano}-${mesNum}-${diaNum}
+MÊS PASSADO: ${inicioMesPassadoStr} até ${fimMesPassadoStr}
+INÍCIO MÊS ATUAL: ${inicioMesAtualStr}
+
+🔍 INTERPRETAÇÃO DE PERÍODOS TEMPORAIS (CRÍTICO - SIGA À RISCA!):
+Quando o usuário perguntar sobre períodos, USE AS DATAS CALCULADAS ACIMA:
+
+"última semana" / "semana passada" / "essa semana" / "esta semana"
+→ Use get_expenses_by_category com period: "week" OU
+→ list_transactions com start_date: "${seteDiasAtrasStr}" e end_date: "${ano}-${mesNum}-${diaNum}" OU
+→ get_finance_summary com period: "week"
+
+"esse mês" / "mês atual" / "neste mês"
+→ Use get_finance_summary (period: "month" ou sem parâmetro - já filtra mês atual)
+→ OU list_transactions com start_date: "${inicioMesAtualStr}" e end_date: "${ano}-${mesNum}-${diaNum}"
+
+"mês passado" / "último mês"
+→ Use list_transactions com start_date: "${inicioMesPassadoStr}" e end_date: "${fimMesPassadoStr}"
+→ OU get_finance_summary com period: "custom", start_date: "${inicioMesPassadoStr}", end_date: "${fimMesPassadoStr}"
+
+"últimos X dias"
+→ Calcule: start_date = hoje - X dias, end_date = hoje
+
+⚠️ REGRA ABSOLUTA: NUNCA retorne dados fora do período pedido!
+Se perguntarem "última semana", NÃO traga transações do mês inteiro!
 
 ⚠️ REGRAS OBRIGATÓRIAS PARA transaction_date (CRÍTICO - NUNCA OMITA!):
 1. SEMPRE envie transaction_date em TODAS as transações - É UM CAMPO OBRIGATÓRIO!
