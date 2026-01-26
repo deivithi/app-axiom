@@ -4102,13 +4102,13 @@ serve(async (req) => {
     }
     
     const { messages } = parseResult.data;
-    // Lovable AI - API gratuita e estável (substitui z.ai)
-    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    // OpenRouter - API multi-modelo (GPT-4o, Claude, Gemini, etc.)
+    const openrouterApiKey = Deno.env.get("OPENROUTER_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!lovableApiKey) {
-      throw new Error("LOVABLE_API_KEY não configurada");
+    if (!openrouterApiKey) {
+      throw new Error("OPENROUTER_API_KEY não configurada");
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -4587,16 +4587,18 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
     // Loop de processamento de tool calls (non-streaming)
     while (iteration < MAX_TOOL_ITERATIONS) {
       iteration++;
-      console.log(`[Lovable AI] Iteration ${iteration}: Making non-streaming request...`);
+      console.log(`[OpenRouter] Iteration ${iteration}: Making non-streaming request...`);
       
-      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json"
+          Authorization: `Bearer ${openrouterApiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "https://axiom.app",
+          "X-Title": "Axiom AI"
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "openai/gpt-4o",
           messages: currentMessages,
           tools,
           tool_choice: "auto",
@@ -4606,14 +4608,17 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("[Lovable AI] API error:", errorText);
+        console.error("[OpenRouter] API error:", errorText);
         if (response.status === 429) {
           throw new Error("Limite de requisições excedido. Aguarde um momento.");
         }
         if (response.status === 402) {
-          throw new Error("Créditos insuficientes. Adicione créditos no Lovable.");
+          throw new Error("Créditos OpenRouter insuficientes. Adicione créditos em openrouter.ai");
         }
-        throw new Error(`Lovable AI error: ${response.status}`);
+        if (response.status === 401) {
+          throw new Error("OPENROUTER_API_KEY inválida. Verifique a configuração.");
+        }
+        throw new Error(`OpenRouter error: ${response.status}`);
       }
 
       const data = await response.json();
@@ -4621,15 +4626,15 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
       const finishReason = choice?.finish_reason;
       const message = choice?.message;
       
-      console.log(`[Lovable AI] Iteration ${iteration}: finish_reason=${finishReason}, has_tool_calls=${!!message?.tool_calls?.length}`);
+      console.log(`[OpenRouter] Iteration ${iteration}: finish_reason=${finishReason}, has_tool_calls=${!!message?.tool_calls?.length}`);
       
       // Se não há tool_calls, sair do loop e fazer streaming da resposta
       if (finishReason !== "tool_calls" || !message?.tool_calls?.length) {
-        console.log(`[Lovable AI] No more tool calls, preparing final streaming response...`);
+        console.log(`[OpenRouter] No more tool calls, preparing final streaming response...`);
         
         // Se já temos conteúdo de texto, usá-lo diretamente
         if (message?.content) {
-          console.log(`[Lovable AI] Using non-streamed content from last response`);
+          console.log(`[OpenRouter] Using non-streamed content from last response`);
           
           const encoder = new TextEncoder();
           const stream = new ReadableStream({
@@ -4728,25 +4733,27 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
       });
       currentMessages.push(...toolResults);
       
-      console.log(`[Lovable AI] Added tool results to context, continuing loop...`);
+      console.log(`[OpenRouter] Added tool results to context, continuing loop...`);
     }
     
     if (iteration >= MAX_TOOL_ITERATIONS) {
-      console.warn("[Lovable AI] Max tool iterations reached!");
+      console.warn("[OpenRouter] Max tool iterations reached!");
     }
     
     // ========== CHAMADA FINAL COM STREAMING ==========
     // Após processar todas as tools, fazer streaming da resposta final
-    console.log(`[Lovable AI] Making final streaming request after ${iteration} tool iteration(s)...`);
+    console.log(`[OpenRouter] Making final streaming request after ${iteration} tool iteration(s)...`);
     
-    const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const finalResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${lovableApiKey}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${openrouterApiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://axiom.app",
+        "X-Title": "Axiom AI"
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "openai/gpt-4o",
         messages: currentMessages,
         stream: true  // STREAMING para resposta final
         // SEM tools - já foram processadas
@@ -4755,14 +4762,17 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
 
     if (!finalResponse.ok) {
       const errorText = await finalResponse.text();
-      console.error("[Lovable AI] Final response error:", errorText);
+      console.error("[OpenRouter] Final response error:", errorText);
       if (finalResponse.status === 429) {
         throw new Error("Limite de requisições excedido. Aguarde um momento.");
       }
       if (finalResponse.status === 402) {
-        throw new Error("Créditos insuficientes. Adicione créditos no Lovable.");
+        throw new Error("Créditos OpenRouter insuficientes. Adicione créditos em openrouter.ai");
       }
-      throw new Error(`Lovable AI error: ${finalResponse.status}`);
+      if (finalResponse.status === 401) {
+        throw new Error("OPENROUTER_API_KEY inválida. Verifique a configuração.");
+      }
+      throw new Error(`OpenRouter error: ${finalResponse.status}`);
     }
 
     const reader = finalResponse.body?.getReader();
