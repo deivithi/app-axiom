@@ -958,13 +958,13 @@ const tools = [
     type: "function",
     function: {
       name: "create_prompt",
-      description: "Cria um novo prompt na biblioteca de prompts do usuário. O diagnóstico será gerado automaticamente.",
+      description: "Salva um prompt na biblioteca do usuário com análise automática. SEMPRE use quando o usuário disser: 'salva esse prompt', 'salve o prompt', 'guarda este prompt', 'adiciona na biblioteca', 'salvar prompt:', 'salva como prompt', 'salvar na biblioteca'. Extraia o título do próprio prompt (primeiro ## ou primeira frase significativa) se não fornecido explicitamente.",
       parameters: {
         type: "object",
         properties: {
-          title: { type: "string", description: "Título/nome do prompt" },
-          prompt_text: { type: "string", description: "O texto completo do prompt" },
-          category: { type: "string", enum: ["geral", "escrita", "código", "análise", "criativo", "negócios", "outros"], description: "Categoria do prompt" }
+          title: { type: "string", description: "Título/nome do prompt (extraia do próprio conteúdo se não informado)" },
+          prompt_text: { type: "string", description: "O texto completo do prompt a ser salvo" },
+          category: { type: "string", enum: ["geral", "escrita", "código", "análise", "criativo", "negócios", "outros"], description: "Categoria do prompt (deduza do conteúdo se não informada)" }
         },
         required: ["title", "prompt_text"]
       }
@@ -4372,6 +4372,40 @@ FERRAMENTAS DISPONÍVEIS (CRUD COMPLETO):
 - Nome do usuário: atualizar (update_user_name)
 - Avatar/foto de perfil: atualizar URL (update_avatar_url), remover (remove_avatar)
 - Reset completo: excluir todos os dados (delete_all_user_data)
+
+📚 BIBLIOTECA DE PROMPTS - TRIGGERS OBRIGATÓRIOS:
+Quando o usuário disser QUALQUER variação de:
+- "salva esse prompt" / "salve o prompt" / "guarda este prompt"
+- "salvar prompt:" / "salva como prompt" / "adiciona na biblioteca"
+- "salva esse prompt na biblioteca" / "guarda na biblioteca de prompts"
+
+→ USE create_prompt IMEDIATAMENTE!
+→ Extraia title do primeiro ## ou primeira frase significativa do prompt
+→ Use o texto completo como prompt_text
+→ Escolha category apropriada (geral, escrita, código, análise, criativo, negócios, outros)
+
+🔗 SITES SALVOS - TRIGGERS OBRIGATÓRIOS:
+Quando o usuário disser:
+- "salva esse site" / "guarda essa URL" / "salva esse link"
+- "adiciona esse site" / "lembra desse site"
+
+→ USE create_saved_site IMEDIATAMENTE!
+
+🧠 CONTEXTO PESSOAL - TRIGGERS OBRIGATÓRIOS:
+Quando o usuário disser:
+- "lembre que eu..." / "anota que eu..." / "guarda que eu..."
+- "meu contexto:" / "sobre mim:" / "informação pessoal:"
+
+→ USE update_user_context IMEDIATAMENTE!
+
+⚠️ REGRA CRÍTICA DE HONESTIDADE:
+NUNCA diga "salvei", "criei", "excluí" ou "atualizei" algo SEM TER EXECUTADO A TOOL CORRESPONDENTE!
+- Se você NÃO chamou create_prompt, NÃO diga "salvei o prompt"
+- Se você NÃO chamou create_task, NÃO diga "criei a tarefa"
+- Se você NÃO chamou create_saved_site, NÃO diga "salvei o site"
+- Se você NÃO chamou update_user_context, NÃO diga "anotei" ou "lembrei"
+- Confirme ações APENAS após receber success: true da ferramenta
+- Se uma ferramenta falhar, informe o erro ao usuário honestamente
 
 📊 AXIOM SCORE (0-1000 pontos, 5 pilares de 200 cada):
 - "Qual meu score?" ou "Como estou?" → use get_axiom_score para mostrar score atual com breakdown dos pilares
