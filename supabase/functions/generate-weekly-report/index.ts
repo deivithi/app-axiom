@@ -131,11 +131,11 @@ serve(async (req) => {
         ] = await Promise.all([
           supabase.from('tasks').select('*').eq('user_id', userId),
           supabase.from('habits').select('*').eq('user_id', userId),
-          supabase.from('habit_logs').select('*').eq('user_id', userId).gte('completed_at', weekStartStr),
+          supabase.from('habit_logs').select('*').eq('user_id', userId).gte('completed_at', weekStartStr).lte('completed_at', weekEndStr),
           supabase.from('projects').select('*').eq('user_id', userId).eq('status', 'active'),
-          supabase.from('transactions').select('*').eq('user_id', userId).gte('transaction_date', weekStartStr),
-          supabase.from('notes').select('id').eq('user_id', userId).gte('created_at', weekStart.toISOString()),
-          supabase.from('journal_entries').select('id').eq('user_id', userId).gte('entry_date', weekStartStr),
+          supabase.from('transactions').select('*').eq('user_id', userId).gte('transaction_date', weekStartStr).lte('transaction_date', weekEndStr),
+          supabase.from('notes').select('id').eq('user_id', userId).gte('created_at', weekStart.toISOString()).lte('created_at', now.toISOString()),
+          supabase.from('journal_entries').select('id').eq('user_id', userId).gte('entry_date', weekStartStr).lte('entry_date', weekEndStr),
           supabase.from('axiom_score_history').select('total_score, calculated_at')
             .eq('user_id', userId)
             .order('calculated_at', { ascending: false })
