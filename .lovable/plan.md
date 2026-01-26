@@ -1,344 +1,142 @@
 
-# 🚨 AUDITORIA CRÍTICA: Formatação de Moeda Brasileira - Correção Completa
 
-## Diagnóstico do Problema
+# 🚨 BUG CRÍTICO: Prompt Não Sendo Salvo - Model Alucinando Execução
 
-O relatório mostrado no print **foi gerado ANTES da correção** e além disso, identifiquei que a formatação de moeda está **inconsistente em 11+ lugares diferentes** do código.
+## Diagnóstico Completo
 
-### Valores Incorretos no Print
-- ❌ `R$14961.00` → deveria ser `R$ 14.961,00`
-- ❌ `R$20554.20` → deveria ser `R$ 20.554,20`
-- ❌ `R$-5593.20` → deveria ser `R$ -5.593,20`
-- ❌ `R$10952` → deveria ser `R$ 10.952,00`
+### O Que Aconteceu
 
----
+Você enviou:
+> "salve o prompt abaixo: [prompt do Olavo de Carvalho]"
 
-## Causa Raiz: Formatação Fragmentada
+A IA respondeu:
+> "Pronto Deivithi, salvei esse prompt na sua biblioteca ✅"
 
-### Problemas Identificados
+**MAS O PROMPT NÃO FOI SALVO!** O banco mostra que o último prompt foi criado em 20/12/2025.
 
-**1. Edge Function `chat/index.ts` (4.806 linhas) - 5 OCORRÊNCIAS CRÍTICAS**
+### Causa Raiz Identificada
 
-Usa `.toFixed(2)` direto em mensagens de confirmação:
-
-| Linha | Contexto | Código Bugado |
-|-------|----------|---------------|
-| 1905 | Parcelamento | `` `R$ ${args.amount.toFixed(2)}` `` |
-| 2020 | Lote de transações | `` `R$ ${total.toFixed(2)}` `` |
-| 2188 | Lista de transações | `` `R$ ${Number(t.amount).toFixed(2)}` `` |
-| 2265 | Pendências | `` `R$ ${total.toFixed(2)}` `` |
-| 2290 | Resumo financeiro | `` `R$ ${income.toFixed(2)}` `` (4x na mesma linha) |
-
-**2. Intelligence.tsx - 3 OCORRÊNCIAS**
-
-Linhas 313-315:
-```javascript
-- Receitas: R$${summary.income.toFixed(2)}
-- Despesas: R$${summary.expenses.toFixed(2)}
-- Saldo: R$${(summary.income - summary.expenses).toFixed(2)}
+Os logs da Edge Function confirmam:
+```
+[z.ai] Iteration 1: finish_reason=stop, has_tool_calls=false
 ```
 
-**3. Funções Utilitárias Inconsistentes**
+O modelo z.ai (GLM-4.7) **não chamou a ferramenta `create_prompt`** - ele simplesmente "alucionou" que tinha executado a ação sem realmente fazê-la.
 
-| Arquivo | Método Atual | Problema |
-|---------|--------------|----------|
-| `src/lib/utils.ts` | `Intl.NumberFormat` | Não garante espaço após R$ |
-| `src/components/ui/currency-input.tsx` | `Intl.NumberFormat` | Duplicação, sem espaço garantido |
-| `supabase/functions/generate-weekly-report/index.ts` | Manual ✅ | **Correto**, mas isolado |
+### Por Que Isso Acontece
 
-**4. Outros Locais**
+**Problema 1: Description da Tool Genérica Demais**
 
-- `src/lib/generateFinancialPDF.ts:117` - usa `toLocaleString('pt-BR')` (OK para browser, mas inconsistente)
-- `supabase/functions/inject-variables/index.ts:138-140` - usa `toLocaleString('pt-BR')` (OK, mas inconsistente)
-- `src/components/ui/chart.tsx:212` - usa `toLocaleString()` SEM locale (❌ PERIGOSO)
+A description atual da tool `create_prompt` (linha 961) não inclui gatilhos de linguagem natural:
+```typescript
+// ATUAL
+description: "Cria um novo prompt na biblioteca de prompts do usuário..."
+
+// DEVERIA SER
+description: "Cria um novo prompt na biblioteca. Use quando o usuário disser: 'salva esse prompt', 'guarda este prompt', 'adiciona na biblioteca', 'salvar prompt:', etc."
+```
+
+**Problema 2: System Prompt Sem Instruções de Trigger**
+
+O system prompt (linha 4369) apenas lista as ferramentas sem explicar QUANDO usá-las:
+```
+- Biblioteca de Prompts: criar (create_prompt), listar (list_prompts)...
+```
+
+Compare com a seção de transações que tem triggers claros:
+```
+- "Quando disser 'gastei R$X em Y' → use create_transaction"
+```
 
 ---
 
-## Solução: Formatação Centralizada e Manual
+## Plano de Correção
 
-### Estratégia de Correção
+### Correção 1: Melhorar Description da Tool `create_prompt`
 
-1. **Criar função manual centralizada** que garante `R$ 14.961,00` em QUALQUER ambiente
-2. **Substituir TODAS as 11+ ocorrências** por essa função
-3. **Regenerar relatório semanal** para aplicar as correções
-4. **Testar em todos os contextos** (Chat, Dashboard, PDF)
-
----
-
-## Implementação Detalhada
-
-### Passo 1: Atualizar `src/lib/utils.ts` com Formatação Manual
-
-**SUBSTITUIR** a função `formatCurrency` atual (linhas 8-15):
+Localização: `supabase/functions/chat/index.ts`, linhas 960-971
 
 ```typescript
-// ANTES (Intl.NumberFormat - não confiável)
-export function formatCurrency(value: number, currency: string = "BRL"): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+// ANTES
+{
+  type: "function",
+  function: {
+    name: "create_prompt",
+    description: "Cria um novo prompt na biblioteca de prompts do usuário. O diagnóstico será gerado automaticamente.",
+    // ...
+  }
 }
 
-// DEPOIS (Manual - 100% confiável)
-export function formatCurrency(value: number): string {
-  const isNegative = value < 0;
-  const absValue = Math.abs(value);
-  
-  const parts = absValue.toFixed(2).split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1];
-  
-  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const formattedValue = `${formattedInteger},${decimalPart}`;
-  
-  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
+// DEPOIS
+{
+  type: "function",
+  function: {
+    name: "create_prompt",
+    description: "Salva um prompt na biblioteca do usuário com análise automática. SEMPRE use quando o usuário disser: 'salva esse prompt', 'salve o prompt', 'guarda este prompt', 'adiciona na biblioteca', 'salvar prompt:', 'salva como prompt'. Extraia o título do próprio prompt se não fornecido.",
+    // ...
+  }
 }
 ```
 
-### Passo 2: Atualizar `supabase/functions/chat/index.ts`
+### Correção 2: Adicionar Seção de Triggers no System Prompt
 
-Adicionar a função `formatCurrency` no início da Edge Function (após imports):
+Localização: `supabase/functions/chat/index.ts`, após linha 4369 (na seção de ferramentas)
 
-```typescript
-// Adicionar após linha 16 (após imports)
-const formatCurrency = (value: number): string => {
-  const isNegative = value < 0;
-  const absValue = Math.abs(value);
-  const parts = absValue.toFixed(2).split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1];
-  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const formattedValue = `${formattedInteger},${decimalPart}`;
-  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
-};
+Adicionar nova seção específica para Biblioteca de Prompts com triggers:
+
+```text
+📚 BIBLIOTECA DE PROMPTS (SALVAR E GERENCIAR):
+Quando o usuário disser QUALQUER variação de:
+- "salva esse prompt" / "salve o prompt" / "guarda este prompt"
+- "salvar prompt:" / "salva como prompt"
+- "adiciona na biblioteca de prompts"
+
+→ USE create_prompt IMEDIATAMENTE!
+→ Extraia title do primeiro ## ou primeira frase significativa
+→ Use o texto completo como prompt_text
+→ Escolha category apropriada (geral, escrita, código, análise, criativo, negócios, outros)
+
+NUNCA responda "salvei" sem realmente executar create_prompt!
 ```
 
-**SUBSTITUIR 5 ocorrências:**
+### Correção 3: Adicionar Validação de Ação Executada
 
-| Linha | ANTES | DEPOIS |
-|-------|-------|--------|
-| 1905 | `` `R$ ${args.amount.toFixed(2)}` `` | `` `${formatCurrency(args.amount)}` `` |
-| 1905 | `` `R$ ${totalValue.toFixed(2)}` `` | `` `${formatCurrency(totalValue)}` `` |
-| 2020 | `` `R$ ${total.toFixed(2)}` `` | `` `${formatCurrency(total)}` `` |
-| 2188 | `` `R$ ${Number(t.amount).toFixed(2)}` `` | `` `${formatCurrency(Number(t.amount))}` `` |
-| 2265 | `` `R$ ${total.toFixed(2)}` `` | `` `${formatCurrency(total)}` `` |
-| 2290 | `` `R$ ${income.toFixed(2)}` `` | `` `${formatCurrency(income)}` `` |
-| 2290 | `` `R$ ${expenses.toFixed(2)}` `` | `` `${formatCurrency(expenses)}` `` |
-| 2290 | `` `R$ ${pending.toFixed(2)}` `` | `` `${formatCurrency(pending)}` `` |
-| 2290 | `` `R$ ${(income - expenses).toFixed(2)}` `` | `` `${formatCurrency(income - expenses)}` `` |
+Para evitar que a IA afirme ter feito algo sem executar, adicionar validação no system prompt:
 
-### Passo 3: Atualizar `src/pages/Intelligence.tsx`
-
-Adicionar import no topo:
-```typescript
-import { formatCurrency } from "@/lib/utils";
-```
-
-**SUBSTITUIR linhas 313-315:**
-
-```typescript
-// ANTES
-- Receitas: R$${summary.income.toFixed(2)}
-- Despesas: R$${summary.expenses.toFixed(2)}
-- Saldo: R$${(summary.income - summary.expenses).toFixed(2)}
-
-// DEPOIS
-- Receitas: ${formatCurrency(summary.income)}
-- Despesas: ${formatCurrency(summary.expenses)}
-- Saldo: ${formatCurrency(summary.income - summary.expenses)}
-```
-
-### Passo 4: Atualizar `src/components/ui/currency-input.tsx`
-
-**SUBSTITUIR** a função `formatCurrency` local (linhas 12-19):
-
-```typescript
-// ANTES (Intl.NumberFormat)
-const formatCurrency = (value: number, currency: string = "BRL"): string => {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
-};
-
-// DEPOIS (Manual)
-const formatCurrency = (value: number): string => {
-  const isNegative = value < 0;
-  const absValue = Math.abs(value);
-  const parts = absValue.toFixed(2).split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1];
-  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const formattedValue = `${formattedInteger},${decimalPart}`;
-  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
-};
-```
-
-Remover parâmetro `currency` da assinatura (linha 7):
-```typescript
-// ANTES
-currency?: string;
-
-// DEPOIS
-// (remover essa linha)
-```
-
-Atualizar chamadas (linhas 25, 29, 46):
-```typescript
-// ANTES
-formatCurrency(numValue, currency)
-
-// DEPOIS
-formatCurrency(numValue)
-```
-
-### Passo 5: Atualizar `src/lib/generateFinancialPDF.ts`
-
-Adicionar import:
-```typescript
-import { formatCurrency } from "@/lib/utils";
-```
-
-**SUBSTITUIR linha 117:**
-```typescript
-// ANTES
-const valueText = `R$ ${card.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-
-// DEPOIS
-const valueText = formatCurrency(card.value);
-```
-
-### Passo 6: Atualizar `supabase/functions/inject-variables/index.ts`
-
-Adicionar função no início (após imports):
-```typescript
-const formatCurrency = (value: number): string => {
-  const isNegative = value < 0;
-  const absValue = Math.abs(value);
-  const parts = absValue.toFixed(2).split('.');
-  const integerPart = parts[0];
-  const decimalPart = parts[1];
-  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  const formattedValue = `${formattedInteger},${decimalPart}`;
-  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
-};
-```
-
-**SUBSTITUIR linhas 138-140:**
-```typescript
-// ANTES
-saldo_total: `R$ ${totalBalance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-gastos_mes: `R$ ${monthExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-receitas_mes: `R$ ${monthIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-
-// DEPOIS
-saldo_total: formatCurrency(totalBalance),
-gastos_mes: formatCurrency(monthExpenses),
-receitas_mes: formatCurrency(monthIncome),
-```
-
-### Passo 7: Atualizar `src/components/ui/chart.tsx`
-
-Adicionar import:
-```typescript
-import { formatCurrency } from "@/lib/utils";
-```
-
-**Problema na linha 212:** Usa `toLocaleString()` sem especificar locale
-
-**Análise:** Este componente é genérico (Recharts wrapper), não é específico para moeda. MAS quando usado para valores financeiros, deve formatar corretamente.
-
-**Solução:** Adicionar verificação de tipo de dado. Se o valor for monetário (payload contém "income", "expenses", "balance"), usar formatCurrency:
-
-```typescript
-// SUBSTITUIR linhas 210-214
-{item.value && (
-  <span className="font-mono font-medium tabular-nums text-foreground">
-    {typeof item.value === 'number' && 
-     (item.name?.toLowerCase().includes('receita') || 
-      item.name?.toLowerCase().includes('despesa') || 
-      item.name?.toLowerCase().includes('saldo'))
-      ? formatCurrency(item.value)
-      : item.value.toLocaleString('pt-BR')}
-  </span>
-)}
+```text
+⚠️ REGRA CRÍTICA DE HONESTIDADE:
+NUNCA diga "salvei", "criei", "excluí" ou "atualizei" algo SEM TER EXECUTADO A TOOL CORRESPONDENTE!
+- Se você NÃO chamou create_prompt, NÃO diga "salvei o prompt"
+- Se você NÃO chamou create_task, NÃO diga "criei a tarefa"
+- Confirme ações APENAS após receber success: true da ferramenta
 ```
 
 ---
 
-## Passo 8: Regenerar Relatório Semanal
+## Arquivos a Modificar
 
-Após todas as correções, executar:
-
-1. **Deploy das Edge Functions** (chat + inject-variables)
-2. **Gerar novo relatório** via chat ou manualmente através do endpoint
-
----
-
-## Checklist de Validação
-
-Após correções, testar:
-
-| Contexto | Teste | Resultado Esperado |
-|----------|-------|-------------------|
-| Chat - Parcelamento | "comprei TV de 3000 em 10x" | `` `em 10x de R$ 300,00 (total: R$ 3.000,00)` `` |
-| Chat - Lote | "gastei pão 10, leite 8, café 15" | `` `Total: R$ 33,00` `` |
-| Chat - Lista | "/financeiro" | `` `Pão R$ 10,00` `` |
-| Chat - Resumo | "resumo financeiro" | `` `Receitas: R$ 250,00` `` |
-| Dashboard Intelligence | Abrir página | `` `Receitas: R$ 250,00` `` no resumo |
-| Relatório Semanal | Gerar novo | `` `Receitas: R$ 14.961,00` `` formatado |
-| PDF Financeiro | Exportar | `` `R$ 14.961,00` `` nos cards |
-| Input de moeda | Digitar valor | `` `R$ 1.234,56` `` formatado |
-| Gráficos | Hover no chart | `` `R$ 1.234,56` `` no tooltip |
+| Arquivo | Alteração |
+|---------|-----------|
+| `supabase/functions/chat/index.ts` | 1. Melhorar description do `create_prompt` (linha 961) |
+| `supabase/functions/chat/index.ts` | 2. Adicionar seção de triggers para prompts no system prompt (após 4369) |
+| `supabase/functions/chat/index.ts` | 3. Adicionar regra de honestidade no system prompt |
 
 ---
 
-## Formato Correto Garantido
+## Impacto
 
-### Exemplos de Saída
-
-| Valor de Entrada | Saída Correta |
-|------------------|---------------|
-| `123.45` | `R$ 123,45` |
-| `1234.56` | `R$ 1.234,56` |
-| `12345.67` | `R$ 12.345,67` |
-| `123456.78` | `R$ 123.456,78` |
-| `1234567.89` | `R$ 1.234.567,89` |
-| `-123.45` | `R$ -123,45` |
-| `0` | `R$ 0,00` |
-| `0.01` | `R$ 0,01` |
-
-### Padrão Brasileiro (NBR)
-
-✅ **Espaço após símbolo:** `R$ ` (não `R$`)  
-✅ **Ponto como separador de milhar:** `1.234`  
-✅ **Vírgula como separador decimal:** `,56`  
-✅ **Sempre 2 casas decimais:** `,00` mesmo para inteiros  
-✅ **Negativo com hífen:** `R$ -123,45`  
+Após estas correções:
+- O modelo vai reconhecer "salva esse prompt" como trigger para `create_prompt`
+- Logs mostrarão `[z.ai] Executing tool: create_prompt`
+- Prompts serão salvos no banco com `ai_diagnosis` e `optimized_prompt`
+- IA só confirmará salvamento após receber `success: true`
 
 ---
 
-## Arquivos Modificados (Total: 7)
+## Observação Importante
 
-1. ✅ `src/lib/utils.ts` - Função centralizada
-2. ✅ `supabase/functions/chat/index.ts` - 9 substituições
-3. ✅ `src/pages/Intelligence.tsx` - 3 substituições
-4. ✅ `src/components/ui/currency-input.tsx` - Função local + remoção de parâmetro
-5. ✅ `src/lib/generateFinancialPDF.ts` - 1 substituição
-6. ✅ `supabase/functions/inject-variables/index.ts` - 3 substituições
-7. ✅ `src/components/ui/chart.tsx` - Condicional para valores monetários
+Este bug afeta potencialmente TODAS as ferramentas que não têm triggers explícitos no system prompt. Recomendo uma auditoria completa para adicionar triggers a:
+- `create_saved_site` (para "salva esse site", "guarda essa URL")
+- `update_user_context` (para "lembre que eu...", "anota que eu...")
+- Outras ferramentas que dependem de linguagem natural
 
----
-
-## Impacto: 0 Defeitos de Formatação
-
-Após estas correções, **100% dos valores monetários** no sistema usarão o padrão brasileiro correto, independente do ambiente (browser, Deno, Node.js).
-
-**Status: CRÍTICO - BLOQUEADOR PARA ENTREGA AO CLIENTE**
-
-Todos os módulos (Chat, Dashboards, Relatórios, PDF, Variáveis) estarão sincronizados com formatação consistente e profissional.
