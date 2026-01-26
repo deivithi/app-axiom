@@ -17,14 +17,23 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const openaiKey = Deno.env.get("OPENAI_API_KEY")!;
 
-// Formatação de moeda brasileira
+// Formatação de moeda brasileira (manual para garantir formato correto no Deno)
 const formatCurrency = (value: number): string => {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+  const isNegative = value < 0;
+  const absValue = Math.abs(value);
+  
+  // Formata com 2 casas decimais
+  const parts = absValue.toFixed(2).split('.');
+  const integerPart = parts[0];
+  const decimalPart = parts[1];
+  
+  // Adiciona separador de milhar (ponto)
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  
+  // Monta o valor final com vírgula como separador decimal
+  const formattedValue = `${formattedInteger},${decimalPart}`;
+  
+  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
 };
 
 interface WeeklyReportPayload {
