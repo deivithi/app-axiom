@@ -4598,7 +4598,7 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
           "X-Title": "Axiom AI"
         },
         body: JSON.stringify({
-          model: "openai/gpt-4o",
+          model: "deepseek/deepseek-chat-v3-0324",
           messages: currentMessages,
           tools,
           tool_choice: "auto",
@@ -4753,7 +4753,7 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
         "X-Title": "Axiom AI"
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o",
+        model: "deepseek/deepseek-chat-v3-0324",
         messages: currentMessages,
         stream: true  // STREAMING para resposta final
         // SEM tools - já foram processadas
