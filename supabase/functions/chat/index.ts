@@ -4102,12 +4102,13 @@ serve(async (req) => {
     }
     
     const { messages } = parseResult.data;
-    const zaiApiKey = Deno.env.get("ZAI_API_KEY");
+    // Lovable AI - API gratuita e estável (substitui z.ai)
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    if (!zaiApiKey) {
-      throw new Error("ZAI_API_KEY não configurada");
+    if (!lovableApiKey) {
+      throw new Error("LOVABLE_API_KEY não configurada");
     }
 
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
@@ -4586,16 +4587,16 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
     // Loop de processamento de tool calls (non-streaming)
     while (iteration < MAX_TOOL_ITERATIONS) {
       iteration++;
-      console.log(`[z.ai] Iteration ${iteration}: Making non-streaming request...`);
+      console.log(`[Lovable AI] Iteration ${iteration}: Making non-streaming request...`);
       
-      const response = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+      const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${zaiApiKey}`,
+          Authorization: `Bearer ${lovableApiKey}`,
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "glm-4.7",
+          model: "google/gemini-2.5-flash",
           messages: currentMessages,
           tools,
           tool_choice: "auto",
@@ -4605,8 +4606,14 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("[z.ai] API error:", errorText);
-        throw new Error(`z.ai API error: ${response.status}`);
+        console.error("[Lovable AI] API error:", errorText);
+        if (response.status === 429) {
+          throw new Error("Limite de requisições excedido. Aguarde um momento.");
+        }
+        if (response.status === 402) {
+          throw new Error("Créditos insuficientes. Adicione créditos no Lovable.");
+        }
+        throw new Error(`Lovable AI error: ${response.status}`);
       }
 
       const data = await response.json();
@@ -4614,15 +4621,15 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
       const finishReason = choice?.finish_reason;
       const message = choice?.message;
       
-      console.log(`[z.ai] Iteration ${iteration}: finish_reason=${finishReason}, has_tool_calls=${!!message?.tool_calls?.length}`);
+      console.log(`[Lovable AI] Iteration ${iteration}: finish_reason=${finishReason}, has_tool_calls=${!!message?.tool_calls?.length}`);
       
       // Se não há tool_calls, sair do loop e fazer streaming da resposta
       if (finishReason !== "tool_calls" || !message?.tool_calls?.length) {
-        console.log(`[z.ai] No more tool calls, preparing final streaming response...`);
+        console.log(`[Lovable AI] No more tool calls, preparing final streaming response...`);
         
         // Se já temos conteúdo de texto, usá-lo diretamente
         if (message?.content) {
-          console.log(`[z.ai] Using non-streamed content from last response`);
+          console.log(`[Lovable AI] Using non-streamed content from last response`);
           
           const encoder = new TextEncoder();
           const stream = new ReadableStream({
@@ -4721,25 +4728,25 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
       });
       currentMessages.push(...toolResults);
       
-      console.log(`[z.ai] Added tool results to context, continuing loop...`);
+      console.log(`[Lovable AI] Added tool results to context, continuing loop...`);
     }
     
     if (iteration >= MAX_TOOL_ITERATIONS) {
-      console.warn("[z.ai] Max tool iterations reached!");
+      console.warn("[Lovable AI] Max tool iterations reached!");
     }
     
     // ========== CHAMADA FINAL COM STREAMING ==========
     // Após processar todas as tools, fazer streaming da resposta final
-    console.log(`[z.ai] Making final streaming request after ${iteration} tool iteration(s)...`);
+    console.log(`[Lovable AI] Making final streaming request after ${iteration} tool iteration(s)...`);
     
-    const finalResponse = await fetch("https://api.z.ai/api/paas/v4/chat/completions", {
+    const finalResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${zaiApiKey}`,
+        Authorization: `Bearer ${lovableApiKey}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "glm-4.7",
+        model: "google/gemini-2.5-flash",
         messages: currentMessages,
         stream: true  // STREAMING para resposta final
         // SEM tools - já foram processadas
@@ -4748,8 +4755,14 @@ Responda SEMPRE em português brasileiro. Seja conciso mas impactante. Não seja
 
     if (!finalResponse.ok) {
       const errorText = await finalResponse.text();
-      console.error("[z.ai] Final response error:", errorText);
-      throw new Error(`z.ai API error: ${finalResponse.status}`);
+      console.error("[Lovable AI] Final response error:", errorText);
+      if (finalResponse.status === 429) {
+        throw new Error("Limite de requisições excedido. Aguarde um momento.");
+      }
+      if (finalResponse.status === 402) {
+        throw new Error("Créditos insuficientes. Adicione créditos no Lovable.");
+      }
+      throw new Error(`Lovable AI error: ${finalResponse.status}`);
     }
 
     const reader = finalResponse.body?.getReader();
