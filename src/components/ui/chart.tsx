@@ -1,7 +1,7 @@
 import * as React from "react";
 import * as RechartsPrimitive from "recharts";
 
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const;
@@ -209,7 +209,15 @@ const ChartTooltipContent = React.forwardRef<
                       </div>
                       {item.value && (
                         <span className="font-mono font-medium tabular-nums text-foreground">
-                          {item.value.toLocaleString()}
+                          {typeof item.value === 'number' && 
+                           (String(item.name)?.toLowerCase().includes('receita') || 
+                            String(item.name)?.toLowerCase().includes('despesa') || 
+                            String(item.name)?.toLowerCase().includes('saldo') ||
+                            String(item.name)?.toLowerCase().includes('income') ||
+                            String(item.name)?.toLowerCase().includes('expense') ||
+                            String(item.name)?.toLowerCase().includes('balance'))
+                            ? formatCurrency(item.value)
+                            : item.value.toLocaleString('pt-BR')}
                         </span>
                       )}
                     </div>

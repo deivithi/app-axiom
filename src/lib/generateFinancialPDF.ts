@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { normalizePortugueseText } from './robotoFont';
+import { formatCurrency } from './utils';
 
 interface Transaction {
   id: string;
@@ -114,7 +115,7 @@ export function generateFinancialPDF(data: PDFData) {
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...card.color);
-    const valueText = `R$ ${card.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    const valueText = formatCurrency(card.value);
     doc.text(valueText, x + 5, yPos + 26);
   });
 

@@ -310,9 +310,9 @@ export default function Intelligence() {
         Resumo da semana:
         - Tarefas: ${summary.tasksCompleted}/${summary.tasksTotal} concluídas
         - Hábitos ativos: ${summary.habitsCompleted}/${summary.habitsTotal}
-        - Receitas: R$${summary.income.toFixed(2)}
-        - Despesas: R$${summary.expenses.toFixed(2)}
-        - Saldo: R$${(summary.income - summary.expenses).toFixed(2)}
+        - Receitas: ${formatCurrency(summary.income)}
+        - Despesas: ${formatCurrency(summary.expenses)}
+        - Saldo: ${formatCurrency(summary.income - summary.expenses)}
         - Notas criadas: ${summary.notesCreated}
         - Entradas no diário: ${summary.journalEntries}
         ${scoreBreakdown ? `

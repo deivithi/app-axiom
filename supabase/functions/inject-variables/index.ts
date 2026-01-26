@@ -7,6 +7,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Formatação manual de moeda brasileira (R$ 14.961,00)
+const formatCurrency = (value: number): string => {
+  const isNegative = value < 0;
+  const absValue = Math.abs(value);
+  const parts = absValue.toFixed(2).split('.');
+  const integerPart = parts[0];
+  const decimalPart = parts[1];
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const formattedValue = `${formattedInteger},${decimalPart}`;
+  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
+};
+
 // ===== INPUT VALIDATION =====
 const InjectVariablesRequestSchema = z.object({
   promptTemplate: z.string().min(1).max(50000, 'Prompt template too long'),
@@ -135,9 +147,9 @@ serve(async (req) => {
       usuario_desde: userSince,
       axiom_score: currentScore.toString(),
       score_variacao: scoreVariation >= 0 ? `+${scoreVariation}` : scoreVariation.toString(),
-      saldo_total: `R$ ${totalBalance.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-      gastos_mes: `R$ ${monthExpenses.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
-      receitas_mes: `R$ ${monthIncome.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`,
+      saldo_total: formatCurrency(totalBalance),
+      gastos_mes: formatCurrency(monthExpenses),
+      receitas_mes: formatCurrency(monthIncome),
       tarefas_pendentes: tasksPending.toString(),
       tarefas_concluidas: tasksCompleted.toString(),
       projetos_ativos: projects.length.toString(),

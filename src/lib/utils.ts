@@ -5,11 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(value: number, currency: string = "BRL"): string {
-  return new Intl.NumberFormat("pt-BR", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+export function formatCurrency(value: number): string {
+  const isNegative = value < 0;
+  const absValue = Math.abs(value);
+  
+  const parts = absValue.toFixed(2).split('.');
+  const integerPart = parts[0];
+  const decimalPart = parts[1];
+  
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const formattedValue = `${formattedInteger},${decimalPart}`;
+  
+  return isNegative ? `R$ -${formattedValue}` : `R$ ${formattedValue}`;
 }
