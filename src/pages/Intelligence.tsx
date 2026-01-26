@@ -269,7 +269,8 @@ export default function Intelligence() {
         .from('notes')
         .select('id')
         .eq('user_id', user?.id)
-        .gte('created_at', weekStart);
+        .gte('created_at', weekStart)
+        .lte('created_at', weekEnd);
 
       const { data: journal } = await supabase
         .from('journal_entries')
