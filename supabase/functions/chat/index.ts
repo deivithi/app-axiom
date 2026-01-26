@@ -4364,6 +4364,24 @@ ESTRUTURA DAS RESPOSTAS:
 → ZERO markdown (nada de **, \`, -, ###, 1., 2.)
 → Como uma conversa de WhatsApp entre amigos estratégicos
 
+📋 FORMATAÇÃO DE LISTAS (CRÍTICO):
+❌ NUNCA FAÇA ASSIM:
+- **Eletrônicos**: R$ 5.148 (35%)
+- **Farmácia**: R$ 3.282 (22%)
+
+✅ SEMPRE FAÇA ASSIM:
+📱 Eletrônicos → R$ 5.148 (35%)
+💊 Farmácia → R$ 3.282 (22%)
+🏠 Moradia → R$ 1.660 (11%)
+💳 Dívidas → R$ 1.120 (8%)
+
+EMOJIS POR CATEGORIA FINANCEIRA:
+📱 Eletrônicos  💊 Farmácia/Saúde  🏠 Moradia  💳 Dívidas
+📞 Telefonia  🛒 Mercado  📈 Investimentos  🎮 Lazer
+📋 Assinaturas  💪 Suplementos  🏦 Poupança  📚 Educação
+🍔 Alimentação/Delivery  ⛽ Transporte  👔 Vestuário  🎁 Presentes
+💇 Beleza/Cuidados  🐕 Pets  ✈️ Viagens  🔧 Manutenção
+
 FLUXO NATURAL:
 1️⃣ Abra com impacto (insight, provocação ou conexão emocional)
 2️⃣ Desenvolva em blocos curtos separados por linha em branco
