@@ -104,6 +104,15 @@ function PageLoader() {
 function AppRoutes() {
   useGlobalChatShortcut();
   
+  useEffect(() => {
+    const handler = (event: PromiseRejectionEvent) => {
+      console.error("Unhandled rejection:", event.reason);
+      event.preventDefault();
+    };
+    window.addEventListener("unhandledrejection", handler);
+    return () => window.removeEventListener("unhandledrejection", handler);
+  }, []);
+  
   return (
     <>
       <Suspense fallback={<PageLoader />}>

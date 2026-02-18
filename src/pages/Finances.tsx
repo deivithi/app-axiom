@@ -996,7 +996,7 @@ export default function Finances() {
                   </div>
                   <div className="space-y-2">
                     <Label>Categoria</Label>
-                    <Select value={newTransaction.category} onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}>
+                    <Select value={newTransaction.category || undefined} onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}>
                       <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                       <SelectContent>
                         {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
@@ -1007,7 +1007,7 @@ export default function Finances() {
                   </div>
                   <div className="space-y-2">
                     <Label>Forma de Pagamento</Label>
-                    <Select value={newTransaction.payment_method} onValueChange={v => setNewTransaction(prev => ({ ...prev, payment_method: v }))}>
+                    <Select value={newTransaction.payment_method || undefined} onValueChange={v => setNewTransaction(prev => ({ ...prev, payment_method: v }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {PAYMENT_METHODS.map(pm => (
@@ -1168,7 +1168,7 @@ export default function Finances() {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label>Conta de Origem</Label>
-                        <Select value={newTransfer.fromAccountId} onValueChange={v => setNewTransfer(prev => ({ ...prev, fromAccountId: v }))}>
+                        <Select value={newTransfer.fromAccountId || undefined} onValueChange={v => setNewTransfer(prev => ({ ...prev, fromAccountId: v }))}>
                           <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                           <SelectContent>
                             {accounts.map(acc => (
@@ -1181,7 +1181,7 @@ export default function Finances() {
                       </div>
                       <div className="space-y-2">
                         <Label>Conta de Destino</Label>
-                        <Select value={newTransfer.toAccountId} onValueChange={v => setNewTransfer(prev => ({ ...prev, toAccountId: v }))}>
+                        <Select value={newTransfer.toAccountId || undefined} onValueChange={v => setNewTransfer(prev => ({ ...prev, toAccountId: v }))}>
                           <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                           <SelectContent>
                             {accounts.filter(a => a.id !== newTransfer.fromAccountId).map(acc => (
