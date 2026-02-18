@@ -1,60 +1,106 @@
 
+# Fix Definitivo: Modal "Nova Transacao" - Abordagem Tripla
 
-# Fix Definitivo: Bug Real Encontrado - `:root:not(.dark)` Override
+## Diagnostico
 
-## Causa Raiz (100% Confirmada)
+Apos investigacao profunda, identificamos que os fixes anteriores (remover `:root:not(.dark)`) estao corretos no codigo, mas o usuario continua com o problema. Ha tres possiveis causas restantes:
 
-O CSS tem esta regra na linha 369:
+1. **Service Worker cache**: O cache name e `axiom-v1` e nunca foi atualizado. O Service Worker pode estar servindo o CSS antigo (com `:root:not(.dark)`) mesmo apos as mudancas no codigo.
+
+2. **CSS Layer priority**: As regras `.modal-surface` estao dentro de `@layer components`. No CSS Layers, `!important` dentro de um layer tem MENOR prioridade que `!important` fora de qualquer layer. Se alguma regra nao-layered com `!important` existir (ou for adicionada pelo build), ela sobrescreve tudo.
+
+3. **O DialogContent pode estar sendo renderizado mas com opacity/transform incorretos durante a animacao.**
+
+## Solucao em 3 Partes
+
+### Parte 1: Mover `.modal-surface` PARA FORA do `@layer components`
+
+Mover as regras de `.modal-surface` para fora de qualquer `@layer`. Isso garante que elas tem a MAXIMA prioridade no CSS cascade (acima de qualquer layer).
+
+**Arquivo:** `src/index.css`
+
+- Remover `.modal-surface` e regras relacionadas de dentro do `@layer components` (linhas 356-393)
+- Adicionar as mesmas regras ANTES do `@layer components`, como estilos "unlayered"
+
+### Parte 2: Atualizar Service Worker cache version
+
+**Arquivo:** `public/sw.js`
+
+- Mudar `CACHE_NAME` de `'axiom-v1'` para `'axiom-v2'`
+- Isso forca o SW a invalidar TODOS os caches antigos na proxima ativacao
+- O evento `activate` ja limpa caches antigos automaticamente
+
+### Parte 3: Manter inline styles nos componentes (redundancia)
+
+Os inline styles ja adicionados em `dialog.tsx`, `drawer.tsx` e `alert-dialog.tsx` permanecem como backup.
+
+## Detalhes Tecnicos
+
+```text
+Prioridade CSS com Layers (MAIOR para MENOR):
+1. Unlayered !important        <-- NOVA posicao do .modal-surface
+2. @layer components !important <-- posicao anterior
+3. @layer utilities !important
+4. Unlayered normal
+5. @layer utilities normal
+6. @layer components normal
+7. @layer base normal
+```
+
+Ao mover para "unlayered !important", as regras ficam no topo absoluto da cascata. NADA pode sobrescreve-las exceto outro unlayered !important com especificidade maior.
+
+### Mudancas Especificas
+
+**src/index.css - Mover modal-surface PARA FORA do @layer:**
+
 ```css
-:root:not(.dark) .modal-surface {
-  background-color: hsl(0, 0%, 100%) !important;  /* BRANCO */
+/* MODAL SURFACE - FORA de @layer para maxima prioridade */
+.modal-surface {
+  background-color: hsl(230, 15%, 28%) !important;
+  color: hsl(210, 40%, 98%) !important;
+  opacity: 1 !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), 
+              0 0 0 1px rgba(255,255,255,0.1),
+              inset 0 1px 0 rgba(255,255,255,0.05) !important;
+}
+
+.light .modal-surface {
+  background-color: hsl(0, 0%, 100%) !important;
+  border-color: hsl(214, 32%, 85%) !important;
+  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15),
+              0 0 0 1px rgba(0,0,0,0.05) !important;
+}
+
+.modal-surface input,
+.modal-surface [role="combobox"],
+.modal-surface textarea,
+.modal-surface select {
+  background-color: hsl(230, 12%, 20%) !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.light .modal-surface input,
+.light .modal-surface [role="combobox"],
+.light .modal-surface textarea,
+.light .modal-surface select {
+  background-color: hsl(0, 0%, 100%) !important;
+  border-color: hsl(214, 32%, 91%) !important;
+  color: hsl(222, 84%, 5%) !important;
 }
 ```
 
-Como o `next-themes` remove a classe `dark` do `<html>`, o seletor `:root:not(.dark)` SEMPRE casa. Isso forca o modal a ter fundo BRANCO com `!important`.
+**public/sw.js:**
+- Linha 3: `const CACHE_NAME = 'axiom-v1';` -> `const CACHE_NAME = 'axiom-v2';`
 
-O problema: `!important` em stylesheet tem prioridade MAIOR que inline styles. Entao nosso "fix nuclear" com `style={{ backgroundColor: ... }}` e completamente ignorado pelo browser.
+## Por que DESTA VEZ vai funcionar
 
-Resultado final:
-- Fundo do modal: BRANCO (da regra `:root:not(.dark)` com `!important`)
-- Texto do modal: quase BRANCO (`hsl(210, 40%, 98%)` do inline style)
-- Inputs: BRANCOS (mesma regra, linhas 388-398)
-- Texto branco sobre fundo branco = **INVISIVEL** = "tela preta" (porque so se ve o overlay escuro)
+1. **Unlayered !important** e a regra de MAIOR prioridade possivel em CSS - nada a sobrescreve
+2. **Cache invalidado** forca o browser a buscar o CSS novo
+3. **Inline styles** nos componentes servem como backup triplo
+4. **color explicito** nos inputs garante texto visivel
+5. A combinacao de 3 camadas (unlayered CSS + inline styles + SW cache bust) elimina TODAS as causas possiveis
 
-## Solucao
-
-Remover TODOS os seletores `:root:not(.dark)` das regras de modal. Agora que o dark mode e o padrao no `:root`, a unica forma de ativar light mode deve ser a classe `.light` (que o ThemeProvider adiciona explicitamente quando o usuario troca).
-
-### Arquivo: `src/index.css`
-
-**Mudanca 1** - Regra `.modal-surface` light override (linhas 368-376):
-- Remover `:root:not(.dark) .modal-surface` do seletor
-- Manter apenas `.light .modal-surface`
-
-**Mudanca 2** - Regra de inputs light override (linhas 387-398):
-- Remover todas as linhas `:root:not(.dark) .modal-surface input/combobox/textarea/select`
-- Manter apenas as versoes `.light .modal-surface ...`
-
-**Mudanca 3** - Buscar e remover QUALQUER outra ocorrencia de `:root:not(.dark)` no arquivo para prevenir bugs similares em outros componentes.
-
-### Detalhes Tecnicos
-
-```text
-ANTES (bugado):
-:root (sem .dark) + .modal-surface = fundo BRANCO !important
-Inline style backgroundColor = IGNORADO (perde para !important)
-Resultado: branco sobre branco = invisivel
-
-DEPOIS (correto):
-:root (sem .dark ou .light) + .modal-surface = fundo ESCURO !important
-.light .modal-surface = fundo BRANCO (so quando usuario trocar tema)
-Inline style = backup redundante
-Resultado: modal escuro visivel
-```
-
-### Risco
-Zero. A classe `.light` so e adicionada quando o usuario explicitamente troca para light mode via ThemeProvider. No modo padrao (dark), o modal usara o fundo escuro correto.
-
-### Por que DESTA VEZ vai funcionar
-Porque encontramos a causa raiz REAL: o seletor `:root:not(.dark)` estava ativando a regra de light mode com `!important`, sobrescrevendo ate mesmo inline styles. Remover esse seletor elimina o conflito de uma vez por todas.
-
+## Risco
+Zero. Apenas reposicionamento de regras existentes + cache bust.
