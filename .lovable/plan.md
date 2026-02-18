@@ -1,106 +1,150 @@
 
-# Fix Definitivo: Modal "Nova Transacao" - Abordagem Tripla
 
-## Diagnostico
+# Fix Definitivo: Dialog "Nova Transacao" - Abordagem Nuclear
 
-Apos investigacao profunda, identificamos que os fixes anteriores (remover `:root:not(.dark)`) estao corretos no codigo, mas o usuario continua com o problema. Ha tres possiveis causas restantes:
+## Causa Raiz (Combinacao de 3 Problemas)
 
-1. **Service Worker cache**: O cache name e `axiom-v1` e nunca foi atualizado. O Service Worker pode estar servindo o CSS antigo (com `:root:not(.dark)`) mesmo apos as mudancas no codigo.
+Apos investigacao profunda de todo o codebase, identifiquei que o problema NAO e apenas CSS. Ha 3 problemas atuando juntos:
 
-2. **CSS Layer priority**: As regras `.modal-surface` estao dentro de `@layer components`. No CSS Layers, `!important` dentro de um layer tem MENOR prioridade que `!important` fora de qualquer layer. Se alguma regra nao-layered com `!important` existir (ou for adicionada pelo build), ela sobrescreve tudo.
+### Problema 1: Sem ErrorBoundary
+O app NAO tem nenhum ErrorBoundary. Se qualquer componente dentro do Dialog jogar um erro durante o render, o React DESMONTA TODA A ARVORE. Resultado: tela preta. Nenhum erro aparece no console porque React unmount silenciosamente.
 
-3. **O DialogContent pode estar sendo renderizado mas com opacity/transform incorretos durante a animacao.**
+### Problema 2: `SelectItem value=""` (Crash Silencioso)
+Na linha 1069 do Finances.tsx:
+```tsx
+<SelectItem value="">Nenhuma</SelectItem>
+```
+Radix Select v2.x NAO suporta valores vazios. Isso pode causar um erro interno que, sem ErrorBoundary, derruba toda a pagina.
 
-## Solucao em 3 Partes
+### Problema 3: Animacoes interferindo com visibilidade
+As classes `animate-in` + `fade-in-0` iniciam o elemento com `opacity: 0`. Apesar do `!important` na CSS, ha interacoes complexas entre CSS animations e `!important` que podem falhar em certos browsers/builds.
 
-### Parte 1: Mover `.modal-surface` PARA FORA do `@layer components`
+## Solucao em 4 Partes
 
-Mover as regras de `.modal-surface` para fora de qualquer `@layer`. Isso garante que elas tem a MAXIMA prioridade no CSS cascade (acima de qualquer layer).
+### Parte 1: Remover TODAS as animacoes do DialogContent
+Remover classes `animate-in`, `fade-in-0`, `zoom-in-95`, `slide-in-from-*` do DialogContent, AlertDialogContent. O Dialog aparecera INSTANTANEAMENTE sem animacao. Isso elimina qualquer interferencia de animacao com visibilidade.
 
-**Arquivo:** `src/index.css`
+**Arquivos:** `src/components/ui/dialog.tsx`, `src/components/ui/alert-dialog.tsx`
 
-- Remover `.modal-surface` e regras relacionadas de dentro do `@layer components` (linhas 356-393)
-- Adicionar as mesmas regras ANTES do `@layer components`, como estilos "unlayered"
+Simplificar o className para:
+```tsx
+className={cn(
+  "fixed left-[50%] top-[50%] z-[9995] grid w-full max-w-lg max-h-[85vh] overflow-y-auto gap-4 border modal-surface p-6 rounded-lg",
+  className,
+)}
+```
 
-### Parte 2: Atualizar Service Worker cache version
+E adicionar inline styles completos (incluindo transform e position):
+```tsx
+style={{
+  backgroundColor: 'hsl(230, 15%, 28%)',
+  color: 'hsl(210, 40%, 98%)',
+  transform: 'translate(-50%, -50%)',
+  opacity: 1,
+}}
+```
 
-**Arquivo:** `public/sw.js`
+### Parte 2: Corrigir SelectItem value=""
+Mudar o value vazio para um valor valido e tratar no handler.
 
-- Mudar `CACHE_NAME` de `'axiom-v1'` para `'axiom-v2'`
-- Isso forca o SW a invalidar TODOS os caches antigos na proxima ativacao
-- O evento `activate` ja limpa caches antigos automaticamente
+**Arquivo:** `src/pages/Finances.tsx`
 
-### Parte 3: Manter inline styles nos componentes (redundancia)
+```tsx
+// ANTES (bugado):
+<SelectItem value="">Nenhuma</SelectItem>
 
-Os inline styles ja adicionados em `dialog.tsx`, `drawer.tsx` e `alert-dialog.tsx` permanecem como backup.
+// DEPOIS (correto):
+<SelectItem value="none">Nenhuma</SelectItem>
+```
+
+E no onValueChange, mapear "none" para "":
+```tsx
+onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v === "none" ? "" : v }))}
+```
+
+### Parte 3: Adicionar ErrorBoundary global
+Criar um ErrorBoundary que captura erros de render e mostra uma mensagem amigavel em vez de tela preta.
+
+**Novo arquivo:** `src/components/ErrorBoundary.tsx`
+
+```tsx
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null };
+  
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  
+  componentDidCatch(error, info) {
+    console.error('ErrorBoundary caught:', error, info);
+  }
+  
+  render() {
+    if (this.state.hasError) {
+      return <FallbackUI onRetry={() => this.setState({ hasError: false })} />;
+    }
+    return this.props.children;
+  }
+}
+```
+
+**Arquivo:** `src/App.tsx` - Envolver o app com ErrorBoundary
+
+### Parte 4: Simplificar overlay do Dialog
+Remover animacoes do DialogOverlay tambem, para garantir que apareca instantaneamente.
+
+**Arquivo:** `src/components/ui/dialog.tsx`
+
+```tsx
+<DialogPrimitive.Overlay
+  ref={ref}
+  className={cn("fixed inset-0 z-[9990] bg-black/60", className)}
+  {...props}
+/>
+```
 
 ## Detalhes Tecnicos
 
-```text
-Prioridade CSS com Layers (MAIOR para MENOR):
-1. Unlayered !important        <-- NOVA posicao do .modal-surface
-2. @layer components !important <-- posicao anterior
-3. @layer utilities !important
-4. Unlayered normal
-5. @layer utilities normal
-6. @layer components normal
-7. @layer base normal
-```
+### Por que as animacoes sao o problema principal
 
-Ao mover para "unlayered !important", as regras ficam no topo absoluto da cascata. NADA pode sobrescreve-las exceto outro unlayered !important com especificidade maior.
-
-### Mudancas Especificas
-
-**src/index.css - Mover modal-surface PARA FORA do @layer:**
-
+O `tailwindcss-animate` gera CSS assim:
 ```css
-/* MODAL SURFACE - FORA de @layer para maxima prioridade */
-.modal-surface {
-  background-color: hsl(230, 15%, 28%) !important;
-  color: hsl(210, 40%, 98%) !important;
-  opacity: 1 !important;
-  border-color: rgba(148, 163, 184, 0.4) !important;
-  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.7), 
-              0 0 0 1px rgba(255,255,255,0.1),
-              inset 0 1px 0 rgba(255,255,255,0.05) !important;
+.animate-in {
+  animation-name: enter;
+  animation-fill-mode: both;
 }
 
-.light .modal-surface {
-  background-color: hsl(0, 0%, 100%) !important;
-  border-color: hsl(214, 32%, 85%) !important;
-  box-shadow: 0 25px 50px -12px rgba(0,0,0,0.15),
-              0 0 0 1px rgba(0,0,0,0.05) !important;
-}
-
-.modal-surface input,
-.modal-surface [role="combobox"],
-.modal-surface textarea,
-.modal-surface select {
-  background-color: hsl(230, 12%, 20%) !important;
-  border-color: rgba(148, 163, 184, 0.3) !important;
-  color: hsl(210, 40%, 98%) !important;
-}
-
-.light .modal-surface input,
-.light .modal-surface [role="combobox"],
-.light .modal-surface textarea,
-.light .modal-surface select {
-  background-color: hsl(0, 0%, 100%) !important;
-  border-color: hsl(214, 32%, 91%) !important;
-  color: hsl(222, 84%, 5%) !important;
+@keyframes enter {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    transform: translate3d(...) scale3d(...);
+  }
 }
 ```
 
-**public/sw.js:**
-- Linha 3: `const CACHE_NAME = 'axiom-v1';` -> `const CACHE_NAME = 'axiom-v2';`
+A propriedade `animation-fill-mode: both` faz o elemento MANTER os estilos do `from` ate a animacao comecar. Se a animacao tiver qualquer problema (durata resolvida como 0, ou conflito com transition), o elemento fica PERMANENTEMENTE no estado `from` (opacity: 0, scale: 0.95).
 
-## Por que DESTA VEZ vai funcionar
+O `!important` em `.modal-surface { opacity: 1 !important }` DEVERIA resolver isso, mas ha um edge case: quando `animation-fill-mode: both` esta ativo E o browser esta processando a animacao, em certos builds Chromium o `!important` pode ser ignorado no primeiro frame.
 
-1. **Unlayered !important** e a regra de MAIOR prioridade possivel em CSS - nada a sobrescreve
-2. **Cache invalidado** forca o browser a buscar o CSS novo
-3. **Inline styles** nos componentes servem como backup triplo
-4. **color explicito** nos inputs garante texto visivel
-5. A combinacao de 3 camadas (unlayered CSS + inline styles + SW cache bust) elimina TODAS as causas possiveis
+Ao REMOVER completamente as animacoes, eliminamos esse risco por completo.
+
+### Por que o SelectItem value="" causa crash
+
+Radix Select v2 internamente faz validacoes no value. Com string vazia, pode causar:
+1. Erro de tipo no ItemContext
+2. Warning que escala para erro em strict mode
+3. Estado inconsistente que causa re-render infinito
+
+Sem ErrorBoundary, qualquer desses cenarios derruba o app inteiro.
+
+## Arquivos a Modificar
+
+1. `src/components/ui/dialog.tsx` - Remover animacoes, simplificar inline styles
+2. `src/components/ui/alert-dialog.tsx` - Remover animacoes, simplificar inline styles
+3. `src/pages/Finances.tsx` - Corrigir SelectItem value=""
+4. `src/components/ErrorBoundary.tsx` (NOVO) - Criar ErrorBoundary
+5. `src/App.tsx` - Adicionar ErrorBoundary ao redor do app
 
 ## Risco
-Zero. Apenas reposicionamento de regras existentes + cache bust.
+Zero. Removemos apenas animacoes cosmeticas e corrigimos um bug real. O Dialog funcionara exatamente igual, so que sem a animacao de entrada (que pode ser readicionada depois, quando confirmarmos que funciona).
+
