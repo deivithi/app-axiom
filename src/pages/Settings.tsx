@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { exportUserData, downloadUserData, importUserData, ExportData } from "@/lib/exportUserData";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import PageErrorBoundary from '@/components/PageErrorBoundary';
 
 type PersonalityMode = "direto" | "sabio" | "parceiro";
 
@@ -23,7 +24,7 @@ interface ScheduledDeletion {
   confirmed: boolean;
 }
 
-export default function Settings() {
+function SettingsContent() {
   const { user } = useAuth();
   const networkStatus = useNetworkStatus();
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -53,7 +54,8 @@ export default function Settings() {
       const data = await exportUserData(user.id);
       downloadUserData(data, `axiom-dados-${new Date().toISOString().split('T')[0]}.json`);
       toast.success("Dados exportados com sucesso! 📦");
-    } catch {
+    } catch (error) {
+      console.error('[Settings] Erro em handleExportData:', error);
       toast.error("Erro ao exportar dados");
     } finally {
       setIsExporting(false);
@@ -80,13 +82,13 @@ export default function Settings() {
       
       if (result.success) {
         toast.success(`${result.total} itens restaurados com sucesso! 🔄`);
-        loadProfile(); // Reload profile data
+        loadProfile();
       } else {
         toast.error(`Restauração parcial: ${result.errors.length} erros`);
         console.error('[Import] Errors:', result.errors);
       }
     } catch (error) {
-      console.error('[Import] Parse error:', error);
+      console.error('[Settings] Erro em handleImportData:', error);
       toast.error("Arquivo inválido ou corrompido");
     } finally {
       setIsImporting(false);
@@ -107,47 +109,59 @@ export default function Settings() {
 
   const loadScheduledDeletion = async () => {
     if (!user) return;
-    
-    const { data } = await supabase
-      .from("scheduled_deletions")
-      .select("id, scheduled_for, status, confirmed")
-      .eq("user_id", user.id)
-      .in("status", ["pending", "confirmed"])
-      .maybeSingle();
-    
-    setScheduledDeletion(data);
+    try {
+      const { data } = await supabase
+        .from("scheduled_deletions")
+        .select("id, scheduled_for, status, confirmed")
+        .eq("user_id", user.id)
+        .in("status", ["pending", "confirmed"])
+        .maybeSingle();
+      setScheduledDeletion(data);
+    } catch (error) {
+      console.error('[Settings] Erro em loadScheduledDeletion:', error);
+    }
   };
 
   const loadProfile = async () => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("full_name, user_context, avatar_url, personality_mode")
-      .eq("id", user?.id)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, user_context, avatar_url, personality_mode")
+        .eq("id", user?.id)
+        .maybeSingle();
 
-    if (!error && data) {
-      setFullName(data.full_name || "");
-      setUserContext(data.user_context || "");
-      setAvatarUrl(data.avatar_url || null);
-      setPersonalityMode((data.personality_mode as PersonalityMode) || "direto");
+      if (!error && data) {
+        setFullName(data.full_name || "");
+        setUserContext(data.user_context || "");
+        setAvatarUrl(data.avatar_url || null);
+        setPersonalityMode((data.personality_mode as PersonalityMode) || "direto");
+      }
+    } catch (error) {
+      console.error('[Settings] Erro em loadProfile:', error);
+      toast.error("Erro ao carregar perfil");
     }
     setLoading(false);
   };
 
   const updatePersonalityMode = async (mode: PersonalityMode) => {
     setSavingMode(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ personality_mode: mode })
-      .eq("id", user?.id);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ personality_mode: mode })
+        .eq("id", user?.id);
 
-    if (error) {
-      toast.error("Erro ao alterar modo de personalidade");
-    } else {
-      setPersonalityMode(mode);
-      const modeNames = { direto: "Direto 🎯", sabio: "Sábio 🧘", parceiro: "Parceiro 🤝" };
-      toast.success(`Modo alterado para ${modeNames[mode]}`);
+      if (error) {
+        toast.error("Erro ao alterar modo de personalidade");
+      } else {
+        setPersonalityMode(mode);
+        const modeNames = { direto: "Direto 🎯", sabio: "Sábio 🧘", parceiro: "Parceiro 🤝" };
+        toast.success(`Modo alterado para ${modeNames[mode]}`);
+      }
+    } catch (error) {
+      console.error('[Settings] Erro em updatePersonalityMode:', error);
+      toast.error("Erro inesperado ao alterar modo");
     }
     setSavingMode(false);
   };
@@ -183,7 +197,8 @@ export default function Settings() {
 
       setAvatarUrl(urlWithTimestamp);
       toast.success("Foto atualizada! 📸");
-    } catch {
+    } catch (error) {
+      console.error('[Settings] Erro em handleAvatarUpload:', error);
       toast.error("Erro ao fazer upload da foto");
     }
 
@@ -194,7 +209,7 @@ export default function Settings() {
     if (!user) return;
 
     try {
-      const { error: deleteError } = await supabase.storage
+      await supabase.storage
         .from('avatars')
         .remove([`${user.id}/avatar.png`, `${user.id}/avatar.jpg`, `${user.id}/avatar.jpeg`, `${user.id}/avatar.webp`]);
 
@@ -207,22 +222,28 @@ export default function Settings() {
 
       setAvatarUrl(null);
       toast.success("Foto removida");
-    } catch {
+    } catch (error) {
+      console.error('[Settings] Erro em removeAvatar:', error);
       toast.error("Erro ao remover foto");
     }
   };
 
   const saveContext = async () => {
     setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({ user_context: userContext })
-      .eq("id", user?.id);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ user_context: userContext })
+        .eq("id", user?.id);
 
-    if (error) {
-      toast.error("Erro ao salvar contexto");
-    } else {
-      toast.success("Contexto salvo! O Axiom agora te conhece melhor 🧠");
+      if (error) {
+        toast.error("Erro ao salvar contexto");
+      } else {
+        toast.success("Contexto salvo! O Axiom agora te conhece melhor 🧠");
+      }
+    } catch (error) {
+      console.error('[Settings] Erro em saveContext:', error);
+      toast.error("Erro inesperado ao salvar contexto");
     }
     setSaving(false);
   };
@@ -236,7 +257,6 @@ export default function Settings() {
     setIsDeleting(true);
 
     try {
-      // Call edge function to send confirmation email and create scheduled deletion
       const { data, error } = await supabase.functions.invoke("send-deletion-confirmation", {
         body: {
           userId: user?.id,
@@ -251,7 +271,6 @@ export default function Settings() {
       setIsDeleteDialogOpen(false);
       setDeleteConfirmation("");
       
-      // Reload scheduled deletion status
       await loadScheduledDeletion();
     } catch (error) {
       console.error("[Settings] Deletion request error:", error);
@@ -277,7 +296,6 @@ export default function Settings() {
 
       if (error) throw error;
 
-      // Clear deletion_scheduled_for from profile
       await supabase
         .from("profiles")
         .update({ deletion_scheduled_for: null })
@@ -293,7 +311,6 @@ export default function Settings() {
     setIsCancellingDeletion(false);
   };
 
-  // Keep old function for immediate data clear (without account deletion)
   const deleteAllData = async () => {
     if (deleteConfirmation !== "EXCLUIR") {
       toast.error("Digite EXCLUIR para confirmar");
@@ -303,12 +320,8 @@ export default function Settings() {
     setIsDeleting(true);
 
     try {
-      // Delete from all tables - ordem importa por foreign keys
-      // Primeiro: tabelas filhas
       await supabase.from("habit_logs").delete().eq("user_id", user?.id);
       await supabase.from("project_tasks").delete().eq("user_id", user?.id);
-      
-      // Segundo: tabelas principais
       await supabase.from("transactions").delete().eq("user_id", user?.id);
       await supabase.from("accounts").delete().eq("user_id", user?.id);
       await supabase.from("habits").delete().eq("user_id", user?.id);
@@ -318,8 +331,6 @@ export default function Settings() {
       await supabase.from("journal_entries").delete().eq("user_id", user?.id);
       await supabase.from("messages").delete().eq("user_id", user?.id);
       await supabase.from("tasks").delete().eq("user_id", user?.id);
-      
-      // Tabelas que estavam faltando
       await supabase.from("memories").delete().eq("user_id", user?.id);
       await supabase.from("conversations").delete().eq("user_id", user?.id);
       await supabase.from("axiom_score_history").delete().eq("user_id", user?.id);
@@ -329,7 +340,6 @@ export default function Settings() {
       await supabase.from("proactive_questions").delete().eq("user_id", user?.id);
       await supabase.from("prompt_library").delete().eq("user_id", user?.id);
 
-      // Delete avatars from storage
       try {
         await supabase.storage
           .from('avatars')
@@ -338,7 +348,6 @@ export default function Settings() {
         // Silent fail on storage cleanup
       }
 
-      // Reset user profile (keep the profile, just clear context)
       await supabase
         .from("profiles")
         .update({ user_context: null, avatar_url: null })
@@ -349,7 +358,8 @@ export default function Settings() {
       setDeleteConfirmation("");
       setUserContext("");
       setAvatarUrl(null);
-    } catch {
+    } catch (error) {
+      console.error('[Settings] Erro em deleteAllData:', error);
       toast.error("Erro ao excluir dados");
     }
     
@@ -446,7 +456,6 @@ export default function Settings() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Direto */}
               <button
                 onClick={() => updatePersonalityMode("direto")}
                 disabled={savingMode}
@@ -465,7 +474,6 @@ export default function Settings() {
                 </p>
               </button>
 
-              {/* Sábio */}
               <button
                 onClick={() => updatePersonalityMode("sabio")}
                 disabled={savingMode}
@@ -484,7 +492,6 @@ export default function Settings() {
                 </p>
               </button>
 
-              {/* Parceiro */}
               <button
                 onClick={() => updatePersonalityMode("parceiro")}
                 disabled={savingMode}
@@ -683,11 +690,11 @@ export default function Settings() {
                 <p className="text-sm text-muted-foreground">
                   Sua conta será excluída em:{" "}
                   <strong className="text-foreground">
-                    {new Date(scheduledDeletion.scheduled_for).toLocaleDateString("pt-BR", {
+                    {scheduledDeletion.scheduled_for ? new Date(scheduledDeletion.scheduled_for).toLocaleDateString("pt-BR", {
                       day: "2-digit",
                       month: "long",
                       year: "numeric",
-                    })}
+                    }) : '--'}
                   </strong>
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -812,5 +819,13 @@ export default function Settings() {
         </Dialog>
       </div>
     </AppLayout>
+  );
+}
+
+export default function Settings() {
+  return (
+    <PageErrorBoundary pageName="Configurações">
+      <SettingsContent />
+    </PageErrorBoundary>
   );
 }
