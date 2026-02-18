@@ -13,6 +13,7 @@ import { ScoreCard } from '@/components/intelligence/ScoreCard';
 import { ScoreEvolutionChart } from '@/components/intelligence/ScoreEvolutionChart';
 import { AppleCard, MetricCard, ChartCard } from '@/components/ui/apple-card';
 import { formatCurrency } from '@/lib/utils';
+import PageErrorBoundary from '@/components/PageErrorBoundary';
 
 interface WeeklySummary {
   tasksCompleted: number;
@@ -51,7 +52,7 @@ interface UserAnalysis {
 
 const COLORS = ['hsl(var(--success))', 'hsl(var(--destructive))'];
 
-export default function Intelligence() {
+function IntelligenceContent() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<WeeklySummary | null>(null);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
@@ -85,22 +86,12 @@ export default function Intelligence() {
       const { error } = await supabase.functions.invoke('generate-weekly-report', {
         body: { trigger: 'manual', user_id: user?.id }
       });
-
       if (error) throw error;
-
-      toast({
-        title: "Relatório gerado! 📊",
-        description: "Seu primeiro insight semanal está pronto.",
-      });
-
+      toast({ title: "Relatório gerado! 📊", description: "Seu primeiro insight semanal está pronto." });
       await loadLastInsight();
     } catch (error) {
-      console.error('Error generating report:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível gerar o relatório.",
-      });
+      console.error('[Intelligence] Erro em generateFirstWeeklyReport:', error);
+      toast({ variant: "destructive", title: "Erro", description: "Não foi possível gerar o relatório." });
     } finally {
       setGeneratingFirstReport(false);
     }
@@ -129,8 +120,7 @@ export default function Intelligence() {
         .single();
 
       if (data) {
-        // Remove markdown formatting from content
-        const cleanContent = data.content
+        const cleanContent = (data.content || '')
           .replace(/\*\*/g, '')
           .replace(/---/g, '')
           .replace(/\n{3,}/g, '\n\n')
@@ -138,17 +128,13 @@ export default function Intelligence() {
         
         setLastInsight({
           content: cleanContent,
-          date: new Date(data.created_at).toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+          date: data.created_at ? new Date(data.created_at).toLocaleDateString('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+          }) : '--'
         });
       }
     } catch (error) {
-      // No insights yet
+      console.error('[Intelligence] Erro em loadLastInsight:', error);
     }
   };
 
@@ -165,8 +151,7 @@ export default function Intelligence() {
         .single();
 
       if (data) {
-        // Remove the marker and clean up the content
-        const cleanContent = data.content
+        const cleanContent = (data.content || '')
           .replace('🧠 Análise Pessoal\n\n', '')
           .replace(/\*\*/g, '')
           .replace(/---/g, '')
@@ -174,18 +159,14 @@ export default function Intelligence() {
         
         setUserAnalysis({
           content: cleanContent,
-          date: new Date(data.created_at).toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          })
+          date: data.created_at ? new Date(data.created_at).toLocaleDateString('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+          }) : '--'
         });
         setAiInsight(cleanContent);
       }
     } catch (error) {
-      // No analysis yet
+      console.error('[Intelligence] Erro em loadUserAnalysis:', error);
     }
   };
 
@@ -195,12 +176,11 @@ export default function Intelligence() {
       const response = await supabase.functions.invoke('calculate-score', {
         body: { userId: user?.id, saveHistory: true }
       });
-      
       if (response.data) {
         setScoreBreakdown(response.data);
       }
     } catch (error) {
-      console.error('Error loading score:', error);
+      console.error('[Intelligence] Erro em loadScore:', error);
     }
     setLoadingScore(false);
   };
@@ -220,19 +200,19 @@ export default function Intelligence() {
       
       setScoreHistory(data || []);
     } catch (error) {
-      console.error('Error loading score history:', error);
+      console.error('[Intelligence] Erro em loadScoreHistory:', error);
     }
   };
 
   const loadSummary = async () => {
     setLoading(true);
-    const now = new Date();
-    const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const weekEnd = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-    const monthStart = format(startOfMonth(now), 'yyyy-MM-dd');
-    const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd');
-
     try {
+      const now = new Date();
+      const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const weekEnd = format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      const monthStart = format(startOfMonth(now), 'yyyy-MM-dd');
+      const monthEnd = format(endOfMonth(now), 'yyyy-MM-dd');
+
       const { data: tasks } = await supabase
         .from('tasks')
         .select('status')
@@ -290,7 +270,8 @@ export default function Intelligence() {
         journalEntries: journal?.length || 0,
       });
     } catch (error) {
-      console.error('Error loading summary:', error);
+      console.error('[Intelligence] Erro em loadSummary:', error);
+      toast({ title: 'Erro', description: 'Erro ao carregar resumo', variant: 'destructive' });
     }
     setLoading(false);
   };
@@ -298,7 +279,6 @@ export default function Intelligence() {
   const generateWeeklyInsight = async () => {
     if (!summary) return;
     setGeneratingInsight(true);
-
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -338,7 +318,6 @@ export default function Intelligence() {
         const insights = response.data.insights;
         setAiInsight(insights);
         
-        // Persist the analysis in the database (not in chat)
         await supabase.from('messages').insert({
           user_id: user?.id,
           content: `🧠 Análise Pessoal\n\n${insights}`,
@@ -346,22 +325,17 @@ export default function Intelligence() {
           message_type: 'personal_analysis'
         });
 
-        // Update local state with the new analysis
         setUserAnalysis({
           content: insights,
           date: new Date().toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
           })
         });
         
         toast({ title: '✨ Análise gerada!', description: 'Axiom analisou sua semana' });
       }
     } catch (error) {
-      console.error('Error generating insight:', error);
+      console.error('[Intelligence] Erro em generateWeeklyInsight:', error);
       toast({ title: 'Erro', description: 'Erro ao gerar análise', variant: 'destructive' });
     }
     setGeneratingInsight(false);
@@ -406,7 +380,7 @@ export default function Intelligence() {
             <div className="stats-grid-apple">
               <MetricCard
                 label="Tarefas"
-                value={`${summary?.tasksCompleted}/${summary?.tasksTotal}`}
+                value={`${summary?.tasksCompleted ?? 0}/${summary?.tasksTotal ?? 0}`}
                 icon={<CheckSquare className="h-5 w-5 text-primary" />}
                 color="info"
                 interactive
@@ -415,7 +389,7 @@ export default function Intelligence() {
 
               <MetricCard
                 label="Hábitos"
-                value={`${summary?.habitsCompleted}/${summary?.habitsTotal}`}
+                value={`${summary?.habitsCompleted ?? 0}/${summary?.habitsTotal ?? 0}`}
                 icon={<Target className="h-5 w-5 text-amber-500" />}
                 color="warning"
                 interactive
@@ -612,5 +586,13 @@ export default function Intelligence() {
         )}
       </div>
     </AppLayout>
+  );
+}
+
+export default function Intelligence() {
+  return (
+    <PageErrorBoundary pageName="Inteligência">
+      <IntelligenceContent />
+    </PageErrorBoundary>
   );
 }
