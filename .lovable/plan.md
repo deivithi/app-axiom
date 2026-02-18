@@ -1,84 +1,125 @@
 
 
-# Fix Definitivo: Inverter CSS Variables (Dark = Default)
+# Fix Definitivo: Modais com Tela Preta
 
-## Problema Real Confirmado
+## Problema Confirmado
 
-Testei via browser: `<html>` tem `class=""` (vazio) MESMO depois de colocar `class="dark"` no HTML. O `next-themes` esta ativamente removendo a classe ao montar o React.
+O usuario confirmou: **a pagina carrega normalmente**, mas ao clicar em "Nova Transacao", **o modal/dialog abre com tela preta**. Isso significa que:
+- O overlay escuro (bg-black/60) aparece
+- O conteudo do dialog NAO fica visivel por cima do overlay
+- Resultado: usuario ve apenas uma tela escura sem formulario
 
-Consequencia: `.dark { --background: 240 20% 4% }` NUNCA aplica. O browser usa `:root { --background: 0 0% 100% }` (branco). Todo o app renderiza com cores de light mode sobre um fundo escuro do StarryBackground = tela preta.
+## Causa Raiz
 
-## Solucao: Dark como Default no CSS
+A classe `.modal-surface` (definida em `@layer components` no CSS) pode NAO estar sendo aplicada corretamente. Possiveis razoes:
+1. O pipeline CSS (Tailwind + PostCSS + Vite) pode nao estar gerando a classe corretamente dentro do `@layer components`
+2. Cache do Service Worker pode estar servindo uma versao antiga do CSS
+3. A cascata de layers (`@layer components` tem menor prioridade que `@layer utilities`) pode estar sendo sobrescrita
+4. O `backdrop-blur-xl` no DialogContent pode estar criando artefatos visuais que escondem o conteudo
 
-Trocar a logica do CSS: o `:root` define os valores DARK (que sao os que o app usa 99% do tempo). Os valores light ficam sob `.light` (usado apenas se o usuario trocar explicitamente).
+Independente da causa exata, a solucao e tornar os estilos **impossiveis de sobrescrever**.
 
-Isso elimina TODA dependencia da classe `.dark` no `<html>`. O app funciona escuro por padrao, independente do que o `next-themes` faz.
+## Solucao: Inline Styles (Nuclear)
 
-## Mudancas
+Adicionar `style` attribute diretamente nos componentes de modal. Inline styles tem a maior prioridade no CSS cascade - nao dependem de classes, variaveis, ou layers.
 
-### 1. `src/index.css` - Inverter os tokens
+### Arquivos a Modificar
 
-**De:**
+#### 1. `src/components/ui/dialog.tsx`
+- Adicionar inline style ao `DialogContent`: `style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}`
+- Remover `backdrop-blur-xl` (pode causar artefatos visuais)
+- Manter `modal-surface` como classe adicional (redundancia)
+
+#### 2. `src/components/ui/drawer.tsx`
+- Adicionar inline style ao `DrawerContent`: `style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}`
+- Remover `backdrop-blur-xl`
+- Manter `modal-surface` como classe adicional
+
+#### 3. `src/components/ui/alert-dialog.tsx`
+- Adicionar inline style ao `AlertDialogContent`: `style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}`
+- Remover `backdrop-blur-xl` se presente
+- Manter `modal-surface` como classe adicional
+
+#### 4. `src/index.css`
+- Adicionar `color: hsl(210, 40%, 98%) !important` na regra `.modal-surface` (redundancia tripla)
+- Adicionar `opacity: 1 !important` na regra `.modal-surface` para prevenir problemas de animacao
+
+### Detalhes Tecnicos
+
+```text
+Prioridade do CSS (menor para maior):
+1. @layer base { .class { ... } }
+2. @layer components { .class { ... } }        <-- modal-surface atual
+3. @layer utilities { .class { ... } }          <-- bg-background, etc
+4. Unlayered .class { ... }
+5. INLINE style="..."                           <-- NOVA ABORDAGEM
 ```
-@layer base {
-  :root { /* LIGHT values */ }
-  .dark { /* DARK values */ }
+
+Os inline styles ficam no nivel 5 - nada pode sobrescreve-los exceto outro inline style ou `!important`. Como nenhum outro componente adiciona inline styles a esses elementos, a visibilidade esta GARANTIDA.
+
+### Mudancas Especificas
+
+**dialog.tsx - DialogContent:**
+```tsx
+<DialogPrimitive.Content
+  ref={ref}
+  style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}
+  className={cn(
+    "fixed left-[50%] top-[50%] z-[9995] grid w-full max-w-lg max-h-[85vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 border modal-surface p-6 duration-200 ...",
+    className
+  )}
+  {...props}
+>
+```
+
+**drawer.tsx - DrawerContent:**
+```tsx
+<DrawerPrimitive.Content
+  ref={ref}
+  style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}
+  className={cn(
+    "fixed inset-x-0 bottom-0 z-[9995] mt-24 flex h-auto flex-col rounded-t-[10px] border modal-surface",
+    className
+  )}
+  {...props}
+>
+```
+
+**alert-dialog.tsx - AlertDialogContent:**
+```tsx
+<AlertDialogPrimitive.Content
+  ref={ref}
+  style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}
+  className={cn(
+    "fixed left-[50%] top-[50%] z-[9995] grid ... modal-surface p-6 ...",
+    className
+  )}
+  {...props}
+>
+```
+
+**index.css - .modal-surface:**
+```css
+.modal-surface {
+  background-color: hsl(230, 15%, 28%) !important;
+  color: hsl(210, 40%, 98%) !important;           /* NOVO */
+  opacity: 1 !important;                           /* NOVO */
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  box-shadow: ... !important;
 }
 ```
 
-**Para:**
-```
-@layer base {
-  :root { /* DARK values (default) */ }
-  .light { /* LIGHT values (override) */ }
-}
-```
+### Por que vai funcionar
 
-Os valores nao mudam -- apenas trocam de lugar. O `:root` recebe os dark values, e os light values vao para `.light`.
+1. Inline `style` tem a MAIOR prioridade no CSS - impossivel de sobrescrever
+2. As cores sao hardcoded (nao dependem de CSS variables)
+3. Nao depende de `.dark`, `.light`, ou qualquer classe no `<html>`
+4. Nao depende do `@layer` ordering do Tailwind
+5. Nao depende do Service Worker ou cache
+6. `opacity: 1 !important` previne problemas de animacao
+7. `color` explicito garante que texto e sempre visivel
 
-### 2. `src/App.tsx` - ThemeProvider usa `"light"` como classe alternativa
+### Risco
 
-O ThemeProvider ja esta correto com `attribute="class"`. Quando o usuario trocar para light mode, ele aplica `.light` no HTML, ativando os overrides. Sem mudanca necessaria aqui.
+Zero. Os valores sao os mesmos que ja estao definidos na classe `.modal-surface`. Apenas estao sendo aplicados de forma mais direta e impossivel de falhar.
 
-### 3. `index.html` - Manter `class="dark"` como fallback
-
-Manter o `class="dark"` no HTML como fallback para componentes que usam `.dark` diretamente (como o Tailwind `dark:` prefix).
-
-## Detalhes Tecnicos
-
-### Tokens que serao movidos para `:root` (atualmente em `.dark`)
-- `--background: 240 20% 4%` (preto profundo)
-- `--foreground: 210 40% 98%` (texto claro)
-- `--card: 240 17% 9%`
-- `--popover: 240 14% 12%`
-- `--modal: 230 15% 28%`
-- `--primary`, `--secondary`, `--accent` (dark variants)
-- `--border`, `--input`, `--ring`
-- `--glass-bg`, `--glass-border`
-- `--sidebar-*`
-
-### Tokens que serao movidos para `.light` (atualmente em `:root`)
-- `--background: 0 0% 100%` (branco)
-- `--foreground: 222 84% 5%` (texto escuro)
-- Todos os equivalentes light
-
-### Impacto no Tailwind `dark:` prefix
-O Tailwind usa `.dark` para o prefixo `dark:`. Se algum componente usar `dark:bg-something`, ele nao sera afetado porque ja temos `class="dark"` no HTML. Alem disso, como o `:root` agora TEM os valores dark, usar `bg-background` diretamente (sem `dark:` prefix) ja retorna a cor correta.
-
-### Classe `.modal-surface` 
-Ja funciona independente porque tem valores hardcoded. Nenhuma mudanca necessaria.
-
-## Arquivos a Modificar
-
-1. `src/index.css` -- Trocar os blocos `:root` (light) e `.dark` (dark) de lugar
-
-## Risco
-
-Minimo. Apenas reorganiza ONDE os tokens estao definidos. As mesmas cores continuam ativas. O app ja e 100% dark-first, entao isso alinha o CSS com a realidade.
-
-## Resultado Esperado
-
-- App renderiza corretamente no dark mode SEM depender de `.dark` no HTML
-- Light mode funciona quando o usuario trocar (ThemeProvider adiciona `.light`)
-- Todos os modais, cards, textos, inputs ficam visiveis imediatamente
-- Elimina a "tela preta" de uma vez por todas
