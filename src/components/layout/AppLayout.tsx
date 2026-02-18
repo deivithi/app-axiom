@@ -49,6 +49,14 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         {children}
       </main>
       
+      {/* Mobile: Backdrop when chat is open - rendered before ChatPanel for correct stacking */}
+      {chatOpen && isMobile && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+          onClick={() => setChatOpen(false)}
+        />
+      )}
+      
       {/* Chat Panel (Right) - Desktop only persistent, Mobile as overlay */}
       <ChatPanel 
         isExpanded={chatOpen} 
@@ -57,14 +65,6 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       
       {/* Mobile: Bottom Navigation */}
       {isMobile && !chatOpen && <BottomNavigation />}
-      
-      {/* Mobile: Backdrop when chat is open - z-index between fixed (150) and modal (250) */}
-      {chatOpen && isMobile && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
-          onClick={() => setChatOpen(false)}
-        />
-      )}
     </div>
   );
 };
