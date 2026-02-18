@@ -366,7 +366,6 @@
   }
 
   /* Light mode override */
-  :root:not(.dark) .modal-surface,
   .light .modal-surface {
     background-color: hsl(0, 0%, 100%) !important;
     border-color: hsl(214, 32%, 85%) !important;
@@ -385,10 +384,6 @@
   }
 
   /* Input contrast - light mode */
-  :root:not(.dark) .modal-surface input,
-  :root:not(.dark) .modal-surface [role="combobox"],
-  :root:not(.dark) .modal-surface textarea,
-  :root:not(.dark) .modal-surface select,
   .light .modal-surface input,
   .light .modal-surface [role="combobox"],
   .light .modal-surface textarea,
