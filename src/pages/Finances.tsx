@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CurrencyInput } from "@/components/ui/currency-input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { SimpleModal } from "@/components/ui/simple-modal";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank, Check, Clock, RefreshCw, FileText, ArrowRightLeft } from "lucide-react";
@@ -1159,122 +1157,122 @@ export default function Finances() {
             </h2>
             <div className="flex gap-2">
               {accounts.length >= 2 && (
-                <Dialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" variant="outline"><ArrowRightLeft className="h-4 w-4 mr-1" /> Transferir</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Transferência entre Contas</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label>Conta de Origem</Label>
-                        <Select value={newTransfer.fromAccountId || undefined} onValueChange={v => setNewTransfer(prev => ({ ...prev, fromAccountId: v }))}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                          <SelectContent>
-                            {accounts.map(acc => (
-                              <SelectItem key={acc.id} value={acc.id}>
-                                {acc.icon} {acc.name} (R$ {Number(acc.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Conta de Destino</Label>
-                        <Select value={newTransfer.toAccountId || undefined} onValueChange={v => setNewTransfer(prev => ({ ...prev, toAccountId: v }))}>
-                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                          <SelectContent>
-                            {accounts.filter(a => a.id !== newTransfer.fromAccountId).map(acc => (
-                              <SelectItem key={acc.id} value={acc.id}>
-                                {acc.icon} {acc.name} (R$ {Number(acc.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Valor (R$)</Label>
-                        <CurrencyInput 
-                          value={parseFloat(newTransfer.amount) || 0}
-                          onChange={value => setNewTransfer(prev => ({ ...prev, amount: value.toString() }))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Descrição (opcional)</Label>
-                        <Input 
-                          value={newTransfer.description}
-                          onChange={e => setNewTransfer(prev => ({ ...prev, description: e.target.value }))}
-                          placeholder="Ex: Reserva de emergência"
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button onClick={createTransfer}>Transferir</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
+                <Button size="sm" variant="outline" onClick={() => setIsTransferDialogOpen(true)}>
+                  <ArrowRightLeft className="h-4 w-4 mr-1" /> Transferir
+                </Button>
               )}
-              <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" variant="outline"><Plus className="h-4 w-4 mr-1" /> Nova Conta</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Nova Conta</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Nome da Conta</Label>
-                      <Input 
-                        value={newAccount.name}
-                        onChange={e => setNewAccount(prev => ({ ...prev, name: e.target.value }))}
-                        placeholder="Ex: Nubank"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Saldo Atual (R$)</Label>
-                      <Input 
-                        type="number"
-                        value={newAccount.balance}
-                        onChange={e => setNewAccount(prev => ({ ...prev, balance: e.target.value }))}
-                        placeholder="0,00"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Ícone</Label>
-                      <div className="flex gap-2">
-                        {ACCOUNT_ICONS.map(icon => (
-                          <button
-                            key={icon}
-                            onClick={() => setNewAccount(prev => ({ ...prev, icon }))}
-                            className={`text-2xl p-2 rounded-lg ${newAccount.icon === icon ? "bg-primary/20 ring-2 ring-primary" : "bg-muted"}`}
-                          >
-                            {icon}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Cor</Label>
-                      <div className="flex gap-2">
-                        {ACCOUNT_COLORS.map(color => (
-                          <button
-                            key={color}
-                            onClick={() => setNewAccount(prev => ({ ...prev, color }))}
-                            className={`w-8 h-8 rounded-full ${newAccount.color === color ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
+              <Button size="sm" variant="outline" onClick={() => setIsAccountDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-1" /> Nova Conta
+              </Button>
+
+              <SimpleModal
+                open={isTransferDialogOpen}
+                onClose={() => setIsTransferDialogOpen(false)}
+                title="Transferência entre Contas"
+                footer={<Button onClick={createTransfer}>Transferir</Button>}
+              >
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Conta de Origem</Label>
+                    <select
+                      value={newTransfer.fromAccountId}
+                      onChange={e => setNewTransfer(prev => ({ ...prev, fromAccountId: e.target.value }))}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Selecione</option>
+                      {accounts.map(acc => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.icon} {acc.name} (R$ {Number(acc.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Conta de Destino</Label>
+                    <select
+                      value={newTransfer.toAccountId}
+                      onChange={e => setNewTransfer(prev => ({ ...prev, toAccountId: e.target.value }))}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">Selecione</option>
+                      {accounts.filter(a => a.id !== newTransfer.fromAccountId).map(acc => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.icon} {acc.name} (R$ {Number(acc.balance).toLocaleString("pt-BR", { minimumFractionDigits: 2 })})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valor (R$)</Label>
+                    <CurrencyInput 
+                      value={parseFloat(newTransfer.amount) || 0}
+                      onChange={value => setNewTransfer(prev => ({ ...prev, amount: value.toString() }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Descrição (opcional)</Label>
+                    <Input 
+                      value={newTransfer.description}
+                      onChange={e => setNewTransfer(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Ex: Reserva de emergência"
+                    />
+                  </div>
+                </div>
+              </SimpleModal>
+
+              <SimpleModal
+                open={isAccountDialogOpen}
+                onClose={() => setIsAccountDialogOpen(false)}
+                title="Nova Conta"
+                footer={<Button onClick={createAccount}>Criar Conta</Button>}
+              >
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Nome da Conta</Label>
+                    <Input 
+                      value={newAccount.name}
+                      onChange={e => setNewAccount(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Ex: Nubank"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Saldo Atual (R$)</Label>
+                    <Input 
+                      type="number"
+                      value={newAccount.balance}
+                      onChange={e => setNewAccount(prev => ({ ...prev, balance: e.target.value }))}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Ícone</Label>
+                    <div className="flex gap-2">
+                      {ACCOUNT_ICONS.map(icon => (
+                        <button
+                          key={icon}
+                          onClick={() => setNewAccount(prev => ({ ...prev, icon }))}
+                          className={`text-2xl p-2 rounded-lg ${newAccount.icon === icon ? "bg-primary/20 ring-2 ring-primary" : "bg-muted"}`}
+                        >
+                          {icon}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                  <DialogFooter>
-                    <Button onClick={createAccount}>Criar Conta</Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                  <div className="space-y-2">
+                    <Label>Cor</Label>
+                    <div className="flex gap-2">
+                      {ACCOUNT_COLORS.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => setNewAccount(prev => ({ ...prev, color }))}
+                          className={`w-8 h-8 rounded-full ${newAccount.color === color ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </SimpleModal>
             </div>
           </div>
 
@@ -1576,167 +1574,160 @@ export default function Finances() {
         </section>
 
         {/* Dialog de Edição */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Editar Transação</DialogTitle>
-            </DialogHeader>
-            {editingTransaction && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Título</Label>
-                  <Input 
-                    value={editingTransaction.title}
-                    onChange={e => setEditingTransaction(prev => prev ? { ...prev, title: e.target.value } : null)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Valor (R$)</Label>
-                  <CurrencyInput 
-                    value={editingTransaction.amount}
-                    onChange={value => setEditingTransaction(prev => prev ? { ...prev, amount: value } : null)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select 
-                    value={editingTransaction.type} 
-                    onValueChange={(v: "income" | "expense") => setEditingTransaction(prev => prev ? { ...prev, type: v } : null)}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="expense">Despesa</SelectItem>
-                      <SelectItem value="income">Receita</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Categoria</Label>
-                  <Select 
-                    value={editingTransaction.category} 
-                    onValueChange={v => setEditingTransaction(prev => prev ? { ...prev, category: v } : null)}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {/* Inclui a categoria atual se não estiver na lista padrão */}
-                      {(() => {
-                        const baseCategories = editingTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
-                        const currentCategory = editingTransaction.category;
-                        const categories = currentCategory && !baseCategories.includes(currentCategory)
-                          ? [currentCategory, ...baseCategories]
-                          : baseCategories;
-                        return categories.map(cat => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ));
-                      })()}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Forma de Pagamento</Label>
-                  <Select 
-                    value={editingTransaction.payment_method || "PIX"} 
-                    onValueChange={v => setEditingTransaction(prev => prev ? { ...prev, payment_method: v } : null)}
-                  >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {PAYMENT_METHODS.map(pm => (
-                        <SelectItem key={pm} value={pm}>{pm}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Data da Transação</Label>
-                  <Input 
-                    type="date"
-                    value={editingTransaction.transaction_date}
-                    onChange={e => setEditingTransaction(prev => prev ? { ...prev, transaction_date: e.target.value } : null)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Conta Vinculada</Label>
-                  <Select 
-                    value={editingTransaction.account_id || "none"} 
-                    onValueChange={v => setEditingTransaction(prev => 
-                      prev ? { ...prev, account_id: v === "none" ? undefined : v } : null
-                    )}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Selecionar conta" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma</SelectItem>
-                      {accounts.map(acc => (
-                        <SelectItem key={acc.id} value={acc.id}>{acc.icon} {acc.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label>Despesa Fixa</Label>
-                  <Switch 
-                    checked={editingTransaction.is_fixed} 
-                    onCheckedChange={v => setEditingTransaction(prev => prev ? { ...prev, is_fixed: v } : null)} 
-                  />
-                </div>
-                {editingTransaction.is_fixed && (
-                  <div className="space-y-2">
-                    <Label>Dia do mês para cobrança (1-31)</Label>
-                    <Input 
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={editingTransaction.recurrence_day || ""}
-                      onChange={e => setEditingTransaction(prev => prev ? { ...prev, recurrence_day: parseInt(e.target.value) || undefined } : null)}
-                      placeholder="Ex: 5 (todo dia 5)"
-                    />
-                  </div>
-                )}
-                {/* Cascading update options for recurring transactions */}
-                {editingTransaction.is_fixed && (editingTransaction.parent_transaction_id || transactions.some(t => t.parent_transaction_id === editingTransaction.id)) && (
-                  <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
-                    <Label className="text-sm font-medium">Aplicar alterações em:</Label>
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="cascadeMode"
-                          checked={cascadeUpdateMode === "single"}
-                          onChange={() => setCascadeUpdateMode("single")}
-                          className="accent-primary"
-                        />
-                        <span className="text-sm">Apenas esta instância</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="cascadeMode"
-                          checked={cascadeUpdateMode === "future"}
-                          onChange={() => setCascadeUpdateMode("future")}
-                          className="accent-primary"
-                        />
-                        <span className="text-sm">Esta e as futuras</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="cascadeMode"
-                          checked={cascadeUpdateMode === "all"}
-                          onChange={() => setCascadeUpdateMode("all")}
-                          className="accent-primary"
-                        />
-                        <span className="text-sm">Todas as instâncias</span>
-                      </label>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-            <DialogFooter>
+        <SimpleModal
+          open={isEditDialogOpen}
+          onClose={() => { setIsEditDialogOpen(false); setCascadeUpdateMode("single"); }}
+          title="Editar Transação"
+          footer={
+            <>
               <Button variant="outline" onClick={() => { setIsEditDialogOpen(false); setCascadeUpdateMode("single"); }}>Cancelar</Button>
               <Button onClick={updateTransaction}>Salvar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </>
+          }
+        >
+          {editingTransaction && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Título</Label>
+                <Input 
+                  value={editingTransaction.title}
+                  onChange={e => setEditingTransaction(prev => prev ? { ...prev, title: e.target.value } : null)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Valor (R$)</Label>
+                <CurrencyInput 
+                  value={editingTransaction.amount}
+                  onChange={value => setEditingTransaction(prev => prev ? { ...prev, amount: value } : null)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <select
+                  value={editingTransaction.type}
+                  onChange={e => setEditingTransaction(prev => prev ? { ...prev, type: e.target.value as "income" | "expense" } : null)}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="expense">Despesa</option>
+                  <option value="income">Receita</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <select
+                  value={editingTransaction.category}
+                  onChange={e => setEditingTransaction(prev => prev ? { ...prev, category: e.target.value } : null)}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione</option>
+                  {(() => {
+                    const baseCategories = editingTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+                    const currentCategory = editingTransaction.category;
+                    const categories = currentCategory && !baseCategories.includes(currentCategory)
+                      ? [currentCategory, ...baseCategories]
+                      : baseCategories;
+                    return categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ));
+                  })()}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Forma de Pagamento</Label>
+                <select
+                  value={editingTransaction.payment_method || "PIX"}
+                  onChange={e => setEditingTransaction(prev => prev ? { ...prev, payment_method: e.target.value } : null)}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {PAYMENT_METHODS.map(pm => (
+                    <option key={pm} value={pm}>{pm}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Data da Transação</Label>
+                <Input 
+                  type="date"
+                  value={editingTransaction.transaction_date}
+                  onChange={e => setEditingTransaction(prev => prev ? { ...prev, transaction_date: e.target.value } : null)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Conta Vinculada</Label>
+                <select
+                  value={editingTransaction.account_id || ""}
+                  onChange={e => setEditingTransaction(prev => 
+                    prev ? { ...prev, account_id: e.target.value || undefined } : null
+                  )}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Nenhuma</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.icon} {acc.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>Despesa Fixa</Label>
+                <Switch 
+                  checked={editingTransaction.is_fixed} 
+                  onCheckedChange={v => setEditingTransaction(prev => prev ? { ...prev, is_fixed: v } : null)} 
+                />
+              </div>
+              {editingTransaction.is_fixed && (
+                <div className="space-y-2">
+                  <Label>Dia do mês para cobrança (1-31)</Label>
+                  <Input 
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={editingTransaction.recurrence_day || ""}
+                    onChange={e => setEditingTransaction(prev => prev ? { ...prev, recurrence_day: parseInt(e.target.value) || undefined } : null)}
+                    placeholder="Ex: 5 (todo dia 5)"
+                  />
+                </div>
+              )}
+              {/* Cascading update options for recurring transactions */}
+              {editingTransaction.is_fixed && (editingTransaction.parent_transaction_id || transactions.some(t => t.parent_transaction_id === editingTransaction.id)) && (
+                <div className="space-y-2 p-3 bg-muted/50 rounded-lg">
+                  <Label className="text-sm font-medium">Aplicar alterações em:</Label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cascadeMode"
+                        checked={cascadeUpdateMode === "single"}
+                        onChange={() => setCascadeUpdateMode("single")}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm">Apenas esta instância</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cascadeMode"
+                        checked={cascadeUpdateMode === "future"}
+                        onChange={() => setCascadeUpdateMode("future")}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm">Esta e as futuras</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cascadeMode"
+                        checked={cascadeUpdateMode === "all"}
+                        onChange={() => setCascadeUpdateMode("all")}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm">Todas as instâncias</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </SimpleModal>
       </div>
     </AppLayout>
   );
