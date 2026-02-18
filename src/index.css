@@ -349,49 +349,48 @@
   }
 }
 
+/* MODAL SURFACE - FORA de @layer para maxima prioridade CSS */
+.modal-surface {
+  background-color: hsl(230, 15%, 28%) !important;
+  color: hsl(210, 40%, 98%) !important;
+  opacity: 1 !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.7),
+    0 0 0 1px rgba(255, 255, 255, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+.light .modal-surface {
+  background-color: hsl(0, 0%, 100%) !important;
+  border-color: hsl(214, 32%, 85%) !important;
+  box-shadow: 
+    0 25px 50px -12px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+}
+
+.modal-surface input,
+.modal-surface [role="combobox"],
+.modal-surface textarea,
+.modal-surface select {
+  background-color: hsl(230, 12%, 20%) !important;
+  border-color: rgba(148, 163, 184, 0.3) !important;
+  color: hsl(210, 40%, 98%) !important;
+}
+
+.light .modal-surface input,
+.light .modal-surface [role="combobox"],
+.light .modal-surface textarea,
+.light .modal-surface select {
+  background-color: hsl(0, 0%, 100%) !important;
+  border-color: hsl(214, 32%, 91%) !important;
+  color: hsl(222, 84%, 5%) !important;
+}
+
 /* =====================================================
    COMPONENT STYLES
    ===================================================== */
 @layer components {
-  /* ===== MODAL SURFACE - Default = dark (app é dark-first) ===== */
-  .modal-surface {
-    background-color: hsl(230, 15%, 28%) !important;
-    color: hsl(210, 40%, 98%) !important;
-    opacity: 1 !important;
-    border-color: rgba(148, 163, 184, 0.4) !important;
-    box-shadow: 
-      0 25px 50px -12px rgba(0, 0, 0, 0.7),
-      0 0 0 1px rgba(255, 255, 255, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-  }
-
-  /* Light mode override */
-  .light .modal-surface {
-    background-color: hsl(0, 0%, 100%) !important;
-    border-color: hsl(214, 32%, 85%) !important;
-    box-shadow: 
-      0 25px 50px -12px rgba(0, 0, 0, 0.15),
-      0 0 0 1px rgba(0, 0, 0, 0.05) !important;
-  }
-
-  /* Input contrast - default dark */
-  .modal-surface input,
-  .modal-surface [role="combobox"],
-  .modal-surface textarea,
-  .modal-surface select {
-    background-color: hsl(230, 12%, 20%) !important;
-    border-color: rgba(148, 163, 184, 0.3) !important;
-  }
-
-  /* Input contrast - light mode */
-  .light .modal-surface input,
-  .light .modal-surface [role="combobox"],
-  .light .modal-surface textarea,
-  .light .modal-surface select {
-    background-color: hsl(0, 0%, 100%) !important;
-    border-color: hsl(214, 32%, 91%) !important;
-  }
-
   /* ===== GLASSMORPHISM VARIANTS ===== */
   .glass {
     @apply backdrop-blur-xl border;
