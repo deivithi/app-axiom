@@ -1061,12 +1061,12 @@ export default function Finances() {
                     <div className="space-y-2">
                       <Label>Conta (opcional)</Label>
                       <Select 
-                        value={newTransaction.account_id} 
-                        onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v }))}
+                        value={newTransaction.account_id || "none"} 
+                        onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v === "none" ? "" : v }))}
                       >
                         <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Nenhuma</SelectItem>
+                          <SelectItem value="none">Nenhuma</SelectItem>
                           {accounts.map(acc => (
                             <SelectItem key={acc.id} value={acc.id}>
                               {acc.icon} {acc.name}
