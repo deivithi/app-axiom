@@ -199,6 +199,7 @@
     
     --modal: 0 0% 100%;
     --modal-foreground: 222 84% 5%;
+    --border-modal: 214 32% 85%;
     
     --elevated-3: 210 40% 98%;
 
@@ -284,8 +285,9 @@
     --popover-foreground: 210 40% 98%;
 
     /* ===== MODAL (Elevação especial para modais) ===== */
-    --modal: 240 12% 18%;
+    --modal: 230 15% 28%;
     --modal-foreground: 210 40% 98%;
+    --border-modal: 215 20% 60% / 0.40;
 
     /* ===== ELEVATED-3 (Elevação +3) ===== */
     --elevated-3: 240 12% 16%;

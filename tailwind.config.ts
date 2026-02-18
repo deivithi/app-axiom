@@ -199,6 +199,7 @@ export default {
         subtle: 'hsl(var(--border-subtle))',
         medium: 'hsl(var(--border-medium))',
         strong: 'hsl(var(--border-strong))',
+        modal: 'hsl(var(--border-modal))',
       },
 
       /* =====================================================
