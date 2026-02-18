@@ -197,6 +197,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 84% 5%;
     
+    --modal: 0 0% 100%;
+    --modal-foreground: 222 84% 5%;
+    
     --elevated-3: 210 40% 98%;
 
     /* === PRIMARY (Blue) === */
@@ -279,6 +282,10 @@
     /* ===== POPOVERS (Elevação +2) ===== */
     --popover: 240 14% 12%;
     --popover-foreground: 210 40% 98%;
+
+    /* ===== MODAL (Elevação especial para modais) ===== */
+    --modal: 240 12% 18%;
+    --modal-foreground: 210 40% 98%;
 
     /* ===== ELEVATED-3 (Elevação +3) ===== */
     --elevated-3: 240 12% 16%;
