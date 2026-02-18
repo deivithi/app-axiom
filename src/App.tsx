@@ -1,4 +1,5 @@
 import { useEffect, lazy, Suspense } from "react";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -133,29 +134,31 @@ function AppRoutes() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="axiom-theme" disableTransitionOnChange>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AuthProvider>
-            <SidebarProvider>
-              <MemoryProvider>
-                <AxiomSyncProvider>
-                  <ChatProvider>
-                    <MobileToastProvider>
-                      <AppRoutes />
-                    </MobileToastProvider>
-                  </ChatProvider>
-                </AxiomSyncProvider>
-              </MemoryProvider>
-            </SidebarProvider>
-          </AuthProvider>
-        </BrowserRouter>
-      </TooltipProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="axiom-theme" disableTransitionOnChange>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AuthProvider>
+              <SidebarProvider>
+                <MemoryProvider>
+                  <AxiomSyncProvider>
+                    <ChatProvider>
+                      <MobileToastProvider>
+                        <AppRoutes />
+                      </MobileToastProvider>
+                    </ChatProvider>
+                  </AxiomSyncProvider>
+                </MemoryProvider>
+              </SidebarProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
