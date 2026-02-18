@@ -1,90 +1,61 @@
 
-# Fix Real: `.modal-surface` Nao Depender da Classe `.dark`
 
-## Causa Raiz Identificada
+# Fix Real: Classe `.dark` Nao Aplicada no HTML
 
-A classe `dark` **nao esta sendo aplicada ao elemento `<html>`** pelo `next-themes`. Confirmei isso via browser tool: `<html>` tem `class=""` (vazio).
+## Causa Raiz (FINALMENTE encontrada)
 
-Consequencia: `.dark .modal-surface` NUNCA aplica. O browser usa `.modal-surface` (sem prefixo) que tem `background-color: hsl(0, 0%, 100%)` (branco). Isso cria um conflito visual estranho com backdrop-blur e overlay.
+O `<html>` tem `class=""` (vazio). O `next-themes` com `defaultTheme="dark"` e `attribute="class"` **nao esta aplicando** a classe `.dark` ao elemento `<html>`.
+
+Consequencia: TODOS os CSS variables definidos dentro de `.dark { ... }` no `index.css` (linhas 274-358) NUNCA sao ativados. O browser usa os valores de `:root` que sao o **light mode**:
+- `--foreground: 222 84% 5%` = texto quase preto
+- `--background: 0 0% 100%` = fundo branco
+
+Mas o `StarryBackground` renderiza um canvas escuro por cima. Resultado: texto escuro sobre fundo escuro = tudo invisivel = "tela preta".
+
+Isso tambem explica por que `.dark .modal-surface` nunca funcionou e por que o `.glass` (CSS hardcoded) funcionava.
 
 ## Solucao
 
-Trocar a logica de cascata: o `.modal-surface` padrao (sem prefixo) deve ter as cores **escuras** (ja que o app e dark-first). E a versao light usa seletor mais especifico.
+Duas mudancas simples:
 
-### Mudanca em `src/index.css` (unica mudanca necessaria)
+### 1. `index.html` -- Adicionar `class="dark"` ao `<html>`
+
+Isso garante que o dark mode esta ativo IMEDIATAMENTE, antes mesmo do JavaScript carregar. Se o `next-themes` funcionar depois, ele gerencia a classe normalmente. Se nao funcionar, o fallback ja esta la.
+
+De: `<html lang="pt-BR">`
+Para: `<html lang="pt-BR" class="dark">`
+
+### 2. `src/App.tsx` -- Forcar `forcedTheme` ou adicionar script de seguranca
+
+Adicionar `enableSystem={false}` e `storageKey="axiom-theme"` no ThemeProvider para evitar que localStorage com valor invalido sobrescreva o default. Tambem adicionar `disableTransitionOnChange` para evitar flash.
 
 De:
-```css
-.dark .modal-surface {
-  background-color: hsl(230, 15%, 28%) !important;
-  border-color: rgba(148, 163, 184, 0.4) !important;
-  box-shadow: ... !important;
-}
-.modal-surface {
-  background-color: hsl(0, 0%, 100%) !important;
-  border-color: hsl(214, 32%, 85%) !important;
-  box-shadow: ... !important;
-}
-.dark .modal-surface input, ...
+```tsx
+<ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
 ```
-
 Para:
-```css
-/* Default = dark (app e dark-first) */
-.modal-surface {
-  background-color: hsl(230, 15%, 28%) !important;
-  border-color: rgba(148, 163, 184, 0.4) !important;
-  box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.7),
-    0 0 0 1px rgba(255, 255, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
-}
-
-/* Light mode override (quando .dark NAO esta presente ou :root light) */
-:root:not(.dark) .modal-surface,
-.light .modal-surface {
-  background-color: hsl(0, 0%, 100%) !important;
-  border-color: hsl(214, 32%, 85%) !important;
-  box-shadow: 
-    0 25px 50px -12px rgba(0, 0, 0, 0.15),
-    0 0 0 1px rgba(0, 0, 0, 0.05) !important;
-}
-
-/* Input contrast - default dark */
-.modal-surface input,
-.modal-surface [role="combobox"],
-.modal-surface textarea,
-.modal-surface select {
-  background-color: hsl(230, 12%, 20%) !important;
-  border-color: rgba(148, 163, 184, 0.3) !important;
-}
-
-/* Input contrast - light mode */
-:root:not(.dark) .modal-surface input,
-:root:not(.dark) .modal-surface [role="combobox"],
-:root:not(.dark) .modal-surface textarea,
-:root:not(.dark) .modal-surface select,
-.light .modal-surface input,
-.light .modal-surface [role="combobox"],
-.light .modal-surface textarea,
-.light .modal-surface select {
-  background-color: hsl(0, 0%, 100%) !important;
-  border-color: hsl(214, 32%, 91%) !important;
-}
+```tsx
+<ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="axiom-theme" disableTransitionOnChange>
 ```
 
-### Por que vai funcionar
+O `enableSystem={false}` impede que o `next-themes` tente detectar preferencia do sistema (que pode retornar "light" e remover a classe `.dark`). O `storageKey="axiom-theme"` usa uma chave dedicada para evitar conflitos.
 
-- `.modal-surface` sem prefixo **sempre aplica** independente de `.dark` estar presente ou nao
-- O default e escuro (cinza azulado 28% lightness) -- claramente visivel sobre overlay preto
-- Se/quando `.dark` classe for aplicada pelo next-themes, nada muda (o default ja e escuro)
-- Light mode usa `:root:not(.dark)` que so aplica se o usuario EXPLICITAMENTE trocar para claro
-- Nenhum arquivo de componente precisa mudar -- `dialog.tsx`, `alert-dialog.tsx`, `drawer.tsx` ja usam `.modal-surface`
+## Por que vai funcionar
 
-### Arquivos a Modificar
+1. `class="dark"` no HTML = CSS variables dark mode ativos desde o primeiro render
+2. `enableSystem={false}` = next-themes nao pode remover a classe baseado na preferencia do sistema
+3. `defaultTheme="dark"` continua como fallback
+4. Se o usuario trocar para light mode via ThemeToggle, next-themes substitui normalmente
 
-1. `src/index.css` -- Inverter a logica padrao/dark da `.modal-surface`
+## Arquivos a Modificar
 
-### Risco
+1. `index.html` -- Adicionar `class="dark"` ao `<html>`
+2. `src/App.tsx` -- Ajustar ThemeProvider props
 
-Minimo. Apenas reorganiza quais estilos sao "default" vs "override". Mesmas cores, mesmos valores, mesma aparencia final.
+## Risco
+
+Zero. Adicionar `class="dark"` ao HTML e a forma recomendada pelo `next-themes` para evitar FOUC (Flash of Unstyled Content). E o `enableSystem={false}` apenas impede deteccao automatica do sistema.
+
+## Impacto
+
+Isso resolve NAO APENAS os modais, mas TODA a visibilidade do app. Texto, botoes, inputs, cards -- tudo volta a funcionar porque os CSS variables corretos (dark mode) serao finalmente aplicados.
