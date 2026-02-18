@@ -362,6 +362,32 @@
    COMPONENT STYLES
    ===================================================== */
 @layer components {
+  /* ===== MODAL SURFACE (hardcoded for guaranteed visibility) ===== */
+  .dark .modal-surface {
+    background-color: hsl(230, 15%, 28%) !important;
+    border-color: rgba(148, 163, 184, 0.4) !important;
+    box-shadow: 
+      0 25px 50px -12px rgba(0, 0, 0, 0.7),
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  }
+
+  .modal-surface {
+    background-color: hsl(0, 0%, 100%) !important;
+    border-color: hsl(214, 32%, 85%) !important;
+    box-shadow: 
+      0 25px 50px -12px rgba(0, 0, 0, 0.15),
+      0 0 0 1px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .dark .modal-surface input,
+  .dark .modal-surface [role="combobox"],
+  .dark .modal-surface textarea,
+  .dark .modal-surface select {
+    background-color: hsl(230, 12%, 20%) !important;
+    border-color: rgba(148, 163, 184, 0.3) !important;
+  }
+
   /* ===== GLASSMORPHISM VARIANTS ===== */
   .glass {
     @apply backdrop-blur-xl border;
