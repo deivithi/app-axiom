@@ -30,8 +30,9 @@ const DrawerContent = React.forwardRef<
     <DrawerOverlay />
     <DrawerPrimitive.Content
       ref={ref}
+      style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-[9995] mt-24 flex h-auto flex-col rounded-t-[10px] border modal-surface backdrop-blur-xl",
+        "fixed inset-x-0 bottom-0 z-[9995] mt-24 flex h-auto flex-col rounded-t-[10px] border modal-surface",
         className,
       )}
       {...props}
