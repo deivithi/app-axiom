@@ -20,7 +20,6 @@ import { Plus, Loader2, GripVertical, Trash2, Pencil, ChevronDown, ChevronUp, Fo
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useNavigate } from 'react-router-dom';
-import PageErrorBoundary from '@/components/PageErrorBoundary';
 
 interface Task {
   id: string;
@@ -70,7 +69,7 @@ const statusLabels = {
   completed: 'Concluído',
 };
 
-function ExecutionContent() {
+export default function Execution() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
@@ -138,202 +137,131 @@ function ExecutionContent() {
   });
 
   const loadTasks = async () => {
-    try {
-      const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false }).limit(200);
-      setTasks((data || []) as Task[]);
-    } catch (error) {
-      console.error('[Execution] Erro em loadTasks:', error);
-      toast({ title: 'Erro', description: 'Erro ao carregar tarefas', variant: 'destructive' });
-    }
+    const { data } = await supabase.from('tasks').select('*').order('created_at', { ascending: false }).limit(200);
+    setTasks((data || []) as Task[]);
     setLoading(false);
   };
 
   const loadProjects = async () => {
-    try {
-      const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false }).limit(100);
-      setProjects((data || []) as Project[]);
-    } catch (error) {
-      console.error('[Execution] Erro em loadProjects:', error);
-      toast({ title: 'Erro', description: 'Erro ao carregar projetos', variant: 'destructive' });
-    }
+    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false }).limit(100);
+    setProjects((data || []) as Project[]);
   };
 
   const loadProjectTasks = async () => {
-    try {
-      const { data } = await supabase.from('project_tasks').select('*').limit(500);
-      setProjectTasks(data || []);
-    } catch (error) {
-      console.error('[Execution] Erro em loadProjectTasks:', error);
-    }
+    const { data } = await supabase.from('project_tasks').select('*').limit(500);
+    setProjectTasks(data || []);
   };
 
+  // Task operations
   const createTask = async () => {
     if (!newTask.title.trim()) return;
-    try {
-      await supabase.from('tasks').insert({
-        user_id: user?.id,
-        title: newTask.title,
-        description: newTask.description || null,
-        priority: newTask.priority,
-        status: 'todo',
-      });
-      toast({ title: 'Sucesso', description: 'Tarefa criada!' });
-      setNewTask({ title: '', description: '', priority: 'medium' });
-      setTaskDialogOpen(false);
-      loadTasks();
-    } catch (error) {
-      console.error('[Execution] Erro em createTask:', error);
-      toast({ title: 'Erro', description: 'Erro ao criar tarefa', variant: 'destructive' });
-    }
+    await supabase.from('tasks').insert({
+      user_id: user?.id,
+      title: newTask.title,
+      description: newTask.description || null,
+      priority: newTask.priority,
+      status: 'todo',
+    });
+    toast({ title: 'Sucesso', description: 'Tarefa criada!' });
+    setNewTask({ title: '', description: '', priority: 'medium' });
+    setTaskDialogOpen(false);
+    loadTasks();
   };
 
   const updateTask = async () => {
     if (!editingTask) return;
-    try {
-      await supabase.from('tasks').update({
-        title: editingTask.title,
-        description: editingTask.description,
-        priority: editingTask.priority,
-        status: editingTask.status,
-      }).eq('id', editingTask.id);
-      toast({ title: 'Sucesso', description: 'Tarefa atualizada!' });
-      setEditTaskDialogOpen(false);
-      setEditingTask(null);
-      loadTasks();
-    } catch (error) {
-      console.error('[Execution] Erro em updateTask:', error);
-      toast({ title: 'Erro', description: 'Erro ao atualizar tarefa', variant: 'destructive' });
-    }
+    await supabase.from('tasks').update({
+      title: editingTask.title,
+      description: editingTask.description,
+      priority: editingTask.priority,
+      status: editingTask.status,
+    }).eq('id', editingTask.id);
+    toast({ title: 'Sucesso', description: 'Tarefa atualizada!' });
+    setEditTaskDialogOpen(false);
+    setEditingTask(null);
+    loadTasks();
   };
 
   const updateTaskStatus = async (taskId: string, newStatus: Task['status']) => {
-    try {
-      const task = tasks.find(t => t.id === taskId);
-      await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
-      setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
-      if (newStatus === 'done' && task) {
-        notifyAction('complete_task', 'tasks', `✓ Tarefa "${task.title}" concluída!`);
-      }
-    } catch (error) {
-      console.error('[Execution] Erro em updateTaskStatus:', error);
-      toast({ title: 'Erro', description: 'Erro ao atualizar status', variant: 'destructive' });
+    const task = tasks.find(t => t.id === taskId);
+    await supabase.from('tasks').update({ status: newStatus }).eq('id', taskId);
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
+    if (newStatus === 'done' && task) {
+      notifyAction('complete_task', 'tasks', `✓ Tarefa "${task.title}" concluída!`);
     }
   };
 
   const deleteTask = async (taskId: string) => {
-    try {
-      await supabase.from('tasks').delete().eq('id', taskId);
-      setTasks(prev => prev.filter(t => t.id !== taskId));
-    } catch (error) {
-      console.error('[Execution] Erro em deleteTask:', error);
-      toast({ title: 'Erro', description: 'Erro ao excluir tarefa', variant: 'destructive' });
-    }
+    await supabase.from('tasks').delete().eq('id', taskId);
+    setTasks(prev => prev.filter(t => t.id !== taskId));
   };
 
+  // Project operations
   const createProject = async () => {
     if (!newProject.title.trim()) return;
-    try {
-      await supabase.from('projects').insert({
-        user_id: user?.id,
-        title: newProject.title,
-        description: newProject.description || null,
-      });
-      toast({ title: 'Sucesso', description: 'Projeto criado!' });
-      setNewProject({ title: '', description: '' });
-      setProjectDialogOpen(false);
-      loadProjects();
-    } catch (error) {
-      console.error('[Execution] Erro em createProject:', error);
-      toast({ title: 'Erro', description: 'Erro ao criar projeto', variant: 'destructive' });
-    }
+    await supabase.from('projects').insert({
+      user_id: user?.id,
+      title: newProject.title,
+      description: newProject.description || null,
+    });
+    toast({ title: 'Sucesso', description: 'Projeto criado!' });
+    setNewProject({ title: '', description: '' });
+    setProjectDialogOpen(false);
+    loadProjects();
   };
 
   const updateProject = async () => {
     if (!editingProject) return;
-    try {
-      await supabase.from('projects').update({
-        title: editingProject.title,
-        description: editingProject.description,
-      }).eq('id', editingProject.id);
-      toast({ title: 'Sucesso', description: 'Projeto atualizado!' });
-      setEditProjectDialogOpen(false);
-      setEditingProject(null);
-      loadProjects();
-    } catch (error) {
-      console.error('[Execution] Erro em updateProject:', error);
-      toast({ title: 'Erro', description: 'Erro ao atualizar projeto', variant: 'destructive' });
-    }
+    await supabase.from('projects').update({
+      title: editingProject.title,
+      description: editingProject.description,
+    }).eq('id', editingProject.id);
+    toast({ title: 'Sucesso', description: 'Projeto atualizado!' });
+    setEditProjectDialogOpen(false);
+    setEditingProject(null);
+    loadProjects();
   };
 
   const updateProjectStatus = async (projectId: string, status: Project['status']) => {
-    try {
-      await supabase.from('projects').update({ status }).eq('id', projectId);
-      loadProjects();
-    } catch (error) {
-      console.error('[Execution] Erro em updateProjectStatus:', error);
-      toast({ title: 'Erro', description: 'Erro ao atualizar status', variant: 'destructive' });
-    }
+    await supabase.from('projects').update({ status }).eq('id', projectId);
+    loadProjects();
   };
 
   const deleteProject = async (projectId: string) => {
-    try {
-      await supabase.from('projects').delete().eq('id', projectId);
-      loadProjects();
-    } catch (error) {
-      console.error('[Execution] Erro em deleteProject:', error);
-      toast({ title: 'Erro', description: 'Erro ao excluir projeto', variant: 'destructive' });
-    }
+    await supabase.from('projects').delete().eq('id', projectId);
+    loadProjects();
   };
 
   const addProjectTask = async (projectId: string) => {
     if (!newSubtaskTitle.trim()) return;
-    try {
-      await supabase.from('project_tasks').insert({
-        project_id: projectId,
-        user_id: user?.id,
-        title: newSubtaskTitle,
-      });
-      setNewSubtaskTitle('');
-      loadProjectTasks();
-      updateProjectProgress(projectId);
-    } catch (error) {
-      console.error('[Execution] Erro em addProjectTask:', error);
-      toast({ title: 'Erro', description: 'Erro ao adicionar subtarefa', variant: 'destructive' });
-    }
+    await supabase.from('project_tasks').insert({
+      project_id: projectId,
+      user_id: user?.id,
+      title: newSubtaskTitle,
+    });
+    setNewSubtaskTitle('');
+    loadProjectTasks();
+    updateProjectProgress(projectId);
   };
 
   const toggleProjectTask = async (taskId: string, completed: boolean, projectId: string) => {
-    try {
-      await supabase.from('project_tasks').update({ completed }).eq('id', taskId);
-      loadProjectTasks();
-      updateProjectProgress(projectId);
-    } catch (error) {
-      console.error('[Execution] Erro em toggleProjectTask:', error);
-      toast({ title: 'Erro', description: 'Erro ao atualizar subtarefa', variant: 'destructive' });
-    }
+    await supabase.from('project_tasks').update({ completed }).eq('id', taskId);
+    loadProjectTasks();
+    updateProjectProgress(projectId);
   };
 
   const deleteProjectTask = async (taskId: string, projectId: string) => {
-    try {
-      await supabase.from('project_tasks').delete().eq('id', taskId);
-      loadProjectTasks();
-      updateProjectProgress(projectId);
-    } catch (error) {
-      console.error('[Execution] Erro em deleteProjectTask:', error);
-      toast({ title: 'Erro', description: 'Erro ao excluir subtarefa', variant: 'destructive' });
-    }
+    await supabase.from('project_tasks').delete().eq('id', taskId);
+    loadProjectTasks();
+    updateProjectProgress(projectId);
   };
 
   const updateProjectProgress = async (projectId: string) => {
-    try {
-      const tasks = projectTasks.filter(t => t.project_id === projectId);
-      const completed = tasks.filter(t => t.completed).length;
-      const progress = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
-      await supabase.from('projects').update({ progress }).eq('id', projectId);
-      loadProjects();
-    } catch (error) {
-      console.error('[Execution] Erro em updateProjectProgress:', error);
-    }
+    const tasks = projectTasks.filter(t => t.project_id === projectId);
+    const completed = tasks.filter(t => t.completed).length;
+    const progress = tasks.length > 0 ? Math.round((completed / tasks.length) * 100) : 0;
+    await supabase.from('projects').update({ progress }).eq('id', projectId);
+    loadProjects();
   };
 
   const getProjectTasks = (projectId: string) => projectTasks.filter(t => t.project_id === projectId);
@@ -658,13 +586,5 @@ function ExecutionContent() {
         )}
       </div>
     </AppLayout>
-  );
-}
-
-export default function Execution() {
-  return (
-    <PageErrorBoundary pageName="Execução">
-      <ExecutionContent />
-    </PageErrorBoundary>
   );
 }

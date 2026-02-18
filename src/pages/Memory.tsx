@@ -19,7 +19,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useNavigate } from 'react-router-dom';
 import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import PageErrorBoundary from '@/components/PageErrorBoundary';
 
 interface Note {
   id: string;
@@ -52,7 +51,7 @@ const parseLocalDate = (dateString: string): Date => {
   return new Date(year, month - 1, day);
 };
 
-function MemoryContent() {
+export default function Memory() {
   // Notes state
   const [notes, setNotes] = useState<Note[]>([]);
   const [noteDialogOpen, setNoteDialogOpen] = useState(false);
@@ -115,27 +114,18 @@ function MemoryContent() {
   });
 
   const loadNotes = async () => {
-    try {
-      const { data } = await supabase
-        .from('notes')
-        .select('*')
-        .order('is_pinned', { ascending: false })
-        .order('updated_at', { ascending: false });
-      setNotes((data || []) as Note[]);
-    } catch (error) {
-      console.error('[Memory] Erro em loadNotes:', error);
-      toast({ title: 'Erro', description: 'Erro ao carregar notas', variant: 'destructive' });
-    }
+    const { data } = await supabase
+      .from('notes')
+      .select('*')
+      .order('is_pinned', { ascending: false })
+      .order('updated_at', { ascending: false });
+    setNotes((data || []) as Note[]);
     setLoading(false);
   };
 
   const loadEntries = async () => {
-    try {
-      const { data } = await supabase.from('journal_entries').select('*').order('entry_date', { ascending: false });
-      setEntries((data || []) as JournalEntry[]);
-    } catch (error) {
-      console.error('[Memory] Erro em loadEntries:', error);
-    }
+    const { data } = await supabase.from('journal_entries').select('*').order('entry_date', { ascending: false });
+    setEntries((data || []) as JournalEntry[]);
   };
 
   const generateInsights = async (type: 'note' | 'journal', id: string, content: string, entryMood?: string | null) => {
@@ -153,8 +143,7 @@ function MemoryContent() {
         toast({ title: '✨ Insights gerados!', description: 'Axiom analisou seu conteúdo' });
       }
     } catch (error) {
-      console.error('[Memory] Erro em generateInsights:', error);
-      toast({ title: 'Erro', description: 'Erro ao gerar insights', variant: 'destructive' });
+      console.error('Error generating insights:', error);
     }
     setGeneratingInsights(false);
   };
@@ -162,103 +151,73 @@ function MemoryContent() {
   // Note operations
   const createNote = async () => {
     if (!newNote.content.trim()) return;
-    try {
-      const { data } = await supabase.from('notes').insert({
-        user_id: user?.id,
-        title: newNote.title || null,
-        content: newNote.content,
-      }).select().single();
-      toast({ title: 'Sucesso', description: 'Nota criada!' });
-      setNewNote({ title: '', content: '' });
-      setNoteDialogOpen(false);
-      loadNotes();
-      if (data) generateInsights('note', data.id, newNote.content);
-    } catch (error) {
-      console.error('[Memory] Erro em createNote:', error);
-      toast({ title: 'Erro', description: 'Erro ao criar nota', variant: 'destructive' });
-    }
+    const { data } = await supabase.from('notes').insert({
+      user_id: user?.id,
+      title: newNote.title || null,
+      content: newNote.content,
+    }).select().single();
+    toast({ title: 'Sucesso', description: 'Nota criada!' });
+    setNewNote({ title: '', content: '' });
+    setNoteDialogOpen(false);
+    loadNotes();
+    if (data) generateInsights('note', data.id, newNote.content);
   };
 
   const updateNote = async (note: Note) => {
-    try {
-      await supabase.from('notes').update({ title: note.title, content: note.content }).eq('id', note.id);
-      loadNotes();
-    } catch (error) {
-      console.error('[Memory] Erro em updateNote:', error);
-      toast({ title: 'Erro', description: 'Erro ao atualizar nota', variant: 'destructive' });
-    }
+    await supabase.from('notes').update({ title: note.title, content: note.content }).eq('id', note.id);
+    loadNotes();
   };
 
   const togglePin = async (note: Note) => {
-    try {
-      await supabase.from('notes').update({ is_pinned: !note.is_pinned }).eq('id', note.id);
-      loadNotes();
-    } catch (error) {
-      console.error('[Memory] Erro em togglePin:', error);
-      toast({ title: 'Erro', description: 'Erro ao fixar nota', variant: 'destructive' });
-    }
+    await supabase.from('notes').update({ is_pinned: !note.is_pinned }).eq('id', note.id);
+    loadNotes();
   };
 
   const deleteNote = async (id: string) => {
-    try {
-      await supabase.from('notes').delete().eq('id', id);
-      setSelectedNote(null);
-      loadNotes();
-    } catch (error) {
-      console.error('[Memory] Erro em deleteNote:', error);
-      toast({ title: 'Erro', description: 'Erro ao excluir nota', variant: 'destructive' });
-    }
+    await supabase.from('notes').delete().eq('id', id);
+    setSelectedNote(null);
+    loadNotes();
   };
 
   // Journal operations
   const saveJournalEntry = async () => {
     if (!journalContent.trim()) return;
     setSaving(true);
-    try {
-      const entryDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+    const entryDate = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
 
-      if (currentEntry) {
-        await supabase.from('journal_entries').update({ content: journalContent, mood }).eq('id', currentEntry.id);
-        toast({ title: 'Salvo', description: 'Entrada atualizada!' });
-        loadEntries();
-        generateInsights('journal', currentEntry.id, journalContent, mood);
-      } else {
-        const { data } = await supabase.from('journal_entries').insert({
-          user_id: user?.id,
-          content: journalContent,
-          mood,
-          entry_date: entryDate,
-        }).select().single();
-        toast({ title: 'Salvo', description: 'Nova entrada criada!' });
-        loadEntries();
-        if (data) generateInsights('journal', data.id, journalContent, mood);
-      }
-    } catch (error) {
-      console.error('[Memory] Erro em saveJournalEntry:', error);
-      toast({ title: 'Erro', description: 'Erro ao salvar entrada', variant: 'destructive' });
+    if (currentEntry) {
+      await supabase.from('journal_entries').update({ content: journalContent, mood }).eq('id', currentEntry.id);
+      toast({ title: 'Salvo', description: 'Entrada atualizada!' });
+      loadEntries();
+      generateInsights('journal', currentEntry.id, journalContent, mood);
+    } else {
+      const { data } = await supabase.from('journal_entries').insert({
+        user_id: user?.id,
+        content: journalContent,
+        mood,
+        entry_date: entryDate,
+      }).select().single();
+      toast({ title: 'Salvo', description: 'Nova entrada criada!' });
+      loadEntries();
+      if (data) generateInsights('journal', data.id, journalContent, mood);
     }
     setSaving(false);
   };
 
   const deleteJournalEntry = async () => {
     if (!currentEntry) return;
-    try {
-      await supabase.from('journal_entries').delete().eq('id', currentEntry.id);
-      setJournalContent('');
-      setMood(null);
-      loadEntries();
-      toast({ title: 'Deletado', description: 'Entrada removida' });
-    } catch (error) {
-      console.error('[Memory] Erro em deleteJournalEntry:', error);
-      toast({ title: 'Erro', description: 'Erro ao excluir entrada', variant: 'destructive' });
-    }
+    await supabase.from('journal_entries').delete().eq('id', currentEntry.id);
+    setJournalContent('');
+    setMood(null);
+    loadEntries();
+    toast({ title: 'Deletado', description: 'Entrada removida' });
   };
 
   const hasEntry = (date: Date) => entries.some(e => isSameDay(parseLocalDate(e.entry_date), date));
 
   const filteredNotes = notes.filter(n =>
-    (n.content?.toLowerCase() || '').includes(search.toLowerCase()) ||
-    (n.title?.toLowerCase() || '').includes(search.toLowerCase())
+    n.content.toLowerCase().includes(search.toLowerCase()) ||
+    n.title?.toLowerCase().includes(search.toLowerCase())
   );
 
   const pinnedNotes = filteredNotes.filter(n => n.is_pinned);
@@ -374,7 +333,7 @@ function MemoryContent() {
                         <CardContent className="p-4 space-y-4">
                           <Input value={selectedNote.title || ''} onChange={(e) => setSelectedNote({ ...selectedNote, title: e.target.value })} onBlur={() => updateNote(selectedNote)} placeholder="Título" className="text-lg font-semibold border-none p-0 focus-visible:ring-0" />
                           <Textarea value={selectedNote.content} onChange={(e) => setSelectedNote({ ...selectedNote, content: e.target.value })} onBlur={() => updateNote(selectedNote)} className="min-h-[300px] resize-none border-none p-0 focus-visible:ring-0" />
-                          <p className="text-xs text-muted-foreground">Última atualização: {selectedNote.updated_at ? format(new Date(selectedNote.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : '--'}</p>
+                          <p className="text-xs text-muted-foreground">Última atualização: {format(new Date(selectedNote.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
                         </CardContent>
                       </Card>
                       <InsightCard insight={selectedNote.ai_insights} generating={generatingInsights} onRegenerate={() => generateInsights('note', selectedNote.id, selectedNote.content)} />
@@ -459,7 +418,7 @@ function NoteCard({ note, onSelect, onTogglePin, onDelete, isSelected }: { note:
               {note.ai_insights && <Sparkles className="h-3 w-3 text-primary flex-shrink-0" />}
             </div>
             <p className="text-sm text-muted-foreground line-clamp-2">{note.content}</p>
-            <p className="text-xs text-muted-foreground mt-2">{note.created_at ? format(new Date(note.created_at), 'dd/MM/yyyy', { locale: ptBR }) : '--'}</p>
+            <p className="text-xs text-muted-foreground mt-2">{format(new Date(note.created_at), 'dd/MM/yyyy', { locale: ptBR })}</p>
           </div>
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onTogglePin(); }}>
@@ -518,13 +477,5 @@ function InsightCard({ insight, generating, onRegenerate }: { insight: string | 
         </Button>
       </CardContent>
     </Card>
-  );
-}
-
-export default function Memory() {
-  return (
-    <PageErrorBoundary pageName="Memória">
-      <MemoryContent />
-    </PageErrorBoundary>
   );
 }

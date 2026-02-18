@@ -17,7 +17,6 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useNavigate } from 'react-router-dom';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import PageErrorBoundary from '@/components/PageErrorBoundary';
 
 interface Habit {
   id: string;
@@ -34,7 +33,7 @@ interface HabitLog {
   completed_at: string;
 }
 
-function HabitsContent() {
+export default function Habits() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [logs, setLogs] = useState<HabitLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,124 +94,97 @@ function HabitsContent() {
   });
 
   const loadHabits = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('habits')
-        .select('*')
-        .order('created_at', { ascending: true })
-        .limit(100);
+    const { data, error } = await supabase
+      .from('habits')
+      .select('*')
+      .order('created_at', { ascending: true })
+      .limit(100);
 
-      if (error) {
-        toast({ title: 'Erro', description: 'Erro ao carregar hábitos', variant: 'destructive' });
-      } else {
-        setHabits((data || []) as Habit[]);
-      }
-    } catch (error) {
-      console.error('[Habits] Erro em loadHabits:', error);
-      toast({ title: 'Erro', description: 'Erro inesperado ao carregar hábitos', variant: 'destructive' });
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao carregar hábitos', variant: 'destructive' });
+    } else {
+      setHabits((data || []) as Habit[]);
     }
     setLoading(false);
   };
 
   const loadLogs = async () => {
-    try {
-      const start = startOfMonth(currentMonth);
-      const end = endOfMonth(currentMonth);
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
 
-      const { data } = await supabase
-        .from('habit_logs')
-        .select('*')
-        .gte('completed_at', format(start, 'yyyy-MM-dd'))
-        .lte('completed_at', format(end, 'yyyy-MM-dd'))
-        .limit(1000);
+    const { data } = await supabase
+      .from('habit_logs')
+      .select('*')
+      .gte('completed_at', format(start, 'yyyy-MM-dd'))
+      .lte('completed_at', format(end, 'yyyy-MM-dd'))
+      .limit(1000);
 
-      setLogs(data || []);
-    } catch (error) {
-      console.error('[Habits] Erro em loadLogs:', error);
-    }
+    setLogs(data || []);
   };
 
   const createHabit = async () => {
     if (!newHabit.title.trim()) return;
-    try {
-      const { error } = await supabase.from('habits').insert({
-        user_id: user?.id,
-        title: newHabit.title,
-        frequency: newHabit.frequency,
-        color: newHabit.color,
-      });
 
-      if (error) {
-        toast({ title: 'Erro', description: 'Erro ao criar hábito', variant: 'destructive' });
-      } else {
-        toast({ title: 'Sucesso', description: 'Hábito criado!' });
-        setNewHabit({ title: '', frequency: 'daily', color: '#8B5CF6' });
-        setDialogOpen(false);
-        loadHabits();
-      }
-    } catch (error) {
-      console.error('[Habits] Erro em createHabit:', error);
-      toast({ title: 'Erro', description: 'Erro inesperado ao criar hábito', variant: 'destructive' });
+    const { error } = await supabase.from('habits').insert({
+      user_id: user?.id,
+      title: newHabit.title,
+      frequency: newHabit.frequency,
+      color: newHabit.color,
+    });
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao criar hábito', variant: 'destructive' });
+    } else {
+      toast({ title: 'Sucesso', description: 'Hábito criado!' });
+      setNewHabit({ title: '', frequency: 'daily', color: '#8B5CF6' });
+      setDialogOpen(false);
+      loadHabits();
     }
   };
 
   const updateHabit = async () => {
     if (!editingHabit) return;
-    try {
-      const { error } = await supabase
-        .from('habits')
-        .update({
-          title: editingHabit.title,
-          frequency: editingHabit.frequency,
-          color: editingHabit.color,
-        })
-        .eq('id', editingHabit.id);
 
-      if (error) {
-        toast({ title: 'Erro', description: 'Erro ao atualizar hábito', variant: 'destructive' });
-      } else {
-        toast({ title: 'Sucesso', description: 'Hábito atualizado!' });
-        setEditDialogOpen(false);
-        setEditingHabit(null);
-        loadHabits();
-      }
-    } catch (error) {
-      console.error('[Habits] Erro em updateHabit:', error);
-      toast({ title: 'Erro', description: 'Erro inesperado ao atualizar hábito', variant: 'destructive' });
+    const { error } = await supabase
+      .from('habits')
+      .update({
+        title: editingHabit.title,
+        frequency: editingHabit.frequency,
+        color: editingHabit.color,
+      })
+      .eq('id', editingHabit.id);
+
+    if (error) {
+      toast({ title: 'Erro', description: 'Erro ao atualizar hábito', variant: 'destructive' });
+    } else {
+      toast({ title: 'Sucesso', description: 'Hábito atualizado!' });
+      setEditDialogOpen(false);
+      setEditingHabit(null);
+      loadHabits();
     }
   };
 
   const toggleHabitDay = async (habitId: string, date: Date) => {
-    try {
-      const dateStr = format(date, 'yyyy-MM-dd');
-      const existingLog = logs.find(
-        (l) => l.habit_id === habitId && l.completed_at === dateStr
-      );
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const existingLog = logs.find(
+      (l) => l.habit_id === habitId && l.completed_at === dateStr
+    );
 
-      if (existingLog) {
-        await supabase.from('habit_logs').delete().eq('id', existingLog.id);
-      } else {
-        await supabase.from('habit_logs').insert({
-          habit_id: habitId,
-          user_id: user?.id,
-          completed_at: dateStr,
-        });
-      }
-      loadLogs();
-    } catch (error) {
-      console.error('[Habits] Erro em toggleHabitDay:', error);
-      toast({ title: 'Erro', description: 'Erro ao registrar hábito', variant: 'destructive' });
+    if (existingLog) {
+      await supabase.from('habit_logs').delete().eq('id', existingLog.id);
+    } else {
+      await supabase.from('habit_logs').insert({
+        habit_id: habitId,
+        user_id: user?.id,
+        completed_at: dateStr,
+      });
     }
+    loadLogs();
   };
 
   const deleteHabit = async (habitId: string) => {
-    try {
-      await supabase.from('habits').delete().eq('id', habitId);
-      loadHabits();
-    } catch (error) {
-      console.error('[Habits] Erro em deleteHabit:', error);
-      toast({ title: 'Erro', description: 'Erro ao excluir hábito', variant: 'destructive' });
-    }
+    await supabase.from('habits').delete().eq('id', habitId);
+    loadHabits();
   };
 
   const openEditDialog = (habit: Habit) => {
@@ -432,13 +404,5 @@ function HabitsContent() {
         )}
       </div>
     </AppLayout>
-  );
-}
-
-export default function Habits() {
-  return (
-    <PageErrorBoundary pageName="Hábitos">
-      <HabitsContent />
-    </PageErrorBoundary>
   );
 }
