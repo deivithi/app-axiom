@@ -1,61 +1,84 @@
 
 
-# Fix Real: Classe `.dark` Nao Aplicada no HTML
+# Fix Definitivo: Inverter CSS Variables (Dark = Default)
 
-## Causa Raiz (FINALMENTE encontrada)
+## Problema Real Confirmado
 
-O `<html>` tem `class=""` (vazio). O `next-themes` com `defaultTheme="dark"` e `attribute="class"` **nao esta aplicando** a classe `.dark` ao elemento `<html>`.
+Testei via browser: `<html>` tem `class=""` (vazio) MESMO depois de colocar `class="dark"` no HTML. O `next-themes` esta ativamente removendo a classe ao montar o React.
 
-Consequencia: TODOS os CSS variables definidos dentro de `.dark { ... }` no `index.css` (linhas 274-358) NUNCA sao ativados. O browser usa os valores de `:root` que sao o **light mode**:
-- `--foreground: 222 84% 5%` = texto quase preto
-- `--background: 0 0% 100%` = fundo branco
+Consequencia: `.dark { --background: 240 20% 4% }` NUNCA aplica. O browser usa `:root { --background: 0 0% 100% }` (branco). Todo o app renderiza com cores de light mode sobre um fundo escuro do StarryBackground = tela preta.
 
-Mas o `StarryBackground` renderiza um canvas escuro por cima. Resultado: texto escuro sobre fundo escuro = tudo invisivel = "tela preta".
+## Solucao: Dark como Default no CSS
 
-Isso tambem explica por que `.dark .modal-surface` nunca funcionou e por que o `.glass` (CSS hardcoded) funcionava.
+Trocar a logica do CSS: o `:root` define os valores DARK (que sao os que o app usa 99% do tempo). Os valores light ficam sob `.light` (usado apenas se o usuario trocar explicitamente).
 
-## Solucao
+Isso elimina TODA dependencia da classe `.dark` no `<html>`. O app funciona escuro por padrao, independente do que o `next-themes` faz.
 
-Duas mudancas simples:
+## Mudancas
 
-### 1. `index.html` -- Adicionar `class="dark"` ao `<html>`
+### 1. `src/index.css` - Inverter os tokens
 
-Isso garante que o dark mode esta ativo IMEDIATAMENTE, antes mesmo do JavaScript carregar. Se o `next-themes` funcionar depois, ele gerencia a classe normalmente. Se nao funcionar, o fallback ja esta la.
-
-De: `<html lang="pt-BR">`
-Para: `<html lang="pt-BR" class="dark">`
-
-### 2. `src/App.tsx` -- Forcar `forcedTheme` ou adicionar script de seguranca
-
-Adicionar `enableSystem={false}` e `storageKey="axiom-theme"` no ThemeProvider para evitar que localStorage com valor invalido sobrescreva o default. Tambem adicionar `disableTransitionOnChange` para evitar flash.
-
-De:
-```tsx
-<ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+**De:**
 ```
-Para:
-```tsx
-<ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} storageKey="axiom-theme" disableTransitionOnChange>
+@layer base {
+  :root { /* LIGHT values */ }
+  .dark { /* DARK values */ }
+}
 ```
 
-O `enableSystem={false}` impede que o `next-themes` tente detectar preferencia do sistema (que pode retornar "light" e remover a classe `.dark`). O `storageKey="axiom-theme"` usa uma chave dedicada para evitar conflitos.
+**Para:**
+```
+@layer base {
+  :root { /* DARK values (default) */ }
+  .light { /* LIGHT values (override) */ }
+}
+```
 
-## Por que vai funcionar
+Os valores nao mudam -- apenas trocam de lugar. O `:root` recebe os dark values, e os light values vao para `.light`.
 
-1. `class="dark"` no HTML = CSS variables dark mode ativos desde o primeiro render
-2. `enableSystem={false}` = next-themes nao pode remover a classe baseado na preferencia do sistema
-3. `defaultTheme="dark"` continua como fallback
-4. Se o usuario trocar para light mode via ThemeToggle, next-themes substitui normalmente
+### 2. `src/App.tsx` - ThemeProvider usa `"light"` como classe alternativa
+
+O ThemeProvider ja esta correto com `attribute="class"`. Quando o usuario trocar para light mode, ele aplica `.light` no HTML, ativando os overrides. Sem mudanca necessaria aqui.
+
+### 3. `index.html` - Manter `class="dark"` como fallback
+
+Manter o `class="dark"` no HTML como fallback para componentes que usam `.dark` diretamente (como o Tailwind `dark:` prefix).
+
+## Detalhes Tecnicos
+
+### Tokens que serao movidos para `:root` (atualmente em `.dark`)
+- `--background: 240 20% 4%` (preto profundo)
+- `--foreground: 210 40% 98%` (texto claro)
+- `--card: 240 17% 9%`
+- `--popover: 240 14% 12%`
+- `--modal: 230 15% 28%`
+- `--primary`, `--secondary`, `--accent` (dark variants)
+- `--border`, `--input`, `--ring`
+- `--glass-bg`, `--glass-border`
+- `--sidebar-*`
+
+### Tokens que serao movidos para `.light` (atualmente em `:root`)
+- `--background: 0 0% 100%` (branco)
+- `--foreground: 222 84% 5%` (texto escuro)
+- Todos os equivalentes light
+
+### Impacto no Tailwind `dark:` prefix
+O Tailwind usa `.dark` para o prefixo `dark:`. Se algum componente usar `dark:bg-something`, ele nao sera afetado porque ja temos `class="dark"` no HTML. Alem disso, como o `:root` agora TEM os valores dark, usar `bg-background` diretamente (sem `dark:` prefix) ja retorna a cor correta.
+
+### Classe `.modal-surface` 
+Ja funciona independente porque tem valores hardcoded. Nenhuma mudanca necessaria.
 
 ## Arquivos a Modificar
 
-1. `index.html` -- Adicionar `class="dark"` ao `<html>`
-2. `src/App.tsx` -- Ajustar ThemeProvider props
+1. `src/index.css` -- Trocar os blocos `:root` (light) e `.dark` (dark) de lugar
 
 ## Risco
 
-Zero. Adicionar `class="dark"` ao HTML e a forma recomendada pelo `next-themes` para evitar FOUC (Flash of Unstyled Content). E o `enableSystem={false}` apenas impede deteccao automatica do sistema.
+Minimo. Apenas reorganiza ONDE os tokens estao definidos. As mesmas cores continuam ativas. O app ja e 100% dark-first, entao isso alinha o CSS com a realidade.
 
-## Impacto
+## Resultado Esperado
 
-Isso resolve NAO APENAS os modais, mas TODA a visibilidade do app. Texto, botoes, inputs, cards -- tudo volta a funcionar porque os CSS variables corretos (dark mode) serao finalmente aplicados.
+- App renderiza corretamente no dark mode SEM depender de `.dark` no HTML
+- Light mode funciona quando o usuario trocar (ThemeProvider adiciona `.light`)
+- Todos os modais, cards, textos, inputs ficam visiveis imediatamente
+- Elimina a "tela preta" de uma vez por todas
