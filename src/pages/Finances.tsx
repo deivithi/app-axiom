@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { SimpleModal } from "@/components/ui/simple-modal";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { Plus, Trash2, Loader2, ChevronLeft, ChevronRight, Pencil, Wallet, PiggyBank, Check, Clock, RefreshCw, FileText, ArrowRightLeft } from "lucide-react";
 import { generateFinancialPDF } from "@/lib/generateFinancialPDF";
@@ -960,129 +961,125 @@ export default function Finances() {
               <FileText className="h-4 w-4 mr-2" /> Exportar PDF
             </Button>
             
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-              <DialogTrigger asChild>
-                <Button><Plus className="h-4 w-4 mr-2" /> Nova Transação</Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Nova Transação</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Título</Label>
-                    <Input 
-                      value={newTransaction.title} 
-                      onChange={e => setNewTransaction(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="Ex: Supermercado"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Valor (R$)</Label>
-                    <CurrencyInput 
-                      value={parseFloat(newTransaction.amount) || 0}
-                      onChange={value => setNewTransaction(prev => ({ ...prev, amount: value.toString() }))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Tipo</Label>
-                    <Select value={newTransaction.type} onValueChange={(v: "income" | "expense") => setNewTransaction(prev => ({ ...prev, type: v, category: "" }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="expense">Despesa</SelectItem>
-                        <SelectItem value="income">Receita</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Categoria</Label>
-                    <Select value={newTransaction.category || undefined} onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                      <SelectContent>
-                        {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
-                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Forma de Pagamento</Label>
-                    <Select value={newTransaction.payment_method || undefined} onValueChange={v => setNewTransaction(prev => ({ ...prev, payment_method: v }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {PAYMENT_METHODS.map(pm => (
-                          <SelectItem key={pm} value={pm}>{pm}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Data da Transação</Label>
-                    <Input 
-                      type="date"
-                      value={newTransaction.transaction_date}
-                      onChange={e => setNewTransaction(prev => ({ ...prev, transaction_date: e.target.value }))}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <Label>Despesa Fixa (recorrente)</Label>
-                    <Switch checked={newTransaction.is_fixed} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_fixed: v }))} />
-                  </div>
-                  {newTransaction.is_fixed && (
-                    <div className="space-y-2">
-                      <Label>Dia do mês para cobrança (1-31)</Label>
-                      <Input 
-                        type="number"
-                        min="1"
-                        max="31"
-                        value={newTransaction.recurrence_day}
-                        onChange={e => setNewTransaction(prev => ({ ...prev, recurrence_day: e.target.value }))}
-                        placeholder="Ex: 5 (todo dia 5)"
-                      />
-                      <p className="text-xs text-muted-foreground">Se não informado, usará o dia da data da transação</p>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <Label>Parcelado</Label>
-                    <Switch checked={newTransaction.is_installment} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_installment: v }))} />
-                  </div>
-                  {newTransaction.is_installment && (
-                    <div className="space-y-2">
-                      <Label>Número de Parcelas</Label>
-                      <Input 
-                        type="number" 
-                        value={newTransaction.total_installments}
-                        onChange={e => setNewTransaction(prev => ({ ...prev, total_installments: e.target.value }))}
-                        placeholder="12"
-                      />
-                    </div>
-                  )}
-                  {accounts.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Conta (opcional)</Label>
-                      <Select 
-                        value={newTransaction.account_id || "none"} 
-                        onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v === "none" ? "" : v }))}
-                      >
-                        <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Nenhuma</SelectItem>
-                          {accounts.map(acc => (
-                            <SelectItem key={acc.id} value={acc.id}>
-                              {acc.icon} {acc.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button onClick={createTransaction}>Salvar</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={() => setIsDialogOpen(true)}><Plus className="h-4 w-4 mr-2" /> Nova Transação</Button>
           </div>
+
+          <SimpleModal
+            open={isDialogOpen}
+            onClose={() => setIsDialogOpen(false)}
+            title="Nova Transação"
+            footer={<Button onClick={createTransaction}>Salvar</Button>}
+          >
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Título</Label>
+                <Input 
+                  value={newTransaction.title} 
+                  onChange={e => setNewTransaction(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="Ex: Supermercado"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Valor (R$)</Label>
+                <CurrencyInput 
+                  value={parseFloat(newTransaction.amount) || 0}
+                  onChange={value => setNewTransaction(prev => ({ ...prev, amount: value.toString() }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tipo</Label>
+                <Select value={newTransaction.type} onValueChange={(v: "income" | "expense") => setNewTransaction(prev => ({ ...prev, type: v, category: "" }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="expense">Despesa</SelectItem>
+                    <SelectItem value="income">Receita</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Categoria</Label>
+                <Select value={newTransaction.category || undefined} onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                  <SelectContent>
+                    {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Forma de Pagamento</Label>
+                <Select value={newTransaction.payment_method || undefined} onValueChange={v => setNewTransaction(prev => ({ ...prev, payment_method: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {PAYMENT_METHODS.map(pm => (
+                      <SelectItem key={pm} value={pm}>{pm}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Data da Transação</Label>
+                <Input 
+                  type="date"
+                  value={newTransaction.transaction_date}
+                  onChange={e => setNewTransaction(prev => ({ ...prev, transaction_date: e.target.value }))}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <Label>Despesa Fixa (recorrente)</Label>
+                <Switch checked={newTransaction.is_fixed} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_fixed: v }))} />
+              </div>
+              {newTransaction.is_fixed && (
+                <div className="space-y-2">
+                  <Label>Dia do mês para cobrança (1-31)</Label>
+                  <Input 
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={newTransaction.recurrence_day}
+                    onChange={e => setNewTransaction(prev => ({ ...prev, recurrence_day: e.target.value }))}
+                    placeholder="Ex: 5 (todo dia 5)"
+                  />
+                  <p className="text-xs text-muted-foreground">Se não informado, usará o dia da data da transação</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <Label>Parcelado</Label>
+                <Switch checked={newTransaction.is_installment} onCheckedChange={v => setNewTransaction(prev => ({ ...prev, is_installment: v }))} />
+              </div>
+              {newTransaction.is_installment && (
+                <div className="space-y-2">
+                  <Label>Número de Parcelas</Label>
+                  <Input 
+                    type="number" 
+                    value={newTransaction.total_installments}
+                    onChange={e => setNewTransaction(prev => ({ ...prev, total_installments: e.target.value }))}
+                    placeholder="12"
+                  />
+                </div>
+              )}
+              {accounts.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Conta (opcional)</Label>
+                  <Select 
+                    value={newTransaction.account_id || "none"} 
+                    onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v === "none" ? "" : v }))}
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Nenhuma</SelectItem>
+                      {accounts.map(acc => (
+                        <SelectItem key={acc.id} value={acc.id}>
+                          {acc.icon} {acc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </SimpleModal>
         </header>
 
         {/* Cards de Resumo */}
