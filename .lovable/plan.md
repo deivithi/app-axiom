@@ -1,95 +1,69 @@
 
+# Fix Definitivo: Tela Preta em Modais e Popups
 
-# Correção: Tela Preta ao Abrir Modais no Mobile
+## Causa Raiz Identificada
 
-## Problema Real Identificado
-
-O "fix" anterior de z-index foi um **no-op** -- o codigo JA usava `z-modal-backdrop` e `z-modal` desde o inicio. O problema real tem duas causas:
-
-### Causa 1: DialogContent sem scroll no mobile
-
-O componente `DialogContent` NAO tem `max-height` nem `overflow-y-auto`. Formularios longos como "Nova Transacao" (10+ campos) excedem a altura da viewport no mobile:
+O problema NAO era apenas o Dialog. Existem **7 componentes UI** que ainda usam `z-50` (o padrao do Radix UI), enquanto o sistema de z-index do projeto usa valores muito maiores:
 
 ```text
-Dialog natural height:  ~900px
-Viewport height:        ~844px (iPhone)
-top: 50% =              422px
-translate-y: -50% =     -450px (50% de 900px)
-Final top:              -28px (ACIMA do viewport!)
+z-50   <-- Select, Popover, Dropdown, Drawer, ContextMenu, HoverCard, Menubar
+z-150  <-- BottomNavigation (z-fixed)
+z-200  <-- Dialog Overlay (z-modal-backdrop)
+z-250  <-- Dialog Content (z-modal)
+z-300  <-- Popover (z-popover) - ONDE DEVERIA ESTAR
 ```
 
-O conteudo do dialog ultrapassa AMBOS os lados da tela, e com `bg-background` (cor muito escura no dark mode) + overlay `bg-black/80`, o resultado visual e uma tela completamente preta.
+Quando o usuario abre um Dialog (z-200/z-250) e depois interage com um Select, Popover ou Dropdown DENTRO do dialog, o conteudo desses componentes renderiza em z-50 -- ATRAS do overlay do Dialog em z-200. Resultado: tela preta.
 
-### Causa 2: Ordem do DOM no AppLayout
+O Drawer tambem usa z-50, entao se qualquer componente usar um Drawer no mobile, ele ficaria atras da BottomNavigation (z-150).
 
-No `AppLayout.tsx`, o backdrop do chat e renderizado DEPOIS do `ChatPanel` no DOM (linha 62-67), o que pode causar problemas de stacking context em alguns browsers:
+## Solucao Completa
+
+Atualizar TODOS os 7 componentes para usar a escala de z-index correta do projeto:
+
+### 1. `src/components/ui/select.tsx`
+- `SelectContent`: z-50 -> z-popover (300)
+
+### 2. `src/components/ui/popover.tsx`
+- `PopoverContent`: z-50 -> z-popover (300)
+
+### 3. `src/components/ui/dropdown-menu.tsx`
+- `DropdownMenuContent`: z-50 -> z-popover (300)
+- `DropdownMenuSubContent`: z-50 -> z-popover (300)
+
+### 4. `src/components/ui/context-menu.tsx`
+- `ContextMenuContent`: z-50 -> z-popover (300)
+- `ContextMenuSubContent`: z-50 -> z-popover (300)
+
+### 5. `src/components/ui/hover-card.tsx`
+- `HoverCardContent`: z-50 -> z-popover (300)
+
+### 6. `src/components/ui/drawer.tsx`
+- `DrawerOverlay`: z-50 -> z-modal-backdrop (200)
+- `DrawerContent`: z-50 -> z-modal (250)
+
+### 7. `src/components/ui/menubar.tsx`
+- `MenubarContent`: z-50 -> z-popover (300)
+- `MenubarSubContent`: z-50 -> z-popover (300)
+
+## Escala Final Corrigida
 
 ```text
-Ordem atual do DOM:
-1. <main> (conteudo)
-2. <ChatPanel> (z-modal = 250)
-3. <BottomNavigation> (z-fixed = 150)
-4. <div backdrop> (z-[200])  <-- DEPOIS do ChatPanel
+z-fixed (150)          BottomNavigation
+z-modal-backdrop (200) Dialog Overlay, Drawer Overlay, Chat Backdrop
+z-modal (250)          Dialog Content, Drawer Content, ChatPanel
+z-popover (300)        Select, Popover, Dropdown, ContextMenu, HoverCard, Menubar
+z-toast (400)          Toast notifications
+z-tooltip (500)        Tooltips (ja correto com z-[9999])
 ```
-
----
-
-## Solucao
-
-### 1. DialogContent: Adicionar scroll e altura maxima
-
-**Arquivo:** `src/components/ui/dialog.tsx`
-
-Adicionar `max-h-[85vh] overflow-y-auto` ao `DialogContent` para garantir que formularios longos sejam scrollaveis no mobile:
-
-```tsx
-// Antes
-"fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg ..."
-
-// Depois
-"fixed left-[50%] top-[50%] z-modal grid w-full max-w-lg max-h-[85vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg ..."
-```
-
-### 2. AlertDialogContent: Mesma correcao
-
-**Arquivo:** `src/components/ui/alert-dialog.tsx`
-
-Aplicar a mesma mudanca ao `AlertDialogContent`.
-
-### 3. AppLayout: Reordenar DOM
-
-**Arquivo:** `src/components/layout/AppLayout.tsx`
-
-Mover o backdrop do chat para ANTES do ChatPanel no DOM, para que a ordem reflita corretamente a hierarquia visual:
-
-```tsx
-// Antes:
-<ChatPanel ... />
-{isMobile && !chatOpen && <BottomNavigation />}
-{chatOpen && isMobile && <div backdrop ... />}
-
-// Depois:
-{chatOpen && isMobile && <div backdrop ... />}
-<ChatPanel ... />
-{isMobile && !chatOpen && <BottomNavigation />}
-```
-
----
-
-## Resumo de Mudancas
-
-| Arquivo | Mudanca | Impacto |
-|---------|---------|---------|
-| `dialog.tsx` | Adicionar `max-h-[85vh] overflow-y-auto` | Dialogs longos ficam scrollaveis |
-| `alert-dialog.tsx` | Mesma correcao | Alertas longos ficam scrollaveis |
-| `AppLayout.tsx` | Reordenar backdrop antes do ChatPanel | Fix stacking context |
 
 ## Resultado Esperado
 
-- Clicar "Nova Transacao" mostra o formulario scrollavel sobre fundo escuro
-- Todos os modais da aplicacao ficam visiveis e usaveis no mobile
-- Nenhuma tela preta ao abrir qualquer dialog
+- Clicar "Nova Transacao" mostra o formulario corretamente
+- Selects e dropdowns DENTRO de dialogs ficam visiveis acima do overlay
+- Drawers no mobile ficam acima da BottomNavigation
+- Nenhuma tela preta em nenhum cenario
 
 ## Risco
 
-Baixo -- apenas ajustes de CSS e reordenacao de DOM sem mudanca de logica.
+Baixo - apenas substituicao de z-50 por classes do design system ja existente. Sem mudanca de logica.
