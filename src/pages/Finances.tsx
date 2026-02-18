@@ -24,6 +24,55 @@ import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { transactionSchema, accountSchema, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/validations";
+import React from "react";
+
+// ErrorBoundary LOCAL para a página de Finanças
+class FinancesErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error("[FinancesErrorBoundary]", error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{
+          minHeight: "100vh", display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center",
+          background: "hsl(230,15%,18%)", color: "#fff", padding: "2rem", textAlign: "center",
+          border: "4px solid #ef4444"
+        }}>
+          <h2 style={{ fontSize: "1.5rem", marginBottom: "0.5rem" }}>⚠️ Erro na página de Finanças</h2>
+          <p style={{ color: "#fca5a5", marginBottom: "1rem", maxWidth: 400, wordBreak: "break-word" }}>
+            {this.state.error?.message || "Erro desconhecido"}
+          </p>
+          <pre style={{ fontSize: "0.7rem", color: "#94a3b8", maxWidth: 500, overflow: "auto", marginBottom: "1rem", maxHeight: 120 }}>
+            {this.state.error?.stack}
+          </pre>
+          <div style={{ display: "flex", gap: "0.75rem" }}>
+            <button onClick={() => this.setState({ hasError: false, error: null })}
+              style={{ padding: "0.75rem 1.5rem", background: "#8b5cf6", color: "#fff", border: "none", borderRadius: "0.5rem", cursor: "pointer" }}>
+              Tentar novamente
+            </button>
+            <button onClick={() => window.location.href = "/"}
+              style={{ padding: "0.75rem 1.5rem", background: "transparent", color: "#fff", border: "1px solid #555", borderRadius: "0.5rem", cursor: "pointer" }}>
+              Voltar ao início
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface Transaction {
   id: string;
@@ -202,6 +251,7 @@ export default function Finances() {
   };
 
   const generateRecurringTransactions = async () => {
+    try {
     const referenceMonth = format(selectedMonth, "yyyy-MM");
     const year = selectedMonth.getFullYear();
     const month = selectedMonth.getMonth();
@@ -271,9 +321,13 @@ export default function Finances() {
     if (transactionsToInsert.length > 0) {
       await supabase.from("transactions").insert(transactionsToInsert);
     }
+    } catch (error) {
+      console.error("[Finances] Erro em generateRecurringTransactions:", error);
+    }
   };
 
   const loadTransactions = async (page = 0, append = false) => {
+    try {
     const monthStart = format(startOfMonth(selectedMonth), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(selectedMonth), "yyyy-MM-dd");
 
@@ -299,6 +353,10 @@ export default function Finances() {
     } else {
       setTransactions(newTransactions);
     }
+    } catch (error) {
+      console.error("[Finances] Erro em loadTransactions:", error);
+      toast.error("Erro ao carregar transações");
+    }
   };
 
   const loadMoreTransactions = async () => {
@@ -311,6 +369,7 @@ export default function Finances() {
   };
 
   const loadAccounts = async () => {
+    try {
     const { data, error } = await supabase
       .from("accounts")
       .select("*")
@@ -322,6 +381,10 @@ export default function Finances() {
       return;
     }
     setAccounts((data || []) as Account[]);
+    } catch (error) {
+      console.error("[Finances] Erro em loadAccounts:", error);
+      toast.error("Erro ao carregar contas");
+    }
   };
 
   const createTransaction = async () => {
@@ -401,7 +464,7 @@ export default function Finances() {
   };
 
   const payTransaction = async (id: string, type: string) => {
-    // Usar função atômica do banco para evitar race conditions
+    try {
     const { error } = await supabase.rpc('pay_transaction_atomic', {
       p_transaction_id: id,
       p_user_id: user?.id
@@ -418,10 +481,14 @@ export default function Finances() {
 
     toast.success(type === "income" ? "Receita marcada como recebida! 💰" : "Transação marcada como paga! ✅");
     loadData();
+    } catch (error) {
+      console.error("[Finances] Erro em payTransaction:", error);
+      toast.error("Erro inesperado. Tente novamente.");
+    }
   };
 
   const unpayTransaction = async (id: string) => {
-    // Usar função atômica do banco para evitar race conditions
+    try {
     const { error } = await supabase.rpc('unpay_transaction_atomic', {
       p_transaction_id: id,
       p_user_id: user?.id
@@ -438,10 +505,15 @@ export default function Finances() {
 
     toast.success("Pagamento desfeito");
     loadData();
+    } catch (error) {
+      console.error("[Finances] Erro em unpayTransaction:", error);
+      toast.error("Erro inesperado. Tente novamente.");
+    }
   };
 
   const updateTransaction = async () => {
     if (!editingTransaction) return;
+    try {
 
     // Validate with zod
     const validationResult = transactionSchema.safeParse({
@@ -647,9 +719,14 @@ export default function Finances() {
     setEditingTransaction(null);
     setCascadeUpdateMode("single");
     loadData();
+    } catch (error) {
+      console.error("[Finances] Erro em updateTransaction:", error);
+      toast.error("Erro inesperado ao atualizar.");
+    }
   };
 
   const deleteTransaction = async (id: string) => {
+    try {
     const transaction = transactions.find(t => t.id === id);
     
     if (transaction?.is_paid && transaction?.account_id) {
@@ -684,9 +761,14 @@ export default function Finances() {
 
     toast.success("Transação excluída!");
     loadData();
+    } catch (error) {
+      console.error("[Finances] Erro em deleteTransaction:", error);
+      toast.error("Erro inesperado ao excluir.");
+    }
   };
 
   const recalculateAccountBalance = async (accountId: string) => {
+    try {
     const { data: paidTransactions, error } = await supabase
       .from("transactions")
       .select("amount, type")
@@ -709,10 +791,14 @@ export default function Finances() {
 
     toast.success("Saldo recalculado!");
     loadAccounts();
+    } catch (error) {
+      console.error("[Finances] Erro em recalculateAccountBalance:", error);
+      toast.error("Erro ao recalcular saldo.");
+    }
   };
 
   const createAccount = async () => {
-    // Validate with zod
+    try {
     const validationResult = accountSchema.safeParse({
       name: newAccount.name.trim(),
       balance: parseFloat(newAccount.balance) || 0,
@@ -750,10 +836,14 @@ export default function Finances() {
       icon: ACCOUNT_ICONS[0]
     });
     loadAccounts();
+    } catch (error) {
+      console.error("[Finances] Erro em createAccount:", error);
+      toast.error("Erro inesperado ao criar conta.");
+    }
   };
 
   const deleteAccount = async (accountId: string) => {
-    // Check for linked transactions
+    try {
     const { count, error: countError } = await supabase
       .from("transactions")
       .select("id", { count: 'exact', head: true })
@@ -781,9 +871,14 @@ export default function Finances() {
 
     toast.success("Conta excluída com sucesso!");
     loadAccounts();
+    } catch (error) {
+      console.error("[Finances] Erro em deleteAccount:", error);
+      toast.error("Erro inesperado ao excluir conta.");
+    }
   };
 
   const createTransfer = async () => {
+    try {
     const amount = parseFloat(newTransfer.amount);
     
     if (!newTransfer.fromAccountId || !newTransfer.toAccountId) {
@@ -875,6 +970,10 @@ export default function Finances() {
       description: ""
     });
     loadData();
+    } catch (error) {
+      console.error("[Finances] Erro em createTransfer:", error);
+      toast.error("Erro inesperado ao transferir.");
+    }
   };
 
   // Memoized calculations for better performance with large datasets
@@ -926,6 +1025,7 @@ export default function Finances() {
   }
 
   return (
+    <FinancesErrorBoundary>
     <AppLayout>
       <div className="dashboard-container">
         {/* Header */}
@@ -1480,7 +1580,7 @@ export default function Finances() {
                           {transaction.title}
                         </p>
                         <span className="text-sm text-muted-foreground">
-                          • {format(safeParseDateBR(transaction.transaction_date), "dd/MM", { locale: ptBR })}
+                          • {transaction.transaction_date ? format(safeParseDateBR(transaction.transaction_date), "dd/MM", { locale: ptBR }) : "--/--"}
                         </span>
                         {transaction.is_fixed && (
                           <Badge variant="outline" className="text-xs">
@@ -1730,5 +1830,6 @@ export default function Finances() {
         </SimpleModal>
       </div>
     </AppLayout>
+    </FinancesErrorBoundary>
   );
 }
