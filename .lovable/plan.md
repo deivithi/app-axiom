@@ -1,125 +1,60 @@
 
 
-# Fix Definitivo: Modais com Tela Preta
+# Fix Definitivo: Bug Real Encontrado - `:root:not(.dark)` Override
 
-## Problema Confirmado
+## Causa Raiz (100% Confirmada)
 
-O usuario confirmou: **a pagina carrega normalmente**, mas ao clicar em "Nova Transacao", **o modal/dialog abre com tela preta**. Isso significa que:
-- O overlay escuro (bg-black/60) aparece
-- O conteudo do dialog NAO fica visivel por cima do overlay
-- Resultado: usuario ve apenas uma tela escura sem formulario
+O CSS tem esta regra na linha 369:
+```css
+:root:not(.dark) .modal-surface {
+  background-color: hsl(0, 0%, 100%) !important;  /* BRANCO */
+}
+```
 
-## Causa Raiz
+Como o `next-themes` remove a classe `dark` do `<html>`, o seletor `:root:not(.dark)` SEMPRE casa. Isso forca o modal a ter fundo BRANCO com `!important`.
 
-A classe `.modal-surface` (definida em `@layer components` no CSS) pode NAO estar sendo aplicada corretamente. Possiveis razoes:
-1. O pipeline CSS (Tailwind + PostCSS + Vite) pode nao estar gerando a classe corretamente dentro do `@layer components`
-2. Cache do Service Worker pode estar servindo uma versao antiga do CSS
-3. A cascata de layers (`@layer components` tem menor prioridade que `@layer utilities`) pode estar sendo sobrescrita
-4. O `backdrop-blur-xl` no DialogContent pode estar criando artefatos visuais que escondem o conteudo
+O problema: `!important` em stylesheet tem prioridade MAIOR que inline styles. Entao nosso "fix nuclear" com `style={{ backgroundColor: ... }}` e completamente ignorado pelo browser.
 
-Independente da causa exata, a solucao e tornar os estilos **impossiveis de sobrescrever**.
+Resultado final:
+- Fundo do modal: BRANCO (da regra `:root:not(.dark)` com `!important`)
+- Texto do modal: quase BRANCO (`hsl(210, 40%, 98%)` do inline style)
+- Inputs: BRANCOS (mesma regra, linhas 388-398)
+- Texto branco sobre fundo branco = **INVISIVEL** = "tela preta" (porque so se ve o overlay escuro)
 
-## Solucao: Inline Styles (Nuclear)
+## Solucao
 
-Adicionar `style` attribute diretamente nos componentes de modal. Inline styles tem a maior prioridade no CSS cascade - nao dependem de classes, variaveis, ou layers.
+Remover TODOS os seletores `:root:not(.dark)` das regras de modal. Agora que o dark mode e o padrao no `:root`, a unica forma de ativar light mode deve ser a classe `.light` (que o ThemeProvider adiciona explicitamente quando o usuario troca).
 
-### Arquivos a Modificar
+### Arquivo: `src/index.css`
 
-#### 1. `src/components/ui/dialog.tsx`
-- Adicionar inline style ao `DialogContent`: `style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}`
-- Remover `backdrop-blur-xl` (pode causar artefatos visuais)
-- Manter `modal-surface` como classe adicional (redundancia)
+**Mudanca 1** - Regra `.modal-surface` light override (linhas 368-376):
+- Remover `:root:not(.dark) .modal-surface` do seletor
+- Manter apenas `.light .modal-surface`
 
-#### 2. `src/components/ui/drawer.tsx`
-- Adicionar inline style ao `DrawerContent`: `style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}`
-- Remover `backdrop-blur-xl`
-- Manter `modal-surface` como classe adicional
+**Mudanca 2** - Regra de inputs light override (linhas 387-398):
+- Remover todas as linhas `:root:not(.dark) .modal-surface input/combobox/textarea/select`
+- Manter apenas as versoes `.light .modal-surface ...`
 
-#### 3. `src/components/ui/alert-dialog.tsx`
-- Adicionar inline style ao `AlertDialogContent`: `style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}`
-- Remover `backdrop-blur-xl` se presente
-- Manter `modal-surface` como classe adicional
-
-#### 4. `src/index.css`
-- Adicionar `color: hsl(210, 40%, 98%) !important` na regra `.modal-surface` (redundancia tripla)
-- Adicionar `opacity: 1 !important` na regra `.modal-surface` para prevenir problemas de animacao
+**Mudanca 3** - Buscar e remover QUALQUER outra ocorrencia de `:root:not(.dark)` no arquivo para prevenir bugs similares em outros componentes.
 
 ### Detalhes Tecnicos
 
 ```text
-Prioridade do CSS (menor para maior):
-1. @layer base { .class { ... } }
-2. @layer components { .class { ... } }        <-- modal-surface atual
-3. @layer utilities { .class { ... } }          <-- bg-background, etc
-4. Unlayered .class { ... }
-5. INLINE style="..."                           <-- NOVA ABORDAGEM
+ANTES (bugado):
+:root (sem .dark) + .modal-surface = fundo BRANCO !important
+Inline style backgroundColor = IGNORADO (perde para !important)
+Resultado: branco sobre branco = invisivel
+
+DEPOIS (correto):
+:root (sem .dark ou .light) + .modal-surface = fundo ESCURO !important
+.light .modal-surface = fundo BRANCO (so quando usuario trocar tema)
+Inline style = backup redundante
+Resultado: modal escuro visivel
 ```
-
-Os inline styles ficam no nivel 5 - nada pode sobrescreve-los exceto outro inline style ou `!important`. Como nenhum outro componente adiciona inline styles a esses elementos, a visibilidade esta GARANTIDA.
-
-### Mudancas Especificas
-
-**dialog.tsx - DialogContent:**
-```tsx
-<DialogPrimitive.Content
-  ref={ref}
-  style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}
-  className={cn(
-    "fixed left-[50%] top-[50%] z-[9995] grid w-full max-w-lg max-h-[85vh] overflow-y-auto translate-x-[-50%] translate-y-[-50%] gap-4 border modal-surface p-6 duration-200 ...",
-    className
-  )}
-  {...props}
->
-```
-
-**drawer.tsx - DrawerContent:**
-```tsx
-<DrawerPrimitive.Content
-  ref={ref}
-  style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}
-  className={cn(
-    "fixed inset-x-0 bottom-0 z-[9995] mt-24 flex h-auto flex-col rounded-t-[10px] border modal-surface",
-    className
-  )}
-  {...props}
->
-```
-
-**alert-dialog.tsx - AlertDialogContent:**
-```tsx
-<AlertDialogPrimitive.Content
-  ref={ref}
-  style={{ backgroundColor: 'hsl(230, 15%, 28%)', color: 'hsl(210, 40%, 98%)' }}
-  className={cn(
-    "fixed left-[50%] top-[50%] z-[9995] grid ... modal-surface p-6 ...",
-    className
-  )}
-  {...props}
->
-```
-
-**index.css - .modal-surface:**
-```css
-.modal-surface {
-  background-color: hsl(230, 15%, 28%) !important;
-  color: hsl(210, 40%, 98%) !important;           /* NOVO */
-  opacity: 1 !important;                           /* NOVO */
-  border-color: rgba(148, 163, 184, 0.4) !important;
-  box-shadow: ... !important;
-}
-```
-
-### Por que vai funcionar
-
-1. Inline `style` tem a MAIOR prioridade no CSS - impossivel de sobrescrever
-2. As cores sao hardcoded (nao dependem de CSS variables)
-3. Nao depende de `.dark`, `.light`, ou qualquer classe no `<html>`
-4. Nao depende do `@layer` ordering do Tailwind
-5. Nao depende do Service Worker ou cache
-6. `opacity: 1 !important` previne problemas de animacao
-7. `color` explicito garante que texto e sempre visivel
 
 ### Risco
+Zero. A classe `.light` so e adicionada quando o usuario explicitamente troca para light mode via ThemeProvider. No modo padrao (dark), o modal usara o fundo escuro correto.
 
-Zero. Os valores sao os mesmos que ja estao definidos na classe `.modal-surface`. Apenas estao sendo aplicados de forma mais direta e impossivel de falhar.
+### Por que DESTA VEZ vai funcionar
+Porque encontramos a causa raiz REAL: o seletor `:root:not(.dark)` estava ativando a regra de light mode com `!important`, sobrescrevendo ate mesmo inline styles. Remover esse seletor elimina o conflito de uma vez por todas.
 
