@@ -196,8 +196,8 @@ export function ChatPanel({ isExpanded, onToggle }: ChatPanelProps) {
       "sm:w-96 sm:h-screen sm:bg-card/95 sm:backdrop-blur-xl",
       // Desktop: respect size setting
       `lg:${widthClass}`,
-      isExpanded ? "translate-x-0" : "translate-x-full",
-      "lg:translate-x-0"
+      isExpanded ? "translate-x-0" : "translate-x-full pointer-events-none",
+      "lg:translate-x-0 lg:pointer-events-auto"
     )}>
       {/* Chat Header - with safe area for notch */}
       <div className={cn(
