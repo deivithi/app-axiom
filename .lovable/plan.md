@@ -1,98 +1,141 @@
 
 
-# Fix Definitivo: Substituir Radix Dialog por Modal Customizado
+# Fix DEFINITIVO: Eliminar TODOS os componentes Radix do formulario "Nova Transacao"
 
-## Diagnostico Real
+## Diagnostico Final (apos 5 tentativas)
 
-Apos 4+ tentativas de corrigir o Dialog com Radix UI, o problema persiste. Todas as correcoes anteriores (Select values, CSS, animacoes, ErrorBoundary) nao resolveram. Isso indica que o problema pode estar no proprio Radix Dialog internamente - seja no Portal, no focus trap, ou em alguma interacao complexa com outros componentes da pagina.
+O SimpleModal ja esta em uso, os valores dos Select ja foram corrigidos, o ErrorBoundary ja existe. O problema PERSISTE. A unica explicacao restante e que os **componentes Radix Select DENTRO do SimpleModal** estao causando o crash.
 
-**Abordagem nova: parar de tentar consertar o Radix Dialog e substituir por um modal customizado simples.**
+O `SelectContent` do Radix usa `SelectPrimitive.Portal` que renderiza um novo container no `document.body`. Isso pode:
+1. Criar conflitos de foco com o SimpleModal (roubo de foco, scroll lock)
+2. Disparar listeners internos do Radix que interferem com o DOM
+3. Causar erros silenciosos no mount/unmount do Portal
 
-## Solucao
+**A solucao: eliminar 100% das dependencias Radix de dentro do formulario "Nova Transacao".** Substituir TODOS os `<Select>` por elementos `<select>` nativos HTML.
 
-### Parte 1: Criar componente SimpleModal
+## Mudancas
 
-Criar um modal puro com HTML/CSS, sem depender do Radix Dialog. Sem Portal, sem focus trap, sem animacoes complexas. Apenas um overlay + caixa centralizada.
+### Arquivo 1: `src/pages/Finances.tsx`
 
-**Novo arquivo:** `src/components/ui/simple-modal.tsx`
+Dentro do bloco `<SimpleModal>` (linhas 967-1082), substituir os 4 componentes `<Select>` por `<select>` nativos HTML:
+
+**Select 1 - Tipo (linha 991):**
+```tsx
+// DE:
+<Select value={newTransaction.type} onValueChange={...}>
+  <SelectTrigger><SelectValue /></SelectTrigger>
+  <SelectContent>
+    <SelectItem value="expense">Despesa</SelectItem>
+    <SelectItem value="income">Receita</SelectItem>
+  </SelectContent>
+</Select>
+
+// PARA:
+<select
+  value={newTransaction.type}
+  onChange={e => setNewTransaction(prev => ({ ...prev, type: e.target.value as "income" | "expense", category: "" }))}
+  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+>
+  <option value="expense">Despesa</option>
+  <option value="income">Receita</option>
+</select>
+```
+
+**Select 2 - Categoria (linha 1001):**
+```tsx
+// PARA:
+<select
+  value={newTransaction.category}
+  onChange={e => setNewTransaction(prev => ({ ...prev, category: e.target.value }))}
+  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+>
+  <option value="">Selecione</option>
+  {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+</select>
+```
+
+**Select 3 - Forma de Pagamento (linha 1012):**
+```tsx
+// PARA:
+<select
+  value={newTransaction.payment_method}
+  onChange={e => setNewTransaction(prev => ({ ...prev, payment_method: e.target.value }))}
+  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+>
+  {PAYMENT_METHODS.map(pm => <option key={pm} value={pm}>{pm}</option>)}
+</select>
+```
+
+**Select 4 - Conta (linha 1065):**
+```tsx
+// PARA:
+<select
+  value={newTransaction.account_id}
+  onChange={e => setNewTransaction(prev => ({ ...prev, account_id: e.target.value }))}
+  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+>
+  <option value="">Nenhuma</option>
+  {accounts.map(acc => <option key={acc.id} value={acc.id}>{acc.icon} {acc.name}</option>)}
+</select>
+```
+
+### Arquivo 2: `src/pages/Finances.tsx` - Envolver o conteudo do SimpleModal com try-catch
+
+Adicionar um wrapper de seguranca no `createTransaction` com try-catch explicito:
 
 ```tsx
-interface SimpleModalProps {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: React.ReactNode;
-  footer?: React.ReactNode;
+const createTransaction = async () => {
+  try {
+    // ... codigo existente ...
+  } catch (error) {
+    console.error("Erro ao criar transacao:", error);
+    toast.error("Erro inesperado ao criar transacao");
+  }
+};
+```
+
+### Arquivo 3: `src/index.css` - Estilizar selects nativos para tema escuro
+
+Adicionar regras CSS para que os `<select>` nativos respeitem o tema escuro:
+
+```css
+select {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  appearance: auto;
 }
 
-function SimpleModal({ open, onClose, title, children, footer }: SimpleModalProps) {
-  if (!open) return null;
-  
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 9990 }}>
-      {/* Overlay */}
-      <div 
-        onClick={onClose}
-        style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.6)' }}
-      />
-      {/* Content */}
-      <div style={{
-        position: 'absolute',
-        top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '100%', maxWidth: '28rem',
-        maxHeight: '85vh', overflowY: 'auto',
-        backgroundColor: 'hsl(230, 15%, 28%)',
-        color: 'hsl(210, 40%, 98%)',
-        borderRadius: '0.5rem',
-        padding: '1.5rem',
-        zIndex: 9995,
-      }}>
-        <h2>{title}</h2>
-        <button onClick={onClose}>X</button>
-        {children}
-        {footer}
-      </div>
-    </div>
-  );
+select option {
+  background-color: hsl(230, 15%, 20%);
+  color: hsl(210, 40%, 98%);
 }
 ```
 
-### Parte 2: Substituir Dialog por SimpleModal no formulario "Nova Transacao"
+## Por que DESTA VEZ vai funcionar
 
-No `src/pages/Finances.tsx`, substituir o `<Dialog>` que envolve "Nova Transacao" pelo novo `<SimpleModal>`. O botao continua igual, mas ao clicar ele abre o SimpleModal em vez do Radix Dialog.
+Nas tentativas anteriores:
+1. Tentativa 1: Removemos animacoes CSS - nao resolveu
+2. Tentativa 2: Corrigimos `SelectItem value=""` - nao resolveu
+3. Tentativa 3: Adicionamos ErrorBoundary - nao resolveu
+4. Tentativa 4: Criamos SimpleModal substituindo Radix Dialog - nao resolveu
+5. **Tentativa 5 (agora): Eliminamos os Radix Select de DENTRO do modal**
 
-Mudancas:
-- Remover `<Dialog open={isDialogOpen}...>`, `<DialogTrigger>`, `<DialogContent>`, `<DialogHeader>`, `<DialogTitle>`, `<DialogFooter>`
-- Usar `<SimpleModal open={isDialogOpen} onClose={() => setIsDialogOpen(false)} title="Nova Transacao">`
-- Manter o conteudo interno (inputs, selects, switches) IDENTICO
-- O botao "Nova Transacao" muda de `<DialogTrigger>` para um `<Button onClick={() => setIsDialogOpen(true)}>`
-
-### Parte 3: Adicionar console.log de diagnostico
-
-Adicionar um `console.log` dentro do render do SimpleModal para confirmar que ele esta sendo chamado. Isso ajuda a debugar se houver algum problema residual.
-
-### Parte 4: Manter os outros Dialogs como estao
-
-Os dialogs de "Nova Conta", "Transferencia" e "Editar Transacao" continuam usando Radix Dialog. Se funcionarem, otimo. Se nao, podemos migra-los depois.
+A logica e clara: o SimpleModal funciona (e puro HTML/CSS), mas o conteudo DENTRO dele ainda usa componentes Radix. Ao substituir por `<select>` nativos, eliminamos 100% de codigo Radix do formulario "Nova Transacao". Se isso nao resolver, o problema nao esta no formulario de forma alguma e precisamos investigar outros componentes da pagina.
 
 ## Detalhes Tecnicos
 
-O SimpleModal:
-- Usa `if (!open) return null` - nao renderiza NADA quando fechado
-- Nao usa React Portal - renderiza inline no componente
-- Nao usa animacoes CSS que possam travar em opacity:0
-- Usa SOMENTE inline styles - zero dependencia de CSS externo
-- Nao tem focus trap ou escape handler complexo (pode ser adicionado depois)
-- Fecha ao clicar no overlay ou no botao X
-
-Isso elimina TODAS as possiveis causas de crash: Portals, CSS Layers, animacoes, focus trapping, Radix internals.
+- `<select>` nativo HTML e o elemento de formulario mais estavel que existe
+- Nao usa Portal, nao usa focus trap, nao usa animacoes
+- Funciona em 100% dos browsers sem dependencias
+- O `<option>` suporta valores vazios (`""`) sem problemas
+- A estilizacao sera feita via classes Tailwind + CSS customizado para tema escuro
+- Os outros dialogs (Editar, Nova Conta, Transferir) continuam com Radix por enquanto
 
 ## Arquivos a Modificar
 
-1. `src/components/ui/simple-modal.tsx` (NOVO) - Modal customizado
-2. `src/pages/Finances.tsx` - Substituir Dialog por SimpleModal no formulario "Nova Transacao"
+1. `src/pages/Finances.tsx` - Substituir 4 Selects Radix por selects nativos + try-catch
+2. `src/index.css` - Estilos para select nativo no tema escuro
 
 ## Risco
-Minimo. O modal tera a mesma aparencia visual (fundo escuro, borda, inputs). A unica diferenca e que nao tera animacao de entrada/saida e nao tera focus trap automatico. A funcionalidade do formulario permanece 100% identica.
+Zero. Elementos HTML nativos sao os mais estaveis possiveis. A unica diferenca visual e que o dropdown tera aparencia nativa do browser em vez do estilo customizado Radix (que pode ser refinado depois).
 
