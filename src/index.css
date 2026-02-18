@@ -362,8 +362,8 @@
    COMPONENT STYLES
    ===================================================== */
 @layer components {
-  /* ===== MODAL SURFACE (hardcoded for guaranteed visibility) ===== */
-  .dark .modal-surface {
+  /* ===== MODAL SURFACE - Default = dark (app é dark-first) ===== */
+  .modal-surface {
     background-color: hsl(230, 15%, 28%) !important;
     border-color: rgba(148, 163, 184, 0.4) !important;
     box-shadow: 
@@ -372,7 +372,9 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
   }
 
-  .modal-surface {
+  /* Light mode override */
+  :root:not(.dark) .modal-surface,
+  .light .modal-surface {
     background-color: hsl(0, 0%, 100%) !important;
     border-color: hsl(214, 32%, 85%) !important;
     box-shadow: 
@@ -380,12 +382,26 @@
       0 0 0 1px rgba(0, 0, 0, 0.05) !important;
   }
 
-  .dark .modal-surface input,
-  .dark .modal-surface [role="combobox"],
-  .dark .modal-surface textarea,
-  .dark .modal-surface select {
+  /* Input contrast - default dark */
+  .modal-surface input,
+  .modal-surface [role="combobox"],
+  .modal-surface textarea,
+  .modal-surface select {
     background-color: hsl(230, 12%, 20%) !important;
     border-color: rgba(148, 163, 184, 0.3) !important;
+  }
+
+  /* Input contrast - light mode */
+  :root:not(.dark) .modal-surface input,
+  :root:not(.dark) .modal-surface [role="combobox"],
+  :root:not(.dark) .modal-surface textarea,
+  :root:not(.dark) .modal-surface select,
+  .light .modal-surface input,
+  .light .modal-surface [role="combobox"],
+  .light .modal-surface textarea,
+  .light .modal-surface select {
+    background-color: hsl(0, 0%, 100%) !important;
+    border-color: hsl(214, 32%, 91%) !important;
   }
 
   /* ===== GLASSMORPHISM VARIANTS ===== */
