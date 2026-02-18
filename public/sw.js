@@ -1,6 +1,6 @@
 // Axiom PWA Service Worker
 
-const CACHE_NAME = 'axiom-v1';
+const CACHE_NAME = 'axiom-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
