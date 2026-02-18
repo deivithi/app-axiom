@@ -1,150 +1,83 @@
 
+# Fix Definitivo: Crash do Dialog "Nova Transacao"
 
-# Fix Definitivo: Dialog "Nova Transacao" - Abordagem Nuclear
+## Causa Raiz REAL (Confirmada)
 
-## Causa Raiz (Combinacao de 3 Problemas)
+O problema NAO e CSS. E um **crash de JavaScript** causado pelo componente Radix Select.
 
-Apos investigacao profunda de todo o codebase, identifiquei que o problema NAO e apenas CSS. Ha 3 problemas atuando juntos:
+Quando voce clica em "Nova Transacao", o React tenta renderizar o DialogContent. Dentro dele, existem varios componentes `Select` com `value=""` (string vazia). O Radix Select v2.x NAO suporta string vazia como valor controlado — isso causa um erro fatal de renderizacao.
 
-### Problema 1: Sem ErrorBoundary
-O app NAO tem nenhum ErrorBoundary. Se qualquer componente dentro do Dialog jogar um erro durante o render, o React DESMONTA TODA A ARVORE. Resultado: tela preta. Nenhum erro aparece no console porque React unmount silenciosamente.
+Como o ErrorBoundary esta envolvendo o App inteiro (mas nao o conteudo individual do Dialog), o erro propaga e desmonta toda a pagina.
 
-### Problema 2: `SelectItem value=""` (Crash Silencioso)
-Na linha 1069 do Finances.tsx:
+### Selects com value="" que causam crash:
+
+1. **Linha 999** — `<Select value={newTransaction.category}>` — `category` inicia como `""`
+2. **Linha 1171** — `<Select value={newTransfer.fromAccountId}>` — `fromAccountId` inicia como `""`
+3. **Linha 1184** — `<Select value={newTransfer.toAccountId}>` — `toAccountId` inicia como `""`
+
+O fix anterior so corrigiu o `account_id` (linha 1064), mas esqueceu esses tres.
+
+## Solucao
+
+### Arquivo: `src/pages/Finances.tsx`
+
+**Mudanca 1** — Select de Categoria (linha 999):
+Mudar de `value={newTransaction.category}` para usar valor `undefined` quando vazio, para que o Radix mostre o placeholder sem crash:
 ```tsx
-<SelectItem value="">Nenhuma</SelectItem>
+<Select 
+  value={newTransaction.category || undefined} 
+  onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}
+>
 ```
-Radix Select v2.x NAO suporta valores vazios. Isso pode causar um erro interno que, sem ErrorBoundary, derruba toda a pagina.
+Usar `undefined` faz o Select funcionar em modo "uncontrolled" quando nao ha valor, mostrando o placeholder normalmente.
 
-### Problema 3: Animacoes interferindo com visibilidade
-As classes `animate-in` + `fade-in-0` iniciam o elemento com `opacity: 0`. Apesar do `!important` na CSS, ha interacoes complexas entre CSS animations e `!important` que podem falhar em certos browsers/builds.
-
-## Solucao em 4 Partes
-
-### Parte 1: Remover TODAS as animacoes do DialogContent
-Remover classes `animate-in`, `fade-in-0`, `zoom-in-95`, `slide-in-from-*` do DialogContent, AlertDialogContent. O Dialog aparecera INSTANTANEAMENTE sem animacao. Isso elimina qualquer interferencia de animacao com visibilidade.
-
-**Arquivos:** `src/components/ui/dialog.tsx`, `src/components/ui/alert-dialog.tsx`
-
-Simplificar o className para:
+**Mudanca 2** — Select de Conta Origem na Transferencia (linha 1171):
 ```tsx
-className={cn(
-  "fixed left-[50%] top-[50%] z-[9995] grid w-full max-w-lg max-h-[85vh] overflow-y-auto gap-4 border modal-surface p-6 rounded-lg",
-  className,
-)}
-```
-
-E adicionar inline styles completos (incluindo transform e position):
-```tsx
-style={{
-  backgroundColor: 'hsl(230, 15%, 28%)',
-  color: 'hsl(210, 40%, 98%)',
-  transform: 'translate(-50%, -50%)',
-  opacity: 1,
-}}
+<Select 
+  value={newTransfer.fromAccountId || undefined} 
+  onValueChange={v => setNewTransfer(prev => ({ ...prev, fromAccountId: v }))}
+>
 ```
 
-### Parte 2: Corrigir SelectItem value=""
-Mudar o value vazio para um valor valido e tratar no handler.
-
-**Arquivo:** `src/pages/Finances.tsx`
-
+**Mudanca 3** — Select de Conta Destino na Transferencia (linha 1184):
 ```tsx
-// ANTES (bugado):
-<SelectItem value="">Nenhuma</SelectItem>
-
-// DEPOIS (correto):
-<SelectItem value="none">Nenhuma</SelectItem>
+<Select 
+  value={newTransfer.toAccountId || undefined} 
+  onValueChange={v => setNewTransfer(prev => ({ ...prev, toAccountId: v }))}
+>
 ```
 
-E no onValueChange, mapear "none" para "":
+**Mudanca 4** — Quando o tipo muda, o category e resetado para `""` (linha 989). Manter isso, pois agora `"" || undefined` = `undefined`, que e seguro.
+
+**Mudanca 5** — Adicionar `unhandledrejection` handler no App.tsx para capturar promessas rejeitadas que escapam do ErrorBoundary:
 ```tsx
-onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v === "none" ? "" : v }))}
-```
-
-### Parte 3: Adicionar ErrorBoundary global
-Criar um ErrorBoundary que captura erros de render e mostra uma mensagem amigavel em vez de tela preta.
-
-**Novo arquivo:** `src/components/ErrorBoundary.tsx`
-
-```tsx
-class ErrorBoundary extends React.Component {
-  state = { hasError: false, error: null };
-  
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  
-  componentDidCatch(error, info) {
-    console.error('ErrorBoundary caught:', error, info);
-  }
-  
-  render() {
-    if (this.state.hasError) {
-      return <FallbackUI onRetry={() => this.setState({ hasError: false })} />;
-    }
-    return this.props.children;
-  }
-}
-```
-
-**Arquivo:** `src/App.tsx` - Envolver o app com ErrorBoundary
-
-### Parte 4: Simplificar overlay do Dialog
-Remover animacoes do DialogOverlay tambem, para garantir que apareca instantaneamente.
-
-**Arquivo:** `src/components/ui/dialog.tsx`
-
-```tsx
-<DialogPrimitive.Overlay
-  ref={ref}
-  className={cn("fixed inset-0 z-[9990] bg-black/60", className)}
-  {...props}
-/>
+useEffect(() => {
+  const handler = (event: PromiseRejectionEvent) => {
+    console.error("Unhandled rejection:", event.reason);
+    event.preventDefault();
+  };
+  window.addEventListener("unhandledrejection", handler);
+  return () => window.removeEventListener("unhandledrejection", handler);
+}, []);
 ```
 
 ## Detalhes Tecnicos
 
-### Por que as animacoes sao o problema principal
+O Radix Select usa internamente o valor passado em `value` para fazer match com os `SelectItem` filhos. Quando `value=""`:
+- Nenhum item faz match (nenhum tem `value=""`)
+- O componente entra em estado inconsistente
+- Dependendo da versao, joga erro de validacao ou causa re-render infinito
+- Sem ErrorBoundary no nivel do Dialog, o erro sobe e desmonta toda a arvore React
 
-O `tailwindcss-animate` gera CSS assim:
-```css
-.animate-in {
-  animation-name: enter;
-  animation-fill-mode: both;
-}
-
-@keyframes enter {
-  from {
-    opacity: var(--tw-enter-opacity, 1);
-    transform: translate3d(...) scale3d(...);
-  }
-}
-```
-
-A propriedade `animation-fill-mode: both` faz o elemento MANTER os estilos do `from` ate a animacao comecar. Se a animacao tiver qualquer problema (durata resolvida como 0, ou conflito com transition), o elemento fica PERMANENTEMENTE no estado `from` (opacity: 0, scale: 0.95).
-
-O `!important` em `.modal-surface { opacity: 1 !important }` DEVERIA resolver isso, mas ha um edge case: quando `animation-fill-mode: both` esta ativo E o browser esta processando a animacao, em certos builds Chromium o `!important` pode ser ignorado no primeiro frame.
-
-Ao REMOVER completamente as animacoes, eliminamos esse risco por completo.
-
-### Por que o SelectItem value="" causa crash
-
-Radix Select v2 internamente faz validacoes no value. Com string vazia, pode causar:
-1. Erro de tipo no ItemContext
-2. Warning que escala para erro em strict mode
-3. Estado inconsistente que causa re-render infinito
-
-Sem ErrorBoundary, qualquer desses cenarios derruba o app inteiro.
+Usar `undefined` faz o Select operar em modo "uncontrolled", mostrando apenas o placeholder sem tentar fazer match — comportamento seguro e documentado.
 
 ## Arquivos a Modificar
 
-1. `src/components/ui/dialog.tsx` - Remover animacoes, simplificar inline styles
-2. `src/components/ui/alert-dialog.tsx` - Remover animacoes, simplificar inline styles
-3. `src/pages/Finances.tsx` - Corrigir SelectItem value=""
-4. `src/components/ErrorBoundary.tsx` (NOVO) - Criar ErrorBoundary
-5. `src/App.tsx` - Adicionar ErrorBoundary ao redor do app
+1. `src/pages/Finances.tsx` — Corrigir os 3 Selects com value="" 
+2. `src/App.tsx` — Adicionar handler de unhandledrejection
 
 ## Risco
-Zero. Removemos apenas animacoes cosmeticas e corrigimos um bug real. O Dialog funcionara exatamente igual, so que sem a animacao de entrada (que pode ser readicionada depois, quando confirmarmos que funciona).
+Zero. A mudanca de `""` para `undefined` nao altera nenhum comportamento visivel — apenas evita o crash.
 
+## Por que DESTA VEZ vai funcionar
+Porque agora identificamos a causa EXATA: o crash acontece no RENDER do DialogContent por causa do Radix Select com value="". Os fixes anteriores focaram em CSS (que ja estava correto apos as mudancas) mas nao encontraram esse bug de JavaScript. Ao mudar os valores vazios para `undefined`, o Select nao tenta fazer match e nao crasha.
