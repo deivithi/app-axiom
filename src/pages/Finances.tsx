@@ -327,6 +327,7 @@ export default function Finances() {
   };
 
   const createTransaction = async () => {
+    try {
     // Validate with zod
     const validationResult = transactionSchema.safeParse({
       title: newTransaction.title.trim(),
@@ -395,6 +396,10 @@ export default function Finances() {
       recurrence_day: ""
     });
     loadData();
+    } catch (error) {
+      console.error("Erro ao criar transação:", error);
+      toast.error("Erro inesperado ao criar transação");
+    }
   };
 
   const payTransaction = async (id: string, type: string) => {
@@ -988,35 +993,39 @@ export default function Finances() {
               </div>
               <div className="space-y-2">
                 <Label>Tipo</Label>
-                <Select value={newTransaction.type} onValueChange={(v: "income" | "expense") => setNewTransaction(prev => ({ ...prev, type: v, category: "" }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="expense">Despesa</SelectItem>
-                    <SelectItem value="income">Receita</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  value={newTransaction.type}
+                  onChange={e => setNewTransaction(prev => ({ ...prev, type: e.target.value as "income" | "expense", category: "" }))}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="expense">Despesa</option>
+                  <option value="income">Receita</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label>Categoria</Label>
-                <Select value={newTransaction.category || undefined} onValueChange={v => setNewTransaction(prev => ({ ...prev, category: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={newTransaction.category}
+                  onChange={e => setNewTransaction(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Selecione</option>
+                  {(newTransaction.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES).map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label>Forma de Pagamento</Label>
-                <Select value={newTransaction.payment_method || undefined} onValueChange={v => setNewTransaction(prev => ({ ...prev, payment_method: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PAYMENT_METHODS.map(pm => (
-                      <SelectItem key={pm} value={pm}>{pm}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <select
+                  value={newTransaction.payment_method}
+                  onChange={e => setNewTransaction(prev => ({ ...prev, payment_method: e.target.value }))}
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {PAYMENT_METHODS.map(pm => (
+                    <option key={pm} value={pm}>{pm}</option>
+                  ))}
+                </select>
               </div>
               <div className="space-y-2">
                 <Label>Data da Transação</Label>
@@ -1062,20 +1071,16 @@ export default function Finances() {
               {accounts.length > 0 && (
                 <div className="space-y-2">
                   <Label>Conta (opcional)</Label>
-                  <Select 
-                    value={newTransaction.account_id || "none"} 
-                    onValueChange={v => setNewTransaction(prev => ({ ...prev, account_id: v === "none" ? "" : v }))}
+                  <select
+                    value={newTransaction.account_id}
+                    onChange={e => setNewTransaction(prev => ({ ...prev, account_id: e.target.value }))}
+                    className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
-                    <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma</SelectItem>
-                      {accounts.map(acc => (
-                        <SelectItem key={acc.id} value={acc.id}>
-                          {acc.icon} {acc.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <option value="">Nenhuma</option>
+                    {accounts.map(acc => (
+                      <option key={acc.id} value={acc.id}>{acc.icon} {acc.name}</option>
+                    ))}
+                  </select>
                 </div>
               )}
             </div>

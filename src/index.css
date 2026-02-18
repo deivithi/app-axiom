@@ -3372,3 +3372,15 @@ a:focus-visible,
   outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }
+
+/* Native select styling for dark theme */
+select {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  appearance: auto;
+}
+
+select option {
+  background-color: hsl(230, 15%, 20%);
+  color: hsl(210, 40%, 98%);
+}
