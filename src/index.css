@@ -356,6 +356,8 @@
   /* ===== MODAL SURFACE - Default = dark (app é dark-first) ===== */
   .modal-surface {
     background-color: hsl(230, 15%, 28%) !important;
+    color: hsl(210, 40%, 98%) !important;
+    opacity: 1 !important;
     border-color: rgba(148, 163, 184, 0.4) !important;
     box-shadow: 
       0 25px 50px -12px rgba(0, 0, 0, 0.7),
