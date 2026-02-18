@@ -52,7 +52,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       {/* Mobile: Backdrop when chat is open - rendered before ChatPanel for correct stacking */}
       {chatOpen && isMobile && (
         <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200]"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-modal-backdrop"
           onClick={() => setChatOpen(false)}
         />
       )}
