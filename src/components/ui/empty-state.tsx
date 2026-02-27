@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface EmptyStateProps {
@@ -15,6 +16,11 @@ interface EmptyStateProps {
     label: string;
     onClick: () => void;
   };
+  /** Dica contextual da IA (ex: "Posso te ajudar a configurar!") */
+  aiTip?: {
+    text: string;
+    onClick: () => void;
+  };
   className?: string;
 }
 
@@ -24,12 +30,13 @@ export function EmptyState({
   description,
   action,
   secondaryAction,
+  aiTip,
   className,
 }: EmptyStateProps) {
   return (
-    <Card className={cn('p-8 text-center', className)}>
-      <div className="flex flex-col items-center gap-4">
-        <div className="p-4 rounded-full bg-primary/10 text-primary">
+    <Card className={cn('p-8 text-center empty-state-enhanced', className)}>
+      <div className="flex flex-col items-center gap-4 relative z-10">
+        <div className="p-4 rounded-full bg-primary/10 text-primary animate-check-success">
           {icon}
         </div>
         <div className="space-y-2">
@@ -52,7 +59,17 @@ export function EmptyState({
             )}
           </div>
         )}
+        {aiTip && (
+          <button
+            onClick={aiTip.onClick}
+            className="empty-state-ai-tip"
+          >
+            <Sparkles className="w-4 h-4 shrink-0" />
+            {aiTip.text}
+          </button>
+        )}
       </div>
     </Card>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -14,6 +14,7 @@ import { MemoryProvider } from "@/contexts/MemoryContext";
 import { MobileToastProvider } from "@/components/mobile/Toast";
 import { Loader2 } from "lucide-react";
 import { StarryBackground } from "@/components/ui/starry-background";
+import { CommandPalette } from "@/components/ui/CommandPalette";
 
 // Lazy load pages for code splitting
 const Auth = lazy(() => import("./pages/Auth"));
@@ -45,21 +46,23 @@ const queryClient = new QueryClient({
   },
 });
 
-// Hook for global Cmd/Ctrl+K shortcut
-function useGlobalChatShortcut() {
-  const navigate = useNavigate();
+// Hook for global Cmd/Ctrl+K shortcut — Command Palette
+function useCommandPalette() {
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
-        navigate('/chat');
+        setOpen(prev => !prev);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [navigate]);
+  }, []);
+
+  return { open, setOpen };
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -111,7 +114,7 @@ function PageLoader() {
 }
 
 function AppRoutes() {
-  useGlobalChatShortcut();
+  const { open: commandPaletteOpen, setOpen: setCommandPaletteOpen } = useCommandPalette();
 
   useEffect(() => {
     const handler = (event: PromiseRejectionEvent) => {
@@ -124,6 +127,7 @@ function AppRoutes() {
 
   return (
     <>
+      <CommandPalette open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen} />
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Navigate to="/intelligence" replace />} />
