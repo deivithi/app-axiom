@@ -34,12 +34,21 @@ const Install = lazy(() => import("./pages/Install"));
 
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 2,
+      staleTime: 1000 * 30, // 30 seconds
+      gcTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: true,
+    },
+  },
+});
 
 // Hook for global Cmd/Ctrl+K shortcut
 function useGlobalChatShortcut() {
   const navigate = useNavigate();
-  
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -47,7 +56,7 @@ function useGlobalChatShortcut() {
         navigate('/chat');
       }
     };
-    
+
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [navigate]);
@@ -103,7 +112,7 @@ function PageLoader() {
 
 function AppRoutes() {
   useGlobalChatShortcut();
-  
+
   useEffect(() => {
     const handler = (event: PromiseRejectionEvent) => {
       console.error("Unhandled rejection:", event.reason);
@@ -112,7 +121,7 @@ function AppRoutes() {
     window.addEventListener("unhandledrejection", handler);
     return () => window.removeEventListener("unhandledrejection", handler);
   }, []);
-  
+
   return (
     <>
       <Suspense fallback={<PageLoader />}>
