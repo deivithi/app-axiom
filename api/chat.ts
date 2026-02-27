@@ -73,7 +73,7 @@ export default async function handler(request: Request): Promise<Response> {
                 messages,
                 stream: true,
                 temperature: 0.7,
-                max_tokens: 2048,
+                max_completion_tokens: 2048,
             }),
         });
 
