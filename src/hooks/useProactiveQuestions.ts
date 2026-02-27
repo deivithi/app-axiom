@@ -50,17 +50,17 @@ export function useProactiveQuestions(userId: string | undefined) {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
 
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-patterns`, {
+      const response = await fetch('/api/analyze-patterns', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         },
         body: JSON.stringify({ user_id: userId })
       });
 
       const result = await response.json();
-      
+
       if (result.success && result.question) {
         // Reload questions to show the new one
         await loadQuestions();
@@ -74,15 +74,15 @@ export function useProactiveQuestions(userId: string | undefined) {
     try {
       const { error } = await supabase
         .from('proactive_questions')
-        .update({ 
-          status: 'sent', 
-          sent_at: new Date().toISOString() 
+        .update({
+          status: 'sent',
+          sent_at: new Date().toISOString()
         })
         .eq('id', questionId);
 
       if (error) throw error;
 
-      setQuestions(prev => prev.map(q => 
+      setQuestions(prev => prev.map(q =>
         q.id === questionId ? { ...q, status: 'sent' as const, sent_at: new Date().toISOString() } : q
       ));
     } catch {
@@ -94,8 +94,8 @@ export function useProactiveQuestions(userId: string | undefined) {
     try {
       const { error } = await supabase
         .from('proactive_questions')
-        .update({ 
-          status: 'answered', 
+        .update({
+          status: 'answered',
           answered_at: new Date().toISOString(),
           user_response: response
         })
@@ -157,7 +157,7 @@ export function useProactiveQuestions(userId: string | undefined) {
           const newQuestion = payload.new as unknown as ProactiveQuestion;
           if (newQuestion.status === 'pending' || newQuestion.status === 'sent') {
             setQuestions(prev => [newQuestion, ...prev]);
-            
+
             toast({
               title: '🎯 Nova pergunta do Axiom',
               description: 'Confira no chat',

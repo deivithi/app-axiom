@@ -80,14 +80,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const [page, setPage] = useState(1);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
-  
+
   const { user } = useAuth();
   const { toast } = useToast();
   const { subscribeToActions } = useAxiomSync();
-  const { 
-    questions: proactiveQuestions, 
-    answerQuestion, 
-    dismissQuestion 
+  const {
+    questions: proactiveQuestions,
+    answerQuestion,
+    dismissQuestion
   } = useProactiveQuestions(user?.id);
 
   // Subscribe to personality mode changes
@@ -102,12 +102,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         table: 'profiles',
         filter: `id=eq.${user.id}`
       }, (payload: any) => {
-        if (payload.new?.personality_mode && payload.old?.personality_mode && 
-            payload.new.personality_mode !== payload.old.personality_mode) {
-          const modeNames: Record<string, string> = { 
-            direto: 'Direto 🎯', 
-            sabio: 'Sábio 🧘', 
-            parceiro: 'Parceiro 🤝' 
+        if (payload.new?.personality_mode && payload.old?.personality_mode &&
+          payload.new.personality_mode !== payload.old.personality_mode) {
+          const modeNames: Record<string, string> = {
+            direto: 'Direto 🎯',
+            sabio: 'Sábio 🧘',
+            parceiro: 'Parceiro 🤝'
           };
           toast({
             title: 'Modo alterado',
@@ -141,14 +141,14 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
   const loadMessages = async (pageNum = 1, prepend = false) => {
     const from = (pageNum - 1) * MESSAGES_PER_PAGE;
     const to = from + MESSAGES_PER_PAGE - 1;
-    
+
     const { data, error } = await supabase
       .from('messages')
       .select('*')
       .eq('message_type', 'chat')
       .order('created_at', { ascending: false })
       .range(from, to);
-    
+
     if (error) {
       // Silent fail - messages will be empty
     } else if (data) {
@@ -165,7 +165,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
 
   const loadMoreMessages = async () => {
     if (!hasMoreMessages || loadingMore) return;
-    
+
     setLoadingMore(true);
     const nextPage = page + 1;
     await loadMessages(nextPage, true);
@@ -179,7 +179,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       .select('avatar_url')
       .eq('id', user?.id)
       .single();
-    
+
     if (data?.avatar_url) {
       setUserAvatar(data.avatar_url);
     }
@@ -239,10 +239,10 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       if (!session?.access_token) {
         throw new Error('Usuário não autenticado');
       }
-      
+
       const formData = new FormData();
       formData.append('audio', audioBlob, 'audio.webm');
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe`, {
+      const response = await fetch('/api/transcribe', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -279,19 +279,19 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
         audioChunksRef.current = [];
-        
+
         mediaRecorder.ondataavailable = e => {
           if (e.data.size > 0) {
             audioChunksRef.current.push(e.data);
           }
         };
-        
+
         mediaRecorder.onstop = async () => {
           stream.getTracks().forEach(track => track.stop());
           const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
           await transcribeAudio(audioBlob);
         };
-        
+
         mediaRecorder.start();
         mediaRecorderRef.current = mediaRecorder;
         setIsRecording(true);
@@ -330,7 +330,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       created_at: new Date().toISOString()
     };
     setMessages(prev => [...prev, tempUserMsg]);
-    
+
     await supabase.from('messages').insert({
       user_id: user?.id,
       content: userMessage,
@@ -346,12 +346,12 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData?.session?.access_token;
-      
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`, {
+
+      const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         },
         body: JSON.stringify({ messages: aiMessages })
       });
@@ -365,7 +365,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       const decoder = new TextDecoder();
       let aiContent = '';
       const tempAiId = crypto.randomUUID();
-      
+
       setMessages(prev => [...prev, {
         id: tempAiId,
         content: '',
@@ -377,26 +377,26 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
       while (reader) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         textBuffer += decoder.decode(value, { stream: true });
         let newlineIndex: number;
-        
+
         while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
           let line = textBuffer.slice(0, newlineIndex);
           textBuffer = textBuffer.slice(newlineIndex + 1);
           if (line.endsWith('\r')) line = line.slice(0, -1);
           if (line.startsWith(':') || line.trim() === '') continue;
           if (!line.startsWith('data: ')) continue;
-          
+
           const jsonStr = line.slice(6).trim();
           if (jsonStr === '[DONE]') break;
-          
+
           try {
             const parsed = JSON.parse(jsonStr);
             const content = parsed.content || parsed.choices?.[0]?.delta?.content;
             if (content) {
               aiContent += content;
-              setMessages(prev => prev.map(m => 
+              setMessages(prev => prev.map(m =>
                 m.id === tempAiId ? { ...m, content: aiContent } : m
               ));
             }
