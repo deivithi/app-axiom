@@ -309,6 +309,146 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Coleta todos os dados do usuário para injetar no contexto da IA
+  const buildUserContext = async () => {
+    if (!user?.id) return null;
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().split('T')[0];
+    const currentMonthRef = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    try {
+      const [
+        profileRes,
+        transactionsRes,
+        accountsRes,
+        habitsRes,
+        tasksRes,
+        projectsRes,
+        memoriesRes,
+        scoreRes,
+        notesRes
+      ] = await Promise.all([
+        // 1. Perfil + contexto pessoal + personalidade
+        supabase.from('profiles')
+          .select('full_name, user_context, personality_mode')
+          .eq('id', user.id)
+          .single(),
+
+        // 2. Transações do mês atual (todas)
+        supabase.from('transactions')
+          .select('title, amount, type, category, transaction_date, is_paid, payment_method, reference_month')
+          .eq('user_id', user.id)
+          .gte('transaction_date', monthStart)
+          .lt('transaction_date', nextMonthStart)
+          .order('transaction_date', { ascending: false })
+          .limit(50),
+
+        // 3. Contas e saldos
+        supabase.from('accounts')
+          .select('name, balance, icon')
+          .eq('user_id', user.id),
+
+        // 4. Hábitos ativos com streaks
+        supabase.from('habits')
+          .select('title, current_streak, best_streak, frequency, color')
+          .eq('user_id', user.id),
+
+        // 5. Tarefas pendentes
+        supabase.from('tasks')
+          .select('title, priority, status, due_date')
+          .eq('user_id', user.id)
+          .in('status', ['pending', 'in_progress'])
+          .order('created_at', { ascending: false })
+          .limit(15),
+
+        // 6. Projetos ativos
+        supabase.from('projects')
+          .select('title, status, progress, due_date')
+          .eq('user_id', user.id)
+          .neq('status', 'completed')
+          .limit(10),
+
+        // 7. Memórias salvas (todas ativas)
+        supabase.from('memories')
+          .select('type, content')
+          .eq('user_id', user.id)
+          .is('archived_at', null)
+          .order('usage_count', { ascending: false })
+          .limit(30),
+
+        // 8. Último Axiom Score
+        supabase.from('axiom_score_history')
+          .select('total_score, financial_score, habits_score, execution_score, clarity_score, projects_score, calculated_at')
+          .eq('user_id', user.id)
+          .order('calculated_at', { ascending: false })
+          .limit(1),
+
+        // 9. Notas recentes
+        supabase.from('notes')
+          .select('title, content, created_at')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(5)
+      ]);
+
+      // Calcular resumo financeiro
+      const transactions = transactionsRes.data || [];
+      const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const expenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+
+      return {
+        profile: profileRes.data || null,
+        finance: {
+          monthLabel: now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+          totalIncome: income,
+          totalExpenses: expenses,
+          balance: income - expenses,
+          accounts: (accountsRes.data || []).map(a => ({ name: a.name, balance: a.balance })),
+          recentTransactions: transactions.slice(0, 10).map(t => ({
+            title: t.title,
+            amount: t.amount,
+            type: t.type,
+            category: t.category,
+            date: t.transaction_date,
+            paid: t.is_paid
+          }))
+        },
+        habits: (habitsRes.data || []).map(h => ({
+          title: h.title,
+          streak: h.current_streak,
+          bestStreak: h.best_streak,
+          frequency: h.frequency
+        })),
+        tasks: (tasksRes.data || []).map(t => ({
+          title: t.title,
+          priority: t.priority,
+          status: t.status,
+          dueDate: t.due_date
+        })),
+        projects: (projectsRes.data || []).map(p => ({
+          title: p.title,
+          status: p.status,
+          progress: p.progress,
+          dueDate: p.due_date
+        })),
+        memories: (memoriesRes.data || []).map(m => ({
+          type: m.type,
+          content: m.content
+        })),
+        score: scoreRes.data?.[0] || null,
+        notes: (notesRes.data || []).map(n => ({
+          title: n.title,
+          content: n.content?.substring(0, 200)
+        }))
+      };
+    } catch (err) {
+      console.error('[ChatContext] Error building context:', err);
+      return null;
+    }
+  };
+
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
     const userMessage = input.trim();
@@ -331,11 +471,15 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
     };
     setMessages(prev => [...prev, tempUserMsg]);
 
-    await supabase.from('messages').insert({
-      user_id: user?.id,
-      content: userMessage,
-      is_ai: false
-    });
+    // Salvar mensagem e coletar contexto em paralelo
+    const [, userContext] = await Promise.all([
+      supabase.from('messages').insert({
+        user_id: user?.id,
+        content: userMessage,
+        is_ai: false
+      }),
+      buildUserContext()
+    ]);
 
     const aiMessages = messages.slice(-20).map(m => ({
       role: m.is_ai ? 'assistant' : 'user',
@@ -353,7 +497,7 @@ export const ChatProvider = ({ children }: { children: ReactNode }) => {
           'Content-Type': 'application/json',
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
         },
-        body: JSON.stringify({ messages: aiMessages })
+        body: JSON.stringify({ messages: aiMessages, context: userContext })
       });
 
       if (!response.ok) {

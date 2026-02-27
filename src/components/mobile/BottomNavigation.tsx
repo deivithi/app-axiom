@@ -41,27 +41,28 @@ const BottomNavigation = memo(() => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav 
+    <nav
       className={cn(
         "fixed bottom-0 left-0 right-0 z-fixed",
-        "bottom-nav-glass",
-        "border-t border-primary/10",
+        "bg-background/80 backdrop-blur-xl",
+        "border-t border-border/50",
         "pb-safe-bottom pl-safe-left pr-safe-right",
-        "md:hidden"
+        "md:hidden shadow-lg",
+        "supports-[backdrop-filter]:bg-background/60"
       )}
     >
-      <div className="flex items-center justify-around min-h-[56px] px-2">
+      <div className="flex items-center justify-around min-h-[64px] px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.path);
-          
+
           return (
             <button
               key={item.path}
               onClick={() => handleNavigation(item.path, item.isChat)}
               className={cn(
                 "relative flex flex-col items-center justify-center",
-                "min-w-[44px] min-h-[44px] flex-1",
+                "min-w-[48px] h-[56px] flex-1",
                 "transition-all duration-200 ease-out",
                 "active:scale-95",
                 "-webkit-tap-highlight-color-transparent"
@@ -75,23 +76,23 @@ const BottomNavigation = memo(() => {
                   {active && (
                     <motion.div
                       layoutId="activeTabBg"
-                      className="absolute inset-[-4px] bg-primary/10 rounded-lg"
+                      className="absolute inset-[-6px] bg-primary/15 rounded-xl"
                       transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
                     />
                   )}
-                  
-                  <Icon 
+
+                  <Icon
                     className={cn(
                       "relative z-10 w-6 h-6 flex-shrink-0 transition-all duration-200",
-                      active ? "text-primary scale-110" : "text-muted-foreground"
+                      active ? "text-primary scale-110 drop-shadow-[0_0_8px_rgba(10,132,255,0.4)]" : "text-muted-foreground hover:text-foreground"
                     )}
                     aria-hidden="true"
                   />
-                  
+
                   {/* Badge */}
                   {item.badge && item.badge > 0 && (
-                    <span 
-                      className="absolute -top-1 -right-1 z-20 flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9px] font-bold text-destructive-foreground bg-destructive rounded-full"
+                    <span
+                      className="absolute -top-[6px] -right-[6px] z-20 flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-destructive rounded-full border-2 border-background shadow-sm"
                       role="status"
                       aria-label={`${item.badge} ${item.badge === 1 ? 'item pendente' : 'itens pendentes'}`}
                     >
@@ -99,49 +100,48 @@ const BottomNavigation = memo(() => {
                     </span>
                   )}
                 </div>
-                
+
                 <span className={cn(
                   "nav-item-label-clamp",
-                  "text-center max-w-full overflow-hidden",
+                  "text-center max-w-full overflow-hidden mt-[2px]",
                   "transition-colors duration-200",
-                  active ? "text-primary" : "text-muted-foreground"
+                  active ? "text-primary font-medium tracking-tight text-[11px]" : "text-muted-foreground font-normal text-[10px]"
                 )}>
                   {item.label}
                 </span>
               </div>
-              
-              {/* Animated dot indicator */}
-              {active && (
-                <motion.span 
-                  layoutId="activeTabDot"
-                  className="absolute bottom-1 w-1 h-1 rounded-full bg-primary"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                  aria-hidden="true"
-                />
-              )}
             </button>
           );
         })}
-        
-        {/* Chat FAB */}
+
+        {/* Chat FAB (Centralized / Elevated) */}
         <button
           onClick={() => handleNavigation('', true)}
           className={cn(
-            "flex flex-col items-center justify-center",
-            "min-w-[44px] min-h-[44px] -mt-3 flex-shrink-0",
-            "transition-all duration-200 ease-out",
-            "active:scale-95",
+            "relative flex flex-col items-center justify-center group",
+            "min-w-[56px] min-h-[56px] -mt-6 flex-shrink-0",
+            "transition-transform duration-300 ease-[var(--ease-spring)]",
+            "active:scale-90",
             "-webkit-tap-highlight-color-transparent"
           )}
-          aria-label="Abrir chat"
+          aria-label="Abrir chat do Axiom"
         >
           <div className={cn(
             "flex items-center justify-center",
-            "w-12 h-12 rounded-full",
-            "bg-primary text-primary-foreground",
-            "shadow-lg shadow-primary/30"
+            "w-[52px] h-[52px] rounded-full",
+            "bg-gradient-to-br from-primary to-accent",
+            "text-white border-[3px] border-background",
+            "shadow-[0_8px_16px_-4px_rgba(191,90,242,0.4)]",
+            "group-hover:shadow-[0_12px_20px_-4px_rgba(191,90,242,0.6)]",
+            "transition-shadow duration-300"
           )}>
-            <MessageSquare className="w-5 h-5" aria-hidden="true" />
+            <MessageSquare className="w-[22px] h-[22px] fill-white/10" aria-hidden="true" />
+            <motion.div
+              className="absolute inset-0 rounded-full bg-white/20"
+              initial={{ scale: 0, opacity: 0 }}
+              whileTap={{ scale: 1.5, opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            />
           </div>
         </button>
       </div>

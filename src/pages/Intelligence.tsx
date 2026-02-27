@@ -12,7 +12,9 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 import { ScoreCard } from '@/components/intelligence/ScoreCard';
 import { ScoreEvolutionChart } from '@/components/intelligence/ScoreEvolutionChart';
 import { AppleCard, MetricCard, ChartCard } from '@/components/ui/apple-card';
-import { formatCurrency } from '@/lib/utils';
+import { PageSkeleton } from '@/components/ui/PageSkeleton';
+import { formatCurrency, cn } from '@/lib/utils';
+import { motion } from 'framer-motion';
 
 interface WeeklySummary {
   tasksCompleted: number;
@@ -72,35 +74,178 @@ export default function Intelligence() {
     const nextMonday = new Date(now);
     nextMonday.setDate(now.getDate() + daysUntilMonday);
     nextMonday.setHours(7, 0, 0, 0);
-    return nextMonday.toLocaleDateString('pt-BR', { 
-      weekday: 'long', 
-      day: '2-digit', 
+    return nextMonday.toLocaleDateString('pt-BR', {
+      weekday: 'long',
+      day: '2-digit',
       month: '2-digit'
     }) + ' às 7h';
+  };
+
+  // Coleta dados reais do Supabase para relatórios
+  const collectReportData = async () => {
+    const now = new Date();
+    const weekStart = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+    const nextWeekStart = format(new Date(startOfWeek(now, { weekStartsOn: 1 }).getTime() + 7 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+    const monthStart = format(startOfMonth(now), 'yyyy-MM-dd');
+    const nextMonthStart = format(new Date(now.getFullYear(), now.getMonth() + 1, 1), 'yyyy-MM-dd');
+
+    const [profileRes, transactionsRes, habitsRes, tasksRes, projectsRes, memoriesRes, scoreRes] = await Promise.all([
+      supabase.from('profiles').select('full_name, user_context, personality_mode').eq('id', user?.id).single(),
+      supabase.from('transactions').select('title, amount, type, category, transaction_date, is_paid').eq('user_id', user?.id).gte('transaction_date', monthStart).lt('transaction_date', nextMonthStart).order('transaction_date', { ascending: false }).limit(50),
+      supabase.from('habits').select('title, current_streak, best_streak, frequency').eq('user_id', user?.id),
+      supabase.from('tasks').select('title, priority, status, due_date').eq('user_id', user?.id),
+      supabase.from('projects').select('title, status, progress, due_date').eq('user_id', user?.id),
+      supabase.from('memories').select('type, content').eq('user_id', user?.id).is('archived_at', null).limit(20),
+      supabase.from('axiom_score_history').select('total_score, financial_score, habits_score, execution_score, clarity_score, projects_score').eq('user_id', user?.id).order('calculated_at', { ascending: false }).limit(1),
+    ]);
+
+    const transactions = transactionsRes.data || [];
+    const income = transactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expenses = transactions.filter(t => t.type === 'expense').reduce((s, t) => s + Math.abs(t.amount), 0);
+    const tasks = tasksRes.data || [];
+    const habits = habitsRes.data || [];
+    const projects = projectsRes.data || [];
+
+    return {
+      profile: profileRes.data,
+      monthLabel: now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }),
+      weekLabel: `${format(startOfWeek(now, { weekStartsOn: 1 }), 'dd/MM')} a ${format(endOfWeek(now, { weekStartsOn: 1 }), 'dd/MM')}`,
+      finance: {
+        income: formatCurrency(income),
+        expenses: formatCurrency(expenses),
+        balance: formatCurrency(income - expenses),
+        balanceValue: income - expenses,
+        categories: Object.entries(
+          transactions.filter(t => t.type === 'expense').reduce((acc: Record<string, number>, t) => {
+            acc[t.category] = (acc[t.category] || 0) + Math.abs(t.amount);
+            return acc;
+          }, {})
+        ).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([cat, val]) => `${cat}: ${formatCurrency(val)}`),
+        topExpenses: transactions.filter(t => t.type === 'expense').slice(0, 5).map(t => `${t.title}: ${formatCurrency(Math.abs(t.amount))}`),
+      },
+      habits: {
+        total: habits.length,
+        active: habits.filter(h => h.current_streak > 0).length,
+        list: habits.map(h => `${h.title} (streak: ${h.current_streak} dias, recorde: ${h.best_streak})`),
+      },
+      tasks: {
+        total: tasks.length,
+        done: tasks.filter(t => t.status === 'done').length,
+        pending: tasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length,
+        overdue: tasks.filter(t => t.due_date && new Date(t.due_date) < now && t.status !== 'done').length,
+      },
+      projects: {
+        total: projects.length,
+        active: projects.filter(p => p.status !== 'completed').length,
+        list: projects.filter(p => p.status !== 'completed').map(p => `${p.title}: ${p.progress}%`),
+      },
+      memories: (memoriesRes.data || []).map(m => `[${m.type}] ${m.content}`),
+      score: scoreRes.data?.[0] || null,
+    };
+  };
+
+  // Gerar relatório via /api/chat com prompt especializado
+  const callAIForReport = async (prompt: string): Promise<string | null> => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {})
+        },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: prompt }],
+          context: null,
+          stream: false // Modo não-streaming para relatórios (evita cortar caracteres)
+        })
+      });
+
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+
+      const data = await response.json();
+      return data.content || null;
+    } catch (error) {
+      console.error('Error calling AI:', error);
+      return null;
+    }
   };
 
   const generateFirstWeeklyReport = async () => {
     setGeneratingFirstReport(true);
     try {
-      const { error } = await supabase.functions.invoke('generate-weekly-report', {
-        body: { trigger: 'manual', user_id: user?.id }
-      });
+      const data = await collectReportData();
 
-      if (error) throw error;
+      const prompt = `Você é o Axiom. Gere um RELATÓRIO SEMANAL conciso para ${data.profile?.full_name || 'o usuário'}.
 
-      toast({
-        title: "Relatório gerado! 📊",
-        description: "Seu primeiro insight semanal está pronto.",
-      });
+Semana: ${data.weekLabel} | Mês: ${data.monthLabel}
 
-      await loadLastInsight();
+DADOS (use EXATAMENTE estes valores, já formatados):
+Receitas: ${data.finance.income} | Despesas: ${data.finance.expenses} | Saldo: ${data.finance.balance}
+Top gastos: ${data.finance.categories.join(', ')}
+Maiores despesas: ${data.finance.topExpenses.join(', ')}
+Hábitos: ${data.habits.total} total, ${data.habits.active} ativos | ${data.habits.list.join(' | ') || 'Nenhum'}
+Tarefas: ${data.tasks.done}/${data.tasks.total} feitas | ${data.tasks.overdue} atrasadas
+Projetos: ${data.projects.list.join(', ') || 'Nenhum'}
+${data.score ? `Score: ${data.score.total_score}/100` : ''}
+
+REGRAS OBRIGATÓRIAS DE FORMATO:
+- PROIBIDO usar markdown (nada de **, ##, ---, \`\`\`)
+- Texto puro com emojis como separadores visuais
+- Máximo 15 linhas no total
+- Cada seção = 1 a 2 linhas no máximo
+- Valores financeiros copiados EXATAMENTE como acima
+
+ESTRUTURA EXATA (siga esta ordem):
+
+📊 Relatório da Semana [semana]
+[1 frase resumo: "Semana de [adjetivo], com saldo [positivo/negativo] de [valor]"]
+
+💰 Finanças
+Receitas: [valor] | Despesas: [valor] | Saldo: [valor]
+Destaques: [2-3 maiores gastos com valores]
+
+🎯 Hábitos
+[Listar cada hábito com streak e status em 1 linha]
+
+✅ Execução
+Tarefas: [X/Y] | Projetos: [lista curta]
+
+⚡ 3 Ações da Semana
+1) [ação prática e específica]
+2) [ação prática e específica]
+3) [ação prática e específica]
+
+Português do Brasil. Sem enrolação.`;
+
+
+      const result = await callAIForReport(prompt);
+
+      if (result) {
+        await supabase.from('messages').insert({
+          user_id: user?.id,
+          content: `📊 Relatório da Semana ${data.weekLabel}\n\n${result}`,
+          is_ai: true,
+          message_type: 'weekly_report'
+        });
+
+        setLastInsight({
+          content: result,
+          date: new Date().toLocaleDateString('pt-BR', {
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+          })
+        });
+
+        toast({ title: 'Relatório gerado! 📊', description: 'Seu insight semanal está pronto.' });
+      } else {
+        throw new Error('Resposta vazia da IA');
+      }
     } catch (error) {
       console.error('Error generating report:', error);
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Não foi possível gerar o relatório.",
-      });
+      toast({ variant: 'destructive', title: 'Erro', description: 'Não foi possível gerar o relatório.' });
     } finally {
       setGeneratingFirstReport(false);
     }
@@ -135,7 +280,7 @@ export default function Intelligence() {
           .replace(/---/g, '')
           .replace(/\n{3,}/g, '\n\n')
           .trim();
-        
+
         setLastInsight({
           content: cleanContent,
           date: new Date(data.created_at).toLocaleDateString('pt-BR', {
@@ -171,7 +316,7 @@ export default function Intelligence() {
           .replace(/\*\*/g, '')
           .replace(/---/g, '')
           .trim();
-        
+
         setUserAnalysis({
           content: cleanContent,
           date: new Date(data.created_at).toLocaleDateString('pt-BR', {
@@ -195,7 +340,7 @@ export default function Intelligence() {
       const response = await supabase.functions.invoke('calculate-score', {
         body: { userId: user?.id, saveHistory: true }
       });
-      
+
       if (response.data) {
         setScoreBreakdown(response.data);
       }
@@ -209,7 +354,7 @@ export default function Intelligence() {
     try {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
+
       const { data } = await supabase
         .from('axiom_score_history')
         .select('calculated_at, total_score')
@@ -217,7 +362,7 @@ export default function Intelligence() {
         .gte('calculated_at', thirtyDaysAgo.toISOString())
         .order('calculated_at', { ascending: false })
         .limit(30);
-      
+
       setScoreHistory(data || []);
     } catch (error) {
       console.error('Error loading score history:', error);
@@ -296,69 +441,82 @@ export default function Intelligence() {
   };
 
   const generateWeeklyInsight = async () => {
-    if (!summary) return;
     setGeneratingInsight(true);
 
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('user_context, full_name')
-        .eq('id', user?.id)
-        .single();
+      const data = await collectReportData();
 
-      const summaryText = `
-        Resumo da semana:
-        - Tarefas: ${summary.tasksCompleted}/${summary.tasksTotal} concluídas
-        - Hábitos ativos: ${summary.habitsCompleted}/${summary.habitsTotal}
-        - Receitas: ${formatCurrency(summary.income)}
-        - Despesas: ${formatCurrency(summary.expenses)}
-        - Saldo: ${formatCurrency(summary.income - summary.expenses)}
-        - Notas criadas: ${summary.notesCreated}
-        - Entradas no diário: ${summary.journalEntries}
-        ${scoreBreakdown ? `
-        - Axiom Score: ${scoreBreakdown.total_score}/1000
-        - Execução: ${scoreBreakdown.execution.score}/200
-        - Financeiro: ${scoreBreakdown.financial.score}/200
-        - Hábitos: ${scoreBreakdown.habits.score}/200
-        - Projetos: ${scoreBreakdown.projects.score}/200
-        - Clareza: ${scoreBreakdown.clarity.score}/200
-        ` : ''}
-      `;
+      const personalityInstruction = data.profile?.personality_mode === 'sabio'
+        ? 'Tom reflexivo e filosófico. Faça perguntas que provoquem reflexão profunda.'
+        : data.profile?.personality_mode === 'parceiro'
+          ? 'Tom caloroso e empático. Celebre conquistas e ofereça apoio genuíno.'
+          : 'Tom direto e honesto. Sem rodeios, diga a verdade com respeito.';
 
-      const response = await supabase.functions.invoke('analyze-content', {
-        body: {
-          content: summaryText,
-          type: 'weekly_analysis',
-          userContext: profile?.user_context,
-          userName: profile?.full_name,
-        }
-      });
+      const prompt = `Você é o Axiom, coach de vida pessoal de ${data.profile?.full_name || 'o usuário'}.
 
-      if (response.data?.insights) {
-        const insights = response.data.insights;
-        setAiInsight(insights);
-        
-        // Persist the analysis in the database (not in chat)
+${data.profile?.user_context ? `CONTEXTO PESSOAL (definido pelo próprio usuário):\n${data.profile.user_context}\n` : ''}
+${data.memories.length > 0 ? `MEMÓRIAS SALVAS:\n${data.memories.join('\n')}\n` : ''}
+
+DADOS DO MÊS (${data.monthLabel}):
+Receitas: ${data.finance.income} | Despesas: ${data.finance.expenses} | Saldo: ${data.finance.balance}
+Maiores gastos: ${data.finance.topExpenses.join(', ')}
+Hábitos: ${data.habits.total} total, ${data.habits.active} ativos
+Tarefas: ${data.tasks.done}/${data.tasks.total} | Score: ${data.score?.total_score || 'N/A'}/100
+
+SUA MISSÃO: Gere uma ANÁLISE PESSOAL ESTRATÉGICA (diferente de relatório numérico).
+Foque em PADRÕES DE COMPORTAMENTO, não em listar números.
+
+${personalityInstruction}
+
+REGRAS DE FORMATO:
+- PROIBIDO markdown (nada de **, ##, ---, crases)
+- Texto puro com emojis
+- Máximo 12 linhas
+- Frases curtas e impactantes (máximo 2 frases por seção)
+- Use o NOME da pessoa
+- Referencie memórias e contexto pessoal quando relevante
+
+ESTRUTURA (siga EXATAMENTE):
+
+🔥 [Nome], [1 frase-diagnóstico sobre o momento atual dela baseado nos dados]
+
+💰 [Insight financeiro: não repita números, INTERPRETE o padrão. Ex: "Seu gasto com telefonia está fora da curva"]
+
+🎯 [Insight sobre hábitos: consistência, o que falta, o que melhorou]
+
+⚡ O que fazer agora:
+1) [Ação específica e prática]
+2) [Ação específica e prática]
+3) [Ação específica e prática]
+
+❓ [1 pergunta poderosa e pessoal para provocar reflexão]
+
+Português do Brasil. Seja BREVE e IMPACTANTE.`;
+
+
+      const result = await callAIForReport(prompt);
+
+      if (result) {
+        setAiInsight(result);
+
         await supabase.from('messages').insert({
           user_id: user?.id,
-          content: `🧠 Análise Pessoal\n\n${insights}`,
+          content: `🧠 Análise Pessoal\n\n${result} `,
           is_ai: true,
           message_type: 'personal_analysis'
         });
 
-        // Update local state with the new analysis
         setUserAnalysis({
-          content: insights,
+          content: result,
           date: new Date().toLocaleDateString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
           })
         });
-        
-        toast({ title: '✨ Análise gerada!', description: 'Axiom analisou sua semana' });
+
+        toast({ title: '✨ Análise gerada!', description: 'Axiom analisou seus dados completos' });
+      } else {
+        throw new Error('Resposta vazia da IA');
       }
     } catch (error) {
       console.error('Error generating insight:', error);
@@ -391,9 +549,7 @@ export default function Intelligence() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
+          <PageSkeleton cards={2} />
         ) : (
           <div className="space-y-6">
             {/* Score Section */}
@@ -403,46 +559,64 @@ export default function Intelligence() {
             </div>
 
             {/* Stats Grid */}
-            <div className="stats-grid-apple">
-              <MetricCard
-                label="Tarefas"
-                value={`${summary?.tasksCompleted}/${summary?.tasksTotal}`}
-                icon={<CheckSquare className="h-5 w-5 text-primary" />}
-                color="info"
-                interactive
-                onClick={() => navigate('/execution')}
-              />
+            <motion.div
+              className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1, duration: 0.5, staggerChildren: 0.1 }}
+            >
+              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+                <MetricCard
+                  label="Tarefas"
+                  value={`${summary?.tasksCompleted}/${summary?.tasksTotal}`}
+                  icon={< CheckSquare className="h-5 w-5 text-primary" />}
+                  color="info"
+                  interactive
+                  onClick={() => navigate('/execution')}
+                />
+              </motion.div>
 
-              <MetricCard
-                label="Hábitos"
-                value={`${summary?.habitsCompleted}/${summary?.habitsTotal}`}
-                icon={<Target className="h-5 w-5 text-amber-500" />}
-                color="warning"
-                interactive
-                onClick={() => navigate('/habits')}
-              />
+              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}>
+                < MetricCard
+                  label="Hábitos"
+                  value={`${summary?.habitsCompleted}/${summary?.habitsTotal}`}
+                  icon={< Target className="h-5 w-5 text-amber-500" />}
+                  color="warning"
+                  interactive
+                  onClick={() => navigate('/habits')}
+                />
+              </motion.div>
 
-              <MetricCard
-                label="Saldo"
-                value={formatCurrency((summary?.income || 0) - (summary?.expenses || 0))}
-                icon={<Wallet className="h-5 w-5 text-emerald-500" />}
-                color={(summary?.income || 0) - (summary?.expenses || 0) >= 0 ? "success" : "error"}
-                interactive
-                onClick={() => navigate('/finances')}
-              />
+              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}>
+                < MetricCard
+                  label="Saldo"
+                  value={formatCurrency((summary?.income || 0) - (summary?.expenses || 0))}
+                  icon={< Wallet className="h-5 w-5 text-emerald-500" />}
+                  color={(summary?.income || 0) - (summary?.expenses || 0) >= 0 ? "success" : "error"}
+                  interactive
+                  onClick={() => navigate('/finances')}
+                />
+              </motion.div>
 
-              <MetricCard
-                label="Reflexões"
-                value={(summary?.notesCreated || 0) + (summary?.journalEntries || 0)}
-                icon={<Brain className="h-5 w-5 text-purple-500" />}
-                color="default"
-                interactive
-                onClick={() => navigate('/memory')}
-              />
-            </div>
+              <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}>
+                < MetricCard
+                  label="Reflexões"
+                  value={(summary?.notesCreated || 0) + (summary?.journalEntries || 0)}
+                  icon={< Brain className="h-5 w-5 text-purple-500" />}
+                  color="default"
+                  interactive
+                  onClick={() => navigate('/memory')}
+                />
+              </motion.div>
+            </motion.div>
 
             {/* Charts */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <motion.div
+              className="grid grid-cols-1 md:grid-cols-2 gap-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
               <ChartCard title="Finanças do Mês">
                 {pieData.some(d => d.value > 0) ? (
                   <ResponsiveContainer width="100%" height={200}>
@@ -469,7 +643,7 @@ export default function Intelligence() {
                         <Cell fill="url(#gradientIncome)" />
                         <Cell fill="url(#gradientExpense)" />
                       </Pie>
-                      <Tooltip 
+                      <Tooltip
                         formatter={(value: number) => formatCurrency(value)}
                         contentStyle={{
                           background: 'hsl(var(--card))',
@@ -506,7 +680,7 @@ export default function Intelligence() {
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.5} />
                     <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
                     <YAxis stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip 
+                    <Tooltip
                       formatter={(value: number) => `${value}%`}
                       contentStyle={{
                         background: 'hsl(var(--card))',
@@ -518,7 +692,7 @@ export default function Intelligence() {
                   </BarChart>
                 </ResponsiveContainer>
               </ChartCard>
-            </div>
+            </motion.div>
 
             {/* AI Insight */}
             <AppleCard elevation={2} glow className="p-6">
@@ -546,18 +720,19 @@ export default function Intelligence() {
                   )}
                 </Button>
               </div>
-              {aiInsight ? (
-                <div className="space-y-2">
-                  {userAnalysis?.date && (
-                    <p className="text-xs text-muted-foreground">{userAnalysis.date}</p>
-                  )}
-                  <p className="text-sm whitespace-pre-wrap">{aiInsight}</p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  Clique em "Gerar Nova Análise" para receber insights personalizados sobre sua semana
-                </p>
-              )}
+              {
+                aiInsight ? (
+                  <div className="space-y-2">
+                    {userAnalysis?.date && (
+                      <p className="text-xs text-muted-foreground">{userAnalysis.date}</p>
+                    )}
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{aiInsight.replace(/\*\*/g, '').replace(/---/g, '').replace(/^#{1,3}\s/gm, '').replace(/\n{3,}/g, '\n\n').trim()}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Clique em "Gerar Nova Análise" para receber insights personalizados sobre sua semana
+                  </p>
+                )}
             </AppleCard>
 
             {/* Last Weekly Insight */}
@@ -567,26 +742,10 @@ export default function Intelligence() {
                   <BarChart3 className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-semibold">Último Insight Semanal</h3>
                 </div>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
-                  ⚡ Gerado automaticamente
-                </span>
-              </div>
-              {lastInsight ? (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>📅 Gerado em: {lastInsight.date}</span>
-                    <span>🔄 Próximo: {getNextMondayDate()}</span>
-                  </div>
-                  <p className="text-sm whitespace-pre-wrap">{lastInsight.content}</p>
-                </div>
-              ) : (
-                <div className="text-center py-4 space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Nenhum insight semanal gerado ainda.
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    📅 O Axiom gera automaticamente toda <strong>segunda-feira às 7h</strong>.
-                  </p>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded-full">
+                    ⚡ Gerado automaticamente
+                  </span>
                   <Button
                     variant="outline"
                     size="sm"
@@ -601,12 +760,50 @@ export default function Intelligence() {
                     ) : (
                       <>
                         <BarChart3 className="h-4 w-4 mr-2" />
-                        Gerar Primeiro Relatório
+                        Novo Insight
                       </>
                     )}
                   </Button>
                 </div>
-              )}
+              </div>
+              {
+                lastInsight ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>📅 Gerado em: {lastInsight.date}</span>
+                      <span>🔄 Próximo: {getNextMondayDate()}</span>
+                    </div>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{lastInsight.content.replace(/\*\*/g, '').replace(/---/g, '').replace(/^#{1,3}\s/gm, '').replace(/\n{3,}/g, '\n\n').trim()}</p>
+                  </div>
+                ) : (
+                  <div className="text-center py-4 space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Nenhum insight semanal gerado ainda.
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      📅 O Axiom gera automaticamente toda <strong>segunda-feira às 7h</strong>.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={generateFirstWeeklyReport}
+                      disabled={generatingFirstReport}
+                    >
+                      {generatingFirstReport ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          Gerando...
+                        </>
+                      ) : (
+                        <>
+                          <BarChart3 className="h-4 w-4 mr-2" />
+                          Gerar Primeiro Relatório
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )
+              }
             </AppleCard>
           </div>
         )}

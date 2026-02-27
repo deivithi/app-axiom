@@ -1,4 +1,5 @@
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { normalizePortugueseText } from './robotoFont';
@@ -46,372 +47,361 @@ export function generateFinancialPDF(data: PDFData) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
-  let yPos = 0;
 
   const monthName = format(data.month, "MMMM yyyy", { locale: ptBR });
   const capitalizedMonth = safeText(monthName.charAt(0).toUpperCase() + monthName.slice(1));
 
-  // Colors
-  const primaryColor: [number, number, number] = [99, 102, 241]; // Indigo
-  const greenColor: [number, number, number] = [16, 185, 129];
-  const redColor: [number, number, number] = [239, 68, 68];
-  const grayColor: [number, number, number] = [107, 114, 128];
-  const darkColor: [number, number, number] = [17, 24, 39];
+  // Axiom Premium Color Palette
+  const colors = {
+    primary: [79, 70, 229] as [number, number, number],      // Indigo 600
+    primaryLight: [238, 242, 255] as [number, number, number],// Indigo 50
+    secondary: [17, 24, 39] as [number, number, number],    // Gray 900
+    gray: [107, 114, 128] as [number, number, number],      // Gray 500
+    lightGray: [243, 244, 246] as [number, number, number], // Gray 100
+    green: [16, 185, 129] as [number, number, number],      // Emerald 500
+    red: [239, 68, 68] as [number, number, number],         // Red 500
+    orange: [245, 158, 11] as [number, number, number],     // Amber 500
+    white: [255, 255, 255] as [number, number, number],
+  };
 
-  // ============ PAGE 1: EXECUTIVE SUMMARY ============
-  
-  // Header background
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageWidth, 45, 'F');
+  // Helper for drawing cards
+  const drawCard = (doc: jsPDF, x: number, y: number, w: number, h: number, fillColor: [number, number, number], borderColor?: [number, number, number]) => {
+    doc.setFillColor(...fillColor);
+    doc.roundedRect(x, y, w, h, 3, 3, borderColor ? 'FD' : 'F');
+    if (borderColor) {
+      doc.setDrawColor(...borderColor);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(x, y, w, h, 3, 3, 'S');
+    }
+  };
 
-  // Logo text
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(28);
+  // ==========================================
+  // PAGE 1: EXECUTIVE DASHBOARD
+  // ==========================================
+
+  // 1. HEADER (Gradient-like Top Bar)
+  doc.setFillColor(...colors.primary);
+  doc.rect(0, 0, pageWidth, 50, 'F');
+
+  doc.setTextColor(...colors.white);
+  doc.setFontSize(26);
   doc.setFont('helvetica', 'bold');
-  doc.text('AXIOM', margin, 25);
+  doc.text('AXIOM', margin, 28);
 
-  // Subtitle
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Personal AI Governance', margin, 38);
+
+  doc.setFontSize(14);
+  doc.text(`Financial Report`, pageWidth - margin, 26, { align: 'right' });
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text('Personal AI Governance', margin, 35);
+  doc.text(capitalizedMonth, pageWidth - margin, 38, { align: 'right' });
 
-  // Report title
-  doc.setFontSize(14);
-  doc.text(`Relatório Financeiro - ${capitalizedMonth}`, pageWidth - margin, 30, { align: 'right' });
+  let startY = 65;
 
-  yPos = 60;
-
-  // Summary Cards Section Title
-  doc.setTextColor(...darkColor);
+  // 2. FINANCIAL SUMMARY (Metrics Cards)
+  doc.setTextColor(...colors.secondary);
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
-  doc.text('Resumo do Mês', margin, yPos);
-  yPos += 15;
+  doc.text(safeText('Resumo do Mês'), margin, startY);
 
-  // Summary Cards
-  const cardWidth = (pageWidth - margin * 2 - 15) / 4;
-  const cardHeight = 35;
-  
-  const summaryCards = [
-    { label: 'Receitas', value: data.totalIncome, color: greenColor, emoji: '💰' },
-    { label: 'Despesas', value: data.totalExpenses, color: redColor, emoji: '💸' },
-    { label: 'Pendente', value: data.pendingExpenses, color: [245, 158, 11] as [number, number, number], emoji: '🕐' },
-    { label: 'Saldo', value: data.balance, color: data.balance >= 0 ? greenColor : redColor, emoji: '🎯' }
+  const cardY = startY + 8;
+  const cardH = 32;
+  const spacing = 5;
+  const cardW = (pageWidth - (margin * 2) - (spacing * 3)) / 4;
+
+  const metrics = [
+    { title: 'Receitas', value: data.totalIncome, valColor: colors.green },
+    { title: 'Despesas', value: data.totalExpenses, valColor: colors.red },
+    { title: 'Pendente', value: data.pendingExpenses, valColor: colors.orange },
+    { title: 'Saldo Final', value: data.balance, valColor: data.balance >= 0 ? colors.green : colors.red }
   ];
 
-  summaryCards.forEach((card, index) => {
-    const x = margin + index * (cardWidth + 5);
-    
-    // Card border
-    doc.setDrawColor(...card.color);
-    doc.setLineWidth(1);
-    doc.roundedRect(x, yPos, cardWidth, cardHeight, 3, 3, 'S');
-    
-    // Card content
-    doc.setFontSize(10);
-    doc.setTextColor(...grayColor);
-    doc.text(card.label, x + 5, yPos + 12);
-    
-    doc.setFontSize(14);
+  metrics.forEach((m, i) => {
+    const cx = margin + i * (cardW + spacing);
+    // Draw subtle card background
+    drawCard(doc, cx, cardY, cardW, cardH, colors.white, colors.lightGray);
+
+    // Title
+    doc.setFontSize(9);
+    doc.setTextColor(...colors.gray);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...card.color);
-    const valueText = formatCurrency(card.value);
-    doc.text(valueText, x + 5, yPos + 26);
+    doc.text(safeText(m.title.toUpperCase()), cx + 5, cardY + 10);
+
+    // Value
+    doc.setFontSize(12);
+    doc.setTextColor(...m.valColor);
+    doc.setFont('helvetica', 'bold');
+    doc.text(formatCurrency(m.value), cx + 5, cardY + 24);
   });
 
-  yPos += cardHeight + 20;
+  startY = cardY + cardH + 20;
 
-  // Expenses by Category Section
+  // 3. COMPARATIVE CHART (Visual Bar)
+  doc.setTextColor(...colors.secondary);
+  doc.setFontSize(16);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Fluxo de Caixa', margin, startY);
+
+  const chartY = startY + 8;
+  const chartH = 45;
+  drawCard(doc, margin, chartY, pageWidth - margin * 2, chartH, colors.white, colors.lightGray);
+
+  const maxValue = Math.max(data.totalIncome, data.totalExpenses);
+  const barMaxW = pageWidth - margin * 2 - 100;
+
+  // Income Bar
+  doc.setFontSize(10);
+  doc.setTextColor(...colors.secondary);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Entradas', margin + 10, chartY + 18);
+
+  const inW = maxValue > 0 ? (data.totalIncome / maxValue) * barMaxW : 0;
+  doc.setFillColor(...colors.green);
+  doc.roundedRect(margin + 35, chartY + 11, Math.max(inW, 2), 10, 2, 2, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(formatCurrency(data.totalIncome), pageWidth - margin - 10, chartY + 18, { align: 'right' });
+
+  // Expense Bar
+  doc.setFont('helvetica', 'normal');
+  doc.text('Saídas', margin + 10, chartY + 33);
+
+  const outW = maxValue > 0 ? (data.totalExpenses / maxValue) * barMaxW : 0;
+  doc.setFillColor(...colors.red);
+  doc.roundedRect(margin + 35, chartY + 26, Math.max(outW, 2), 10, 2, 2, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(formatCurrency(data.totalExpenses), pageWidth - margin - 10, chartY + 33, { align: 'right' });
+
+  startY = chartY + chartH + 20;
+
+  // 4. EXPENSES BY CATEGORY
   if (data.expensesByCategory.length > 0) {
-    doc.setTextColor(...darkColor);
+    doc.setTextColor(...colors.secondary);
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
-    doc.text('Despesas por Categoria', margin, yPos);
-    yPos += 12;
+    doc.text('Despesas por Categoria', margin, startY);
 
-    const categoryColors: [number, number, number][] = [
-      [139, 92, 246], [236, 72, 153], [245, 158, 11], [16, 185, 129],
-      [59, 130, 246], [239, 68, 68], [99, 102, 241], [132, 204, 22], [20, 184, 166]
-    ];
+    const sortedCats = [...data.expensesByCategory].sort((a, b) => b.value - a.value);
 
-    const sortedCategories = [...data.expensesByCategory].sort((a, b) => b.value - a.value);
-    const totalCategoryExpenses = sortedCategories.reduce((sum, c) => sum + c.value, 0);
+    // Prepare data for autotable
+    const catData = sortedCats.map(c => [
+      safeText(c.name),
+      formatCurrency(c.value),
+      `${((c.value / data.totalExpenses) * 100).toFixed(1)}%`
+    ]);
 
-    sortedCategories.forEach((category, index) => {
-      const percentage = totalCategoryExpenses > 0 ? (category.value / totalCategoryExpenses * 100) : 0;
-      const barWidth = (pageWidth - margin * 2 - 100) * (percentage / 100);
-      const color = categoryColors[index % categoryColors.length];
-
-      // Category name
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...darkColor);
-      doc.text(category.name, margin, yPos + 4);
-
-      // Progress bar background
-      doc.setFillColor(229, 231, 235);
-      doc.roundedRect(margin + 70, yPos - 2, pageWidth - margin * 2 - 130, 8, 2, 2, 'F');
-
-      // Progress bar fill
-      if (barWidth > 0) {
-        doc.setFillColor(...color);
-        doc.roundedRect(margin + 70, yPos - 2, Math.max(barWidth, 4), 8, 2, 2, 'F');
-      }
-
-      // Value and percentage
-      doc.setTextColor(...grayColor);
-      doc.setFontSize(9);
-      const valueStr = `R$ ${category.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${percentage.toFixed(1)}%)`;
-      doc.text(valueStr, pageWidth - margin, yPos + 4, { align: 'right' });
-
-      yPos += 14;
+    autoTable(doc, {
+      startY: startY + 8,
+      head: [['Categoria', 'Valor (R$)', 'Representatividade']],
+      body: catData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: colors.primaryLight,
+        textColor: colors.primary,
+        fontStyle: 'bold',
+        halign: 'left'
+      },
+      columnStyles: {
+        0: { halign: 'left', cellWidth: 'auto' },
+        1: { halign: 'right', cellWidth: 40 },
+        2: { halign: 'right', cellWidth: 40 }
+      },
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+        textColor: colors.secondary,
+        lineColor: colors.lightGray,
+        lineWidth: 0.1,
+        cellPadding: 5
+      },
+      alternateRowStyles: {
+        fillColor: [252, 252, 252]
+      },
+      margin: { left: margin, right: margin }
     });
   }
 
-  yPos += 10;
-
-  // Income vs Expenses Comparison
-  doc.setTextColor(...darkColor);
-  doc.setFontSize(16);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Comparativo Receitas vs Despesas', margin, yPos);
-  yPos += 15;
-
-  const maxValue = Math.max(data.totalIncome, data.totalExpenses);
-  const barMaxWidth = pageWidth - margin * 2 - 80;
-
-  // Income bar
-  doc.setFontSize(11);
-  doc.setTextColor(...darkColor);
-  doc.text('Receitas', margin, yPos + 5);
-  
-  const incomeBarWidth = maxValue > 0 ? (data.totalIncome / maxValue) * barMaxWidth : 0;
-  doc.setFillColor(...greenColor);
-  doc.roundedRect(margin + 55, yPos - 2, Math.max(incomeBarWidth, 4), 12, 3, 3, 'F');
-  
-  doc.setTextColor(...greenColor);
-  doc.text(`R$ ${data.totalIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin, yPos + 5, { align: 'right' });
-
-  yPos += 20;
-
-  // Expense bar
-  doc.setTextColor(...darkColor);
-  doc.text('Despesas', margin, yPos + 5);
-  
-  const expenseBarWidth = maxValue > 0 ? (data.totalExpenses / maxValue) * barMaxWidth : 0;
-  doc.setFillColor(...redColor);
-  doc.roundedRect(margin + 55, yPos - 2, Math.max(expenseBarWidth, 4), 12, 3, 3, 'F');
-  
-  doc.setTextColor(...redColor);
-  doc.text(`R$ ${data.totalExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, pageWidth - margin, yPos + 5, { align: 'right' });
-
-  // ============ PAGE 2: TRANSACTIONS ============
+  // ==========================================
+  // PAGE 2: TRANSACTIONS DETAILS
+  // ==========================================
   doc.addPage();
-  yPos = margin;
 
-  // Page 2 Header
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageWidth, 25, 'F');
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
+  // Minimalist Header for subsequent pages
+  doc.setFillColor(...colors.primary);
+  doc.rect(0, 0, pageWidth, 15, 'F');
+
+  doc.setFontSize(18);
+  doc.setTextColor(...colors.secondary);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Transações - ${capitalizedMonth}`, margin, 16);
+  doc.text(safeText('Detalhamento de Transações'), margin, 35);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...colors.gray);
+  doc.text(safeText(`Relatório completo de movimentos em ${capitalizedMonth}`), margin, 42);
 
-  yPos = 40;
-
-  // Table Header
-  const colWidths = { date: 20, title: 55, category: 35, method: 25, amount: 30, status: 20 };
-  
-  doc.setFillColor(243, 244, 246);
-  doc.rect(margin, yPos - 5, pageWidth - margin * 2, 12, 'F');
-  
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...darkColor);
-  
-  let xPos = margin + 3;
-  doc.text('Data', xPos, yPos + 2);
-  xPos += colWidths.date;
-  doc.text('Título', xPos, yPos + 2);
-  xPos += colWidths.title;
-  doc.text('Categoria', xPos, yPos + 2);
-  xPos += colWidths.category;
-  doc.text('Método', xPos, yPos + 2);
-  xPos += colWidths.method;
-  doc.text('Valor', xPos, yPos + 2);
-  xPos += colWidths.amount;
-  doc.text('Status', xPos, yPos + 2);
-
-  yPos += 15;
-
-  // Sort transactions by date
-  const sortedTransactions = [...data.transactions].sort((a, b) => 
+  // Sorting
+  const sortedTransactions = [...data.transactions].sort((a, b) =>
     new Date(a.transaction_date).getTime() - new Date(b.transaction_date).getTime()
   );
 
-  // Transaction rows
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-
-  sortedTransactions.forEach((tx, index) => {
-    // Check if we need a new page
-    if (yPos > pageHeight - 30) {
-      doc.addPage();
-      yPos = margin;
-      
-      // Repeat header on new page
-      doc.setFillColor(243, 244, 246);
-      doc.rect(margin, yPos - 5, pageWidth - margin * 2, 12, 'F');
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...darkColor);
-      
-      xPos = margin + 3;
-      doc.text('Data', xPos, yPos + 2);
-      xPos += colWidths.date;
-      doc.text('Título', xPos, yPos + 2);
-      xPos += colWidths.title;
-      doc.text('Categoria', xPos, yPos + 2);
-      xPos += colWidths.category;
-      doc.text('Método', xPos, yPos + 2);
-      xPos += colWidths.method;
-      doc.text('Valor', xPos, yPos + 2);
-      xPos += colWidths.amount;
-      doc.text('Status', xPos, yPos + 2);
-      
-      yPos += 15;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-    }
-
-    // Alternate row background
-    if (index % 2 === 0) {
-      doc.setFillColor(249, 250, 251);
-      doc.rect(margin, yPos - 4, pageWidth - margin * 2, 10, 'F');
-    }
-
-    xPos = margin + 3;
-    doc.setTextColor(...darkColor);
-    
-    // Date
-    const txDate = format(new Date(tx.transaction_date), 'dd/MM');
-    doc.text(txDate, xPos, yPos + 2);
-    xPos += colWidths.date;
-
-    // Title (truncate if too long)
-    let title = tx.title;
+  // Table Data mapping
+  const txData = sortedTransactions.map(tx => {
+    let title = safeText(tx.title);
     if (tx.is_installment && tx.current_installment && tx.total_installments) {
       title += ` (${tx.current_installment}/${tx.total_installments})`;
     }
-    if (title.length > 25) title = title.substring(0, 22) + '...';
-    doc.text(title, xPos, yPos + 2);
-    xPos += colWidths.title;
 
-    // Category
-    const category = tx.category.length > 12 ? tx.category.substring(0, 10) + '...' : tx.category;
-    doc.text(category, xPos, yPos + 2);
-    xPos += colWidths.category;
+    const formattedDate = format(new Date(tx.transaction_date), 'dd/MM/yyyy');
+    const amountStr = `${tx.type === 'income' ? '+' : '-'} R$ ${tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    const status = tx.is_paid ? 'Pago' : 'Pendente';
 
-    // Payment method
-    doc.text(tx.payment_method || '-', xPos, yPos + 2);
-    xPos += colWidths.method;
-
-    // Amount
-    const amountColor = tx.type === 'income' ? greenColor : redColor;
-    doc.setTextColor(...amountColor);
-    const prefix = tx.type === 'income' ? '+' : '-';
-    doc.text(`${prefix} R$ ${tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, xPos, yPos + 2);
-    xPos += colWidths.amount;
-
-    // Status
-    doc.setTextColor(...(tx.is_paid ? greenColor : [245, 158, 11] as [number, number, number]));
-    doc.text(tx.is_paid ? 'Pago' : 'Pendente', xPos, yPos + 2);
-
-    yPos += 10;
+    return [
+      formattedDate,
+      title,
+      safeText(tx.category),
+      amountStr,
+      status
+    ];
   });
 
-  // ============ PAGE 3: ACCOUNTS (if any) ============
+  autoTable(doc, {
+    startY: 50,
+    head: [['Data', 'Descrição', 'Categoria', 'Valor', 'Status']],
+    body: txData,
+    theme: 'grid',
+    headStyles: {
+      fillColor: colors.secondary, // Dark header
+      textColor: colors.white,
+      fontStyle: 'bold'
+    },
+    styles: {
+      font: 'helvetica',
+      fontSize: 9,
+      textColor: colors.secondary,
+      lineColor: colors.lightGray,
+      lineWidth: 0.1,
+      cellPadding: 4,
+      valign: 'middle'
+    },
+    columnStyles: {
+      0: { cellWidth: 25 }, // Date
+      1: { cellWidth: 'auto' }, // Desc
+      2: { cellWidth: 40 }, // Cat
+      3: { cellWidth: 35, halign: 'right', fontStyle: 'bold' }, // Amount
+      4: { cellWidth: 25, halign: 'center' } // Status
+    },
+    alternateRowStyles: {
+      fillColor: [249, 250, 251] // bg-gray-50
+    },
+    didParseCell: function (param: any) {
+      // Custom styling for explicit cells
+      if (param.section === 'body') {
+        // Amount color formatting
+        if (param.column.index === 3) {
+          const val = param.cell.raw as string;
+          param.cell.styles.textColor = val.startsWith('+') ? colors.green : colors.red;
+        }
+        // Status color formatting
+        if (param.column.index === 4) {
+          const val = param.cell.raw as string;
+          if (val === 'Pago') {
+            param.cell.styles.textColor = colors.green;
+            param.cell.styles.fontStyle = 'bold';
+          } else {
+            param.cell.styles.textColor = colors.orange;
+          }
+        }
+      }
+    },
+    margin: { left: margin, right: margin, bottom: 25 }
+  });
+
+  // ==========================================
+  // PAGE 3: ACCOUNTS LISTING (Optional)
+  // ==========================================
   if (data.accounts.length > 0) {
-    doc.addPage();
-    yPos = margin;
+    const yAfterTx = (doc as any).lastAutoTable.finalY + 20;
 
-    // Page 3 Header
-    doc.setFillColor(...primaryColor);
-    doc.rect(0, 0, pageWidth, 25, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(14);
+    // Create new page if not enough space
+    if (yAfterTx > pageHeight - 80) {
+      doc.addPage();
+      doc.setFillColor(...colors.primary);
+      doc.rect(0, 0, pageWidth, 15, 'F');
+      startY = 35;
+    } else {
+      startY = yAfterTx;
+    }
+
+    doc.setFontSize(16);
+    doc.setTextColor(...colors.secondary);
     doc.setFont('helvetica', 'bold');
-    doc.text('Contas Bancárias', margin, 16);
+    doc.text(safeText('Saldos e Contas'), margin, startY);
 
-    yPos = 45;
+    const accountsData = data.accounts.map(acc => [
+      safeText(acc.name),
+      formatCurrency(acc.balance)
+    ]);
 
-    // Total balance card
-    const totalBalance = data.accounts.reduce((sum, acc) => sum + acc.balance, 0);
-    
-    doc.setFillColor(243, 244, 246);
-    doc.roundedRect(margin, yPos, pageWidth - margin * 2, 30, 5, 5, 'F');
-    
-    doc.setTextColor(...grayColor);
-    doc.setFontSize(12);
-    doc.text('Saldo Total Consolidado', margin + 10, yPos + 12);
-    
-    doc.setTextColor(...(totalBalance >= 0 ? greenColor : redColor));
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`R$ ${totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin + 10, yPos + 24);
-
-    yPos += 45;
-
-    // Individual accounts
-    doc.setTextColor(...darkColor);
-    doc.setFontSize(14);
-    doc.text('Detalhamento por Conta', margin, yPos);
-    yPos += 15;
-
-    data.accounts.forEach((account) => {
-      // Account card
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(margin, yPos, pageWidth - margin * 2, 25, 3, 3, 'S');
-
-      // Account icon and name
-      doc.setFontSize(11);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...darkColor);
-      doc.text(`${account.icon} ${account.name}`, margin + 8, yPos + 10);
-
-      // Account balance
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(...(account.balance >= 0 ? greenColor : redColor));
-      doc.setFontSize(12);
-      doc.text(`R$ ${account.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, margin + 8, yPos + 20);
-
-      yPos += 30;
+    autoTable(doc, {
+      startY: startY + 8,
+      head: [['Conta', 'Saldo Base']],
+      body: accountsData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: colors.primaryLight,
+        textColor: colors.primary,
+        fontStyle: 'bold'
+      },
+      styles: {
+        font: 'helvetica',
+        fontSize: 10,
+        textColor: colors.secondary,
+        lineColor: colors.lightGray,
+        lineWidth: 0.1,
+        cellPadding: 6
+      },
+      columnStyles: {
+        0: { cellWidth: 'auto' },
+        1: { cellWidth: 50, halign: 'right', fontStyle: 'bold' }
+      },
+      didParseCell: function (param: any) {
+        if (param.section === 'body' && param.column.index === 1) {
+          const rawRaw = param.row.raw[1] as string;
+          param.cell.styles.textColor = rawRaw.includes('-') ? colors.red : colors.green;
+        }
+      },
+      margin: { left: margin, right: margin }
     });
   }
 
-  // ============ FOOTER ON ALL PAGES ============
+  // ==========================================
+  // GLOBAL FOOTERS
+  // ==========================================
   const totalPages = doc.getNumberOfPages();
-  
+  const generationDate = format(new Date(), "dd 'de' MMMM, yyyy 'às' HH:mm", { locale: ptBR });
+
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
-    
+
     // Footer line
-    doc.setDrawColor(229, 231, 235);
+    doc.setDrawColor(...colors.lightGray);
     doc.setLineWidth(0.5);
     doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
-    
+
     // Footer text
     doc.setFontSize(8);
-    doc.setTextColor(...grayColor);
-    doc.text('Gerado por Axiom - Personal AI Governance', margin, pageHeight - 8);
-    doc.text(format(new Date(), "dd/MM/yyyy 'às' HH:mm"), pageWidth / 2, pageHeight - 8, { align: 'center' });
+    doc.setTextColor(...colors.gray);
+    doc.text('Axiom AI - Relatório Oficial', margin, pageHeight - 8);
+    doc.text(safeText(`Gerado em ${generationDate}`), pageWidth / 2, pageHeight - 8, { align: 'center' });
     doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
   }
 
   // Save the PDF
-  const fileName = `axiom-financeiro-${format(data.month, 'yyyy-MM')}.pdf`;
+  const fileName = `Axiom_Relatorio_${format(data.month, 'yyyy_MM')}.pdf`;
   doc.save(fileName);
-  
+
   return fileName;
 }

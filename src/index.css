@@ -3,25 +3,25 @@
 @tailwind utilities;
 
 /* =====================================================
-   AXIOM DESIGN SYSTEM v3.0 - Blue/Cyan/Purple Identity
+   AXIOM VISION v4.0 - Padrão Apple HIG / Google M3
    =====================================================
    
    CORES PRINCIPAIS:
-   - Primary: Blue (#2563EB) - CTAs e elementos de ação
-   - Secondary: Cyan (#06B6D4) - Links e informações
-   - Accent: Purple (#7C3AED) - Badges e destaques especiais
+   - Primary: iOS Blue (#0A84FF) - CTAs e elementos de ação
+   - Secondary: Cyan (#32ADE6) - Informações dinâmicas
+   - Accent: Purple (#BF5AF2) - Insights do Axiom
    
-   BACKGROUNDS (Dark-first):
-   - Base: #0B0B0F (quase preto com azul sutil)
-   - Elevated: 3 níveis de elevação
+   BACKGROUNDS (OLED-First):
+   - Base: #05050A (Oled Black com leve azul marinho)
+   - Elevated: Glassmorphism 2.0 (Fundo translúcido com forte blur)
    
-   GRADIENTES:
-   - Primary: Blue → Purple (CTAs premium)
-   - Secondary: Cyan → Blue (informativo)
-   - Score: Verde/Amarelo/Vermelho (performance)
+   GRADIENTES e LUZ:
+   - Múltiplas camadas de brilho e difusão
+   - Orbes de luz responsivos no fundo
    
-   GLASSMORPHISM:
-   - Blue tint sutil para identidade
+   GLASSMORPHISM 2.0:
+   - Tint ultra-sutil
+   - Bordas reflexivas simuladas (1px gradiente)
    
    ===================================================== */
 
@@ -158,8 +158,8 @@
 
   --color-text-primary: hsl(var(--foreground));
   --color-text-secondary: hsl(var(--muted-foreground));
-  --color-text-tertiary: hsl(215 16% 55%);
-  /* WCAG AA contrast 4.5:1 */
+  --color-text-tertiary: hsl(215 16% 65%);
+  /* WCAG AA contrast 4.5:1 — increased from 55% */
 
   --color-primary: hsl(var(--primary));
   --color-primary-hover: hsl(var(--primary-hover));
@@ -217,48 +217,47 @@
    ===================================================== */
 @layer base {
   :root {
-    /* ===== BASE LAYERS (Preto Profundo com tint azul) ===== */
-    --background: 240 20% 4%;
-    --foreground: 214 32% 91%;
-    /* Off-white (#E2E8F0) — reduz fadiga visual vs branco puro */
+    /* ===== BASE LAYERS (OLED Black com azul marinho) ===== */
+    --background: 240 33% 3%;
+    --foreground: 0 0% 100%;
 
-    /* ===== CARDS (Elevação +1) ===== */
-    --card: 240 17% 9%;
-    --card-foreground: 210 40% 98%;
+    /* ===== CARDS (Glassmorphism M3) ===== */
+    --card: 240 20% 7% / 0.6;
+    --card-foreground: 0 0% 100%;
 
-    /* ===== POPOVERS (Elevação +2) ===== */
-    --popover: 240 14% 12%;
-    --popover-foreground: 210 40% 98%;
+    /* ===== POPOVERS ===== */
+    --popover: 240 20% 10% / 0.8;
+    --popover-foreground: 0 0% 100%;
 
-    /* ===== MODAL (Elevação especial para modais) ===== */
-    --modal: 230 15% 28%;
-    --modal-foreground: 210 40% 98%;
-    --border-modal: 215 20% 60% / 0.40;
+    /* ===== MODAL ===== */
+    --modal: 240 20% 12% / 0.85;
+    --modal-foreground: 0 0% 100%;
+    --border-modal: 215 20% 60% / 0.20;
 
-    /* ===== ELEVATED-3 (Elevação +3) ===== */
-    --elevated-3: 240 12% 16%;
+    /* ===== ELEVATED-3 ===== */
+    --elevated-3: 240 20% 12%;
 
-    /* ===== PRIMARY (Blue - Action Identity) ===== */
-    --primary: 217 91% 60%;
+    /* ===== PRIMARY (iOS Blue - Action Identity) ===== */
+    --primary: 210 100% 52%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 217 91% 50%;
-    --primary-active: 217 91% 43%;
-    --primary-light: 217 91% 65%;
-    --primary-subtle: 217 91% 15%;
+    --primary-hover: 210 100% 45%;
+    --primary-active: 210 100% 38%;
+    --primary-light: 210 100% 65%;
+    --primary-subtle: 210 100% 15%;
 
     /* ===== SECONDARY (Cyan - Info/Links) ===== */
-    --secondary: 187 94% 43%;
+    --secondary: 199 79% 55%;
     --secondary-foreground: 0 0% 100%;
-    --secondary-hover: 187 94% 36%;
-    --secondary-light: 187 94% 54%;
-    --secondary-subtle: 187 94% 15%;
+    --secondary-hover: 199 79% 45%;
+    --secondary-light: 199 79% 65%;
+    --secondary-subtle: 199 79% 15%;
 
-    /* ===== ACCENT (Purple - Special highlights) ===== */
-    --accent: 271 81% 56%;
+    /* ===== ACCENT (Purple - Axiom highlights) ===== */
+    --accent: 280 87% 65%;
     --accent-foreground: 0 0% 100%;
-    --accent-hover: 271 81% 46%;
-    --accent-light: 271 81% 66%;
-    --accent-subtle: 271 81% 15%;
+    --accent-hover: 280 87% 55%;
+    --accent-light: 280 87% 75%;
+    --accent-subtle: 280 87% 15%;
 
     /* ===== MUTED (Texto Secundário WCAG AA) ===== */
     --muted: 240 14% 12%;
@@ -425,30 +424,29 @@
 
   /* ===== GLASSMORPHISM VARIANTS ===== */
   .glass {
-    @apply backdrop-blur-xl border;
-    background: hsla(240, 17%, 9%, 0.7);
+    @apply backdrop-blur-2xl border;
+    background: hsla(240, 20%, 7%, 0.6);
     border-color: hsl(var(--glass-border));
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    box-shadow: var(--shadow-glass-surface), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 
   .glass-sm {
-    @apply backdrop-blur-sm;
-    background: hsl(var(--glass-bg));
-    border: 1px solid hsl(var(--glass-border));
-  }
-
-  .glass-md {
     @apply backdrop-blur-md;
     background: hsl(var(--glass-bg));
     border: 1px solid hsl(var(--glass-border));
   }
 
-  .glass-lg {
-    @apply backdrop-blur-lg;
+  .glass-md {
+    @apply backdrop-blur-xl;
     background: hsl(var(--glass-bg));
     border: 1px solid hsl(var(--glass-border));
+  }
+
+  .glass-lg {
+    @apply backdrop-blur-3xl;
+    background: hsla(240, 20%, 7%, 0.4);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: var(--shadow-glass-floating);
   }
 
   /* ===== GLOW EFFECTS ===== */
@@ -526,55 +524,60 @@
     background: radial-gradient(circle at top right, hsl(var(--primary) / 0.15), transparent 60%);
   }
 
-  /* ===== STARRY BACKGROUND ===== */
+  /* ===== STARFIELD BACKGROUND ===== */
   .stars {
+    background-color: hsl(240, 33%, 3%);
     background-image:
-      radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.4), transparent),
-      radial-gradient(2px 2px at 40px 70px, rgba(255, 255, 255, 0.6), transparent),
+      radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.6), transparent),
+      radial-gradient(1px 1px at 40px 70px, rgba(255, 255, 255, 0.8), transparent),
       radial-gradient(1px 1px at 90px 40px, rgba(255, 255, 255, 0.5), transparent),
-      radial-gradient(2px 2px at 160px 120px, rgba(255, 255, 255, 0.4), transparent),
-      radial-gradient(1px 1px at 200px 180px, rgba(255, 255, 255, 0.3), transparent),
-      radial-gradient(2px 2px at 300px 250px, rgba(255, 255, 255, 0.5), transparent),
-      radial-gradient(1px 1px at 350px 100px, rgba(255, 255, 255, 0.4), transparent),
-      radial-gradient(2px 2px at 400px 200px, rgba(255, 255, 255, 0.3), transparent);
+      radial-gradient(1.5px 1.5px at 160px 120px, rgba(255, 255, 255, 0.7), transparent),
+      radial-gradient(1px 1px at 200px 180px, rgba(200, 220, 255, 0.8), transparent),
+      radial-gradient(2px 2px at 300px 250px, rgba(255, 255, 255, 0.6), transparent),
+      radial-gradient(1.5px 1.5px at 350px 100px, rgba(200, 200, 255, 0.7), transparent),
+      radial-gradient(1px 1px at 400px 200px, rgba(255, 255, 255, 0.5), transparent);
     background-repeat: repeat;
-    background-size: 450px 350px;
-    animation: twinkle 4s ease-in-out infinite;
+    background-size: 500px 500px;
+    animation: twinkle 6s ease-in-out infinite alternate;
   }
 
   /* ===== GRADIENT ORBS (Animated Background) ===== */
   .gradient-orb {
     position: absolute;
     border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0.4;
-    animation: float 20s ease-in-out infinite;
+    filter: blur(100px);
+    opacity: 0.35;
+    animation: float 25s ease-in-out infinite alternate;
+    pointer-events: none;
+    z-index: 0;
   }
 
   .orb-primary {
-    width: 500px;
-    height: 500px;
-    background: radial-gradient(circle, hsl(217 91% 60%) 0%, transparent 70%);
-    top: -10%;
-    left: -10%;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, hsl(var(--primary)) 0%, transparent 60%);
+    top: -15%;
+    left: -15%;
   }
 
   .orb-accent {
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, hsl(271 81% 56%) 0%, transparent 70%);
-    bottom: -10%;
-    right: 10%;
-    animation-delay: -7s;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, hsl(var(--accent)) 0%, transparent 60%);
+    bottom: -15%;
+    right: -10%;
+    animation-delay: -5s;
+    animation-duration: 30s;
   }
 
   .orb-secondary {
-    width: 350px;
-    height: 350px;
-    background: radial-gradient(circle, hsl(187 94% 43%) 0%, transparent 70%);
-    top: 40%;
-    right: -5%;
-    animation-delay: -14s;
+    width: 450px;
+    height: 450px;
+    background: radial-gradient(circle, hsl(var(--secondary)) 0%, transparent 60%);
+    top: 30%;
+    right: -15%;
+    animation-delay: -12s;
+    animation-duration: 28s;
   }
 
   /* Legacy aliases for backward compatibility */
@@ -1347,7 +1350,7 @@
 /* INPUT FIELD */
 .chat-input-field {
   min-height: 40px;
-  max-height: 120px;
+  max-height: 250px;
   resize: none;
   flex: 1;
   border: 0;
@@ -3844,4 +3847,57 @@ select option {
   padding: 2px 6px;
   border-radius: var(--radius-xs);
   border: 1px solid hsl(var(--border));
+}
+
+/* =====================================================
+   GLOBAL UX ENHANCEMENTS — Material Design 3 / Apple HIG
+   ===================================================== */
+
+/* Smooth scroll global */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus-visible ring consistente — padrão Material M3 */
+:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* Respeita preferência de redução de movimento */
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Active state para botões — feedback tátil visual */
+.btn-gradient:active,
+.btn-social:active,
+button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* Hover transition mais responsivo — 150ms (não 200ms) */
+.btn-gradient,
+.btn-social,
+button,
+a {
+  transition-duration: 150ms;
 }

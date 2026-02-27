@@ -33,6 +33,11 @@ export default {
         'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4)',
         'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.6), 0 10px 10px -5px rgba(0, 0, 0, 0.5)',
         '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+
+        // Axiom Vision: Glassmorphism 2.0 Shadows
+        'glass-surface': '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+        'glass-floating': '0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 20px 0 rgba(0, 0, 0, 0.1) inset',
+
         // Glow effects
         'glow': '0 0 30px hsl(var(--primary) / 0.3)',
         'glow-sm': '0 0 15px hsl(var(--primary) / 0.3)',
@@ -226,6 +231,7 @@ export default {
         'gradient-score-mid': 'var(--gradient-score-mid)',
         'gradient-score-low': 'var(--gradient-score-low)',
         'gradient-glass': 'var(--gradient-glass)',
+        'gradient-glass-premium': 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.01) 100%)',
         'gradient-text': 'var(--gradient-text)',
       },
 

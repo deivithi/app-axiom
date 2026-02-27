@@ -8,37 +8,20 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "display_override": ["standalone", "minimal-ui"],
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
   "background_color": "#0B0B0F",
   "theme_color": "#2563EB",
-  "categories": ["productivity", "finance", "lifestyle"],
+  "categories": [
+    "productivity",
+    "finance",
+    "lifestyle"
+  ],
   "prefer_related_applications": false,
   "icons": [
-    {
-      "src": "/icon-72.png",
-      "sizes": "72x72",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icon-96.png",
-      "sizes": "96x96",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icon-128.png",
-      "sizes": "128x128",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
-      "src": "/icon-144.png",
-      "sizes": "144x144",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
     {
       "src": "/icon-152.png",
       "sizes": "152x152",
@@ -64,12 +47,6 @@
       "purpose": "maskable any"
     },
     {
-      "src": "/icon-384.png",
-      "sizes": "384x384",
-      "type": "image/png",
-      "purpose": "maskable any"
-    },
-    {
       "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
@@ -82,21 +59,36 @@
       "short_name": "Dashboard",
       "description": "Ver sua inteligência e score",
       "url": "/intelligence",
-      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Finanças",
       "short_name": "Finanças",
       "description": "Gerenciar suas finanças",
       "url": "/finances",
-      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Hábitos",
       "short_name": "Hábitos",
       "description": "Acompanhar seus hábitos",
       "url": "/habits",
-      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ],
   "screenshots": []

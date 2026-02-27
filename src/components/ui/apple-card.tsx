@@ -1,7 +1,8 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { motion, HTMLMotionProps } from "framer-motion";
 
-interface AppleCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface AppleCardProps extends HTMLMotionProps<"div"> {
   elevation?: 1 | 2 | 3;
   interactive?: boolean;
   glow?: boolean;
@@ -11,49 +12,69 @@ interface AppleCardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const AppleCard = React.forwardRef<HTMLDivElement, AppleCardProps>(
   ({ className, elevation = 2, interactive = false, glow = false, variant = "default", scoreLevel, children, ...props }, ref) => {
-    const baseClasses = "apple-card";
-    
+    const baseClasses = "relative overflow-hidden rounded-2xl border transition-colors";
+
+    // Axiom Vision: Adaptação das elevações para M3 / Apple HIG
     const elevationClasses = {
-      1: "apple-card-1",
-      2: "apple-card-2",
-      3: "apple-card-3",
+      1: "bg-card/40 border-border/40 backdrop-blur-xl",
+      2: "glass-sm",
+      3: "glass-lg",
     };
 
     const variantClasses = {
       default: "",
-      score: cn("score-card", scoreLevel),
-      metric: "metric-card",
-      chart: "chart-card",
+      score: cn(
+        scoreLevel === "high" && "border-success/30 bg-success/5 shadow-glow-success",
+        scoreLevel === "medium" && "border-warning/30 bg-warning/5 shadow-glow-warning",
+        scoreLevel === "low" && "border-error/30 bg-error/5 shadow-glow-error"
+      ),
+      metric: "",
+      chart: "glass",
     };
 
+    // Física Apple (Mola apertada, retorno rápido)
+    const springTransition = { type: "spring", stiffness: 400, damping: 30 };
+
     return (
-      <div
+      <motion.div
         ref={ref}
+        layout
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={springTransition}
+        whileHover={interactive ? { y: -4, scale: 1.01 } : {}}
+        whileTap={interactive ? { scale: 0.98 } : {}}
         className={cn(
           baseClasses,
           elevationClasses[elevation],
           variantClasses[variant],
-          interactive && "interactive cursor-pointer",
-          glow && "glow-card",
+          interactive && "cursor-pointer hover:border-primary/50",
+          glow && "shadow-glass-surface",
           className
         )}
         {...props}
       >
-        {children}
-      </div>
+        {/* Glow de fundo interno */}
+        <div className="absolute inset-0 bg-gradient-glass-premium pointer-events-none" />
+        {/* Camada superior do vidro (Brilho reflexivo sutil) */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-50" />
+
+        <div className="relative z-10 w-full h-full">
+          {children}
+        </div>
+      </motion.div>
     );
   }
 );
 AppleCard.displayName = "AppleCard";
 
 // Metric Card Component
-interface MetricCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface MetricCardProps extends Omit<AppleCardProps, "value"> {
   label: string;
   value: string | number;
   icon?: React.ReactNode;
   trend?: { value: number; positive: boolean };
   color?: "default" | "success" | "warning" | "error" | "info";
-  interactive?: boolean;
 }
 
 const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
@@ -79,22 +100,32 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
         ref={ref}
         elevation={1}
         interactive={interactive}
-        className={cn("p-4", className)}
+        className={cn("p-5", className)}
         onClick={onClick}
         {...props}
       >
         <div className="flex items-start justify-between">
-          <div className="space-y-1">
-            <p className="metric-label">{label}</p>
-            <p className={cn("metric-value", colorClasses[color])}>{value}</p>
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground tracking-tight">{label}</p>
+            <motion.p
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", bounce: 0.5 }}
+              className={cn("text-3xl font-semibold tracking-tighter", colorClasses[color])}
+            >
+              {value}
+            </motion.p>
             {trend && (
-              <p className={cn("text-xs font-medium", trend.positive ? "text-emerald-500" : "text-red-500")}>
-                {trend.positive ? "↑" : "↓"} {Math.abs(trend.value)}%
+              <p className={cn("text-xs font-medium flex items-center gap-1", trend.positive ? "text-emerald-500" : "text-red-500")}>
+                <span className="text-[10px] bg-background/50 px-1 py-0.5 rounded backdrop-blur-md">
+                  {trend.positive ? "▲" : "▼"} {Math.abs(trend.value)}%
+                </span>
+                <span className="text-muted-foreground/70">vs anterior</span>
               </p>
             )}
           </div>
           {icon && (
-            <div className={cn("metric-icon", iconBgClasses[color])}>
+            <div className={cn("p-3 rounded-xl backdrop-blur-md border border-white/5", iconBgClasses[color])}>
               {icon}
             </div>
           )}
@@ -106,7 +137,7 @@ const MetricCard = React.forwardRef<HTMLDivElement, MetricCardProps>(
 MetricCard.displayName = "MetricCard";
 
 // Chart Card Component
-interface ChartCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface ChartCardProps extends AppleCardProps {
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
@@ -116,10 +147,10 @@ const ChartCard = React.forwardRef<HTMLDivElement, ChartCardProps>(
   ({ className, title, subtitle, action, children, ...props }, ref) => {
     return (
       <AppleCard ref={ref} elevation={2} className={cn("p-6", className)} {...props}>
-        <div className="chart-header">
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h3 className="chart-title">{title}</h3>
-            {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+            <h3 className="text-lg font-medium tracking-tight text-foreground">{title}</h3>
+            {subtitle && <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>}
           </div>
           {action}
         </div>

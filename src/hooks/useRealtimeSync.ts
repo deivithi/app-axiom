@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
@@ -15,7 +15,9 @@ export function useRealtimeSync<T extends { id: string; user_id?: string }>(
   userId: string | undefined,
   options: RealtimeSyncOptions<T>
 ) {
-  const { onInsert, onUpdate, onDelete } = options;
+  // Usar refs para callbacks — evita re-subscribe a cada render
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   useEffect(() => {
     if (!userId) return;
@@ -31,6 +33,7 @@ export function useRealtimeSync<T extends { id: string; user_id?: string }>(
           filter: `user_id=eq.${userId}`,
         },
         (payload: RealtimePostgresChangesPayload<T>) => {
+          const { onInsert, onUpdate, onDelete } = optionsRef.current;
           if (payload.eventType === 'INSERT' && onInsert) {
             onInsert(payload.new as T);
           } else if (payload.eventType === 'UPDATE' && onUpdate) {
@@ -45,17 +48,19 @@ export function useRealtimeSync<T extends { id: string; user_id?: string }>(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, tableName, onInsert, onUpdate, onDelete]);
+  }, [userId, tableName]); // Apenas userId e tableName como deps — canal criado UMA vez
 }
 
-// Hook for tables without user_id filter (like habit_logs that filter by habit_id)
+// Hook para tabelas sem filtro user_id (ex: habit_logs filtrados por habit_id)
 export function useRealtimeSyncCustomFilter<T extends { id: string }>(
   tableName: TableName,
   filterColumn: string,
   filterValue: string | undefined,
   options: RealtimeSyncOptions<T>
 ) {
-  const { onInsert, onUpdate, onDelete } = options;
+  // Usar refs para callbacks — evita re-subscribe a cada render
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   useEffect(() => {
     if (!filterValue) return;
@@ -71,6 +76,7 @@ export function useRealtimeSyncCustomFilter<T extends { id: string }>(
           filter: `${filterColumn}=eq.${filterValue}`,
         },
         (payload: RealtimePostgresChangesPayload<T>) => {
+          const { onInsert, onUpdate, onDelete } = optionsRef.current;
           if (payload.eventType === 'INSERT' && onInsert) {
             onInsert(payload.new as T);
           } else if (payload.eventType === 'UPDATE' && onUpdate) {
@@ -85,5 +91,5 @@ export function useRealtimeSyncCustomFilter<T extends { id: string }>(
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [filterValue, tableName, filterColumn, onInsert, onUpdate, onDelete]);
+  }, [filterValue, tableName, filterColumn]); // Sem callbacks nas deps
 }

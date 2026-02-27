@@ -2,6 +2,7 @@ import { memo } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { motion } from 'framer-motion';
 
 export interface SidebarLinkItem {
   label: string;
@@ -28,58 +29,73 @@ export const SidebarLink = memo(({ link, collapsed, onClose, className }: Sideba
       onClick={onClose}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 rounded-lg transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)]',
-        collapsed ? 'justify-center p-2' : 'px-3 py-2.5'
+        'group relative flex items-center gap-3 rounded-lg transition-all duration-150 ease-out',
+        collapsed ? 'justify-center p-2' : 'px-3 py-2.5',
+        isActive
+          ? 'text-[var(--color-primary)]'
+          : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+        className
       )}
-      style={{ color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)' }}
-      onMouseOver={(e) => !isActive && (e.currentTarget.style.color = 'var(--color-text-primary)')}
-      onMouseOut={(e) => !isActive && (e.currentTarget.style.color = 'var(--color-text-secondary)')}
     >
+      {/* Indicador ativo lateral — pill animado (padrão Google Workspace) */}
+      {isActive && !collapsed && (
+        <motion.div
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full"
+          style={{ background: 'var(--color-primary)' }}
+          layoutId="sidebar-active-indicator"
+          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+        />
+      )}
+
       {/* Ícone circular */}
-      <div 
-        className="relative w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-[var(--duration-fast)] ease-[var(--ease-smooth)] flex-shrink-0"
-        style={{
-          background: isActive ? 'var(--color-primary)' : 'transparent',
-          borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border-medium)',
-          color: isActive ? 'var(--color-primary-foreground)' : 'inherit',
-          boxShadow: isActive ? 'var(--shadow-glow)' : 'none'
-        }}
-        >
+      <div
+        className={cn(
+          'relative w-9 h-9 rounded-full flex items-center justify-center border-2 transition-all duration-150 ease-out flex-shrink-0',
+          isActive
+            ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-[var(--shadow-glow)]'
+            : 'bg-transparent border-[var(--color-border-medium)] group-hover:border-[var(--color-text-secondary)]'
+        )}
+      >
         <span aria-hidden="true">{link.icon}</span>
-        
+
         {/* Mini badge quando colapsado */}
         {collapsed && link.badge !== undefined && link.badge !== 0 && (
-          <span 
+          <span
             className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center"
-            style={{ 
-              background: 'var(--color-primary)', 
-              color: 'white' 
+            style={{
+              background: 'var(--color-primary)',
+              color: 'white'
             }}
           >
             {typeof link.badge === 'number' && link.badge > 9 ? '•' : link.badge}
           </span>
         )}
       </div>
-      
+
       {/* Label + Badge inline quando expandido */}
       {!collapsed && (
         <>
           <div className="flex-1 min-w-0">
-            <span className="font-medium sidebar-label-clamp">{link.label}</span>
+            <span className={cn(
+              'font-medium sidebar-label-clamp transition-colors duration-150',
+              isActive && 'font-semibold'
+            )}>
+              {link.label}
+            </span>
             {link.description && (
-              <p className="text-xs truncate" style={{ color: 'var(--color-text-secondary)' }}>
+              <p className="text-xs truncate text-[var(--color-text-secondary)]">
                 {link.description}
               </p>
             )}
           </div>
-          
+
           {/* Badge pill inline */}
           {link.badge !== undefined && link.badge !== 0 && (
-            <span 
-              className="ml-auto px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0 transition-all duration-[var(--duration-fast)]"
-              style={{ 
-                background: 'var(--color-primary)', 
-                color: 'white' 
+            <span
+              className="ml-auto px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0 transition-all duration-150"
+              style={{
+                background: 'var(--color-primary)',
+                color: 'white'
               }}
             >
               {typeof link.badge === 'number' && link.badge > 9 ? '9+' : link.badge}
@@ -92,7 +108,7 @@ export const SidebarLink = memo(({ link, collapsed, onClose, className }: Sideba
 
   if (collapsed) {
     return (
-      <Tooltip delayDuration={0}>
+      <Tooltip delayDuration={300}>
         <TooltipTrigger asChild>
           {content}
         </TooltipTrigger>

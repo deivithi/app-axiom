@@ -14,40 +14,40 @@ import { SidebarLink, SidebarLinkItem } from './SidebarLink';
 
 // Links principais (5 módulos core)
 const links: SidebarLinkItem[] = [
-  { 
-    icon: <Sparkles className="h-5 w-5" />, 
-    label: 'Motor de Inteligência', 
-    href: '/intelligence', 
+  {
+    icon: <Sparkles className="h-5 w-5" />,
+    label: 'Motor de Inteligência',
+    href: '/intelligence',
     description: 'Análise e insights'
   },
-  { 
-    icon: <Wallet className="h-5 w-5" />, 
-    label: 'CFO Pessoal', 
-    href: '/finances', 
+  {
+    icon: <Wallet className="h-5 w-5" />,
+    label: 'CFO Pessoal',
+    href: '/finances',
     description: 'Controle financeiro'
   },
-  { 
-    icon: <CheckSquare className="h-5 w-5" />, 
-    label: 'Sistema de Execução', 
-    href: '/execution', 
+  {
+    icon: <CheckSquare className="h-5 w-5" />,
+    label: 'Sistema de Execução',
+    href: '/execution',
     description: 'Tarefas e projetos'
   },
-  { 
-    icon: <Target className="h-5 w-5" />, 
-    label: 'Arquiteto de Rotina', 
-    href: '/habits', 
+  {
+    icon: <Target className="h-5 w-5" />,
+    label: 'Arquiteto de Rotina',
+    href: '/habits',
     description: 'Hábitos e rotinas'
   },
-  { 
-    icon: <Brain className="h-5 w-5" />, 
-    label: 'Segunda Memória', 
-    href: '/memory', 
+  {
+    icon: <Brain className="h-5 w-5" />,
+    label: 'Segunda Memória',
+    href: '/memory',
     description: 'Pensamentos e reflexões'
   },
-  { 
-    icon: <FileText className="h-5 w-5" />, 
-    label: 'Biblioteca de Prompts', 
-    href: '/prompts', 
+  {
+    icon: <FileText className="h-5 w-5" />,
+    label: 'Biblioteca de Prompts',
+    href: '/prompts',
     description: 'Seus prompts salvos'
   },
 ];
@@ -55,9 +55,9 @@ const links: SidebarLinkItem[] = [
 
 // Footer links
 const footerLinks: SidebarLinkItem[] = [
-  { 
-    icon: <Settings className="h-5 w-5" />, 
-    label: 'Configurações', 
+  {
+    icon: <Settings className="h-5 w-5" />,
+    label: 'Configurações',
     href: '/settings'
   },
 ];
@@ -81,7 +81,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
       {/* Seção superior: Logo + Links */}
       <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
         {/* Header com Logo + Toggle */}
-        <div 
+        <div
           className={cn("p-4 flex items-center", collapsed ? "px-2 flex-col gap-2" : "justify-between")}
           style={{
             borderBottom: '1px solid var(--color-border-subtle)',
@@ -90,9 +90,9 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
           }}
         >
           {open ? <Logo size="lg" /> : <LogoIcon size="md" />}
-          
+
           {onToggle && (
-            <button 
+            <button
               onClick={onToggle}
               className="p-2 rounded-lg transition-colors"
               style={{ color: 'var(--color-text-secondary)' }}
@@ -114,7 +114,7 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
         </div>
 
         {/* Links principais */}
-        <nav 
+        <nav
           className={cn("mt-4 flex flex-col gap-1", collapsed ? "px-2" : "px-4")}
           role="navigation"
           aria-label="Navegação principal"
@@ -124,11 +124,11 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
             <SidebarLink key={idx} link={link} collapsed={collapsed} onClose={onClose} />
           ))}
         </nav>
-        
+
       </div>
-      
+
       {/* Footer */}
-      <div 
+      <div
         className="pt-4"
         style={{ borderTop: '1px solid var(--color-border-subtle)' }}
       >
@@ -138,14 +138,14 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
             <SidebarLink key={idx} link={link} collapsed={collapsed} onClose={onClose} />
           ))}
         </div>
-        
+
         {/* User Profile */}
         <div className={cn("mt-2", collapsed ? "px-2" : "px-4")}>
           <UserProfileLink collapsed={collapsed} onClose={onClose} />
         </div>
 
         {/* Bottom bar actions */}
-        <div 
+        <div
           className={cn("p-4 flex items-center mt-2", collapsed ? "flex-col gap-2 p-2" : "justify-around")}
           style={{
             borderTop: '1px solid var(--color-border-subtle)',
@@ -155,9 +155,9 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
         >
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="transition-colors duration-[var(--duration-fast)]"
                 style={{ color: 'var(--color-text-secondary)' }}
                 onClick={handleThemeToggle}
@@ -168,12 +168,12 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
             </TooltipTrigger>
             <TooltipContent side={collapsed ? "right" : "top"}>Alternar tema</TooltipContent>
           </Tooltip>
-          
+
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="transition-colors duration-[var(--duration-fast)]"
                 style={{ color: 'var(--color-text-secondary)' }}
                 onClick={handleRefresh}
@@ -184,12 +184,12 @@ const NavContent = ({ onClose, collapsed = false, onToggle }: { onClose?: () => 
             </TooltipTrigger>
             <TooltipContent side={collapsed ? "right" : "top"}>Atualizar</TooltipContent>
           </Tooltip>
-          
+
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="icon" 
+              <Button
+                variant="ghost"
+                size="icon"
                 className="transition-colors duration-[var(--duration-fast)] hover:text-destructive"
                 style={{ color: 'var(--color-text-secondary)' }}
                 onClick={signOut}
@@ -215,13 +215,13 @@ export const Sidebar = () => {
     <>
       {/* Mobile Trigger */}
       <div className="md:hidden fixed top-4 left-4 z-50">
-        <Button 
-          variant="outline" 
-          size="icon" 
+        <Button
+          variant="outline"
+          size="icon"
           className="backdrop-blur-sm shadow-md"
-          style={{ 
-            background: 'var(--color-bg-elevated)', 
-            borderColor: 'var(--color-border-subtle)' 
+          style={{
+            background: 'var(--color-bg-elevated)',
+            borderColor: 'var(--color-border-subtle)'
           }}
           onClick={() => setMobileOpen(true)}
           aria-label="Abrir menu de navegação"
@@ -235,18 +235,15 @@ export const Sidebar = () => {
         <NavContent onClose={() => setMobileOpen(false)} />
       </MobileDrawer>
 
-      {/* Desktop Sidebar */}
-      <aside 
+      {/* Desktop Sidebar (Floating Dock Style) */}
+      <aside
         className={cn(
-          "hidden md:flex flex-col h-screen fixed left-0 top-0 z-fixed",
-          "transition-[width] duration-[var(--duration-base)] ease-[var(--ease-smooth)] will-change-[width]",
+          "hidden md:flex flex-col fixed left-4 top-4 bottom-4 z-fixed rounded-2xl overflow-hidden glass",
+          "transition-[width] duration-300 ease-[var(--ease-spring)] will-change-[width]",
           collapsed ? "w-16" : "w-64"
         )}
         style={{
-          background: 'var(--color-glass-bg)',
-          backdropFilter: 'blur(var(--glass-blur))',
-          borderRight: '1px solid var(--color-glass-border)',
-          boxShadow: 'var(--shadow-lg)'
+          boxShadow: 'var(--apple-shadow-lg)'
         }}
         aria-label="Barra lateral de navegação"
       >

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -16,6 +17,7 @@ import { Plus, Loader2, Trash2, Pin, PinOff, Search, Sparkles, Brain, BookOpen, 
 import MemoryDashboard from '@/components/memory/MemoryDashboard';
 import { cn } from '@/lib/utils';
 import { EmptyState } from '@/components/ui/empty-state';
+import { PageSkeleton } from '@/components/ui/PageSkeleton';
 import { useNavigate } from 'react-router-dom';
 import { format, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -69,6 +71,7 @@ export default function Memory() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'note' | 'journal'; id: string; label: string } | null>(null);
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -173,10 +176,39 @@ export default function Memory() {
     loadNotes();
   };
 
-  const deleteNote = async (id: string) => {
-    await supabase.from('notes').delete().eq('id', id);
-    setSelectedNote(null);
-    loadNotes();
+  const confirmDeleteNote = (id: string, title: string | null) => {
+    setDeleteTarget({ type: 'note', id, label: title || 'esta nota' });
+  };
+
+  const confirmDeleteJournal = () => {
+    if (!currentEntry?.id) return;
+    const label = format(selectedDate, "dd 'de' MMMM", { locale: ptBR });
+    setDeleteTarget({ type: 'journal', id: currentEntry.id, label });
+  };
+
+  const executeDeleteTarget = async () => {
+    if (!deleteTarget) return;
+    const { type, id } = deleteTarget;
+    setDeleteTarget(null);
+    try {
+      if (type === 'note') {
+        const { error } = await supabase.from('notes').delete().eq('id', id);
+        if (error) { toast({ title: 'Erro', description: `Erro ao excluir nota: ${error.message}`, variant: 'destructive' }); return; }
+        if (selectedNote?.id === id) setSelectedNote(null);
+        loadNotes();
+        toast({ title: 'Excluído', description: 'Nota excluída' });
+      } else {
+        const { error } = await supabase.from('journal_entries').delete().eq('id', id);
+        if (error) { toast({ title: 'Erro', description: `Erro ao excluir entrada: ${error.message}`, variant: 'destructive' }); return; }
+        setJournalContent('');
+        setMood(null);
+        setCurrentEntry(null);
+        loadEntries();
+        toast({ title: 'Excluído', description: 'Entrada removida' });
+      }
+    } catch (e: any) {
+      toast({ title: 'Erro', description: `Erro inesperado: ${e?.message || 'desconhecido'}`, variant: 'destructive' });
+    }
   };
 
   // Journal operations
@@ -204,14 +236,7 @@ export default function Memory() {
     setSaving(false);
   };
 
-  const deleteJournalEntry = async () => {
-    if (!currentEntry) return;
-    await supabase.from('journal_entries').delete().eq('id', currentEntry.id);
-    setJournalContent('');
-    setMood(null);
-    loadEntries();
-    toast({ title: 'Deletado', description: 'Entrada removida' });
-  };
+
 
   const hasEntry = (date: Date) => entries.some(e => isSameDay(parseLocalDate(e.entry_date), date));
 
@@ -224,186 +249,203 @@ export default function Memory() {
   const otherNotes = filteredNotes.filter(n => !n.is_pinned);
 
   return (
-    <AppLayout>
-      <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-8">
-        <div className="dashboard-header-apple">
-          <h1>
-            <Brain />
-            Segunda Memória
-          </h1>
-          <p>Pensamentos e reflexões unificados para clareza mental</p>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+    <>
+      <AppLayout>
+        <div className="p-4 pl-16 md:pl-6 md:p-6 space-y-8">
+          <div className="dashboard-header-apple">
+            <h1>
+              <Brain />
+              Segunda Memória
+            </h1>
+            <p>Pensamentos e reflexões unificados para clareza mental</p>
           </div>
-        ) : (
-          <Tabs defaultValue="axiom-memory" className="space-y-6 tabs-apple">
-            <TabsList className="bg-muted/50 p-1 rounded-xl">
-              <TabsTrigger value="axiom-memory" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Cpu className="h-4 w-4" />
-                Axiom Memory
-              </TabsTrigger>
-              <TabsTrigger value="thoughts" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <Brain className="h-4 w-4" />
-                Pensamentos ({notes.length})
-              </TabsTrigger>
-              <TabsTrigger value="journal" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
-                <BookOpen className="h-4 w-4" />
-                Diário ({entries.length})
-              </TabsTrigger>
-            </TabsList>
 
-            {/* AXIOM MEMORY DASHBOARD */}
-            <TabsContent value="axiom-memory" className="space-y-4">
-              <MemoryDashboard />
-            </TabsContent>
+          {loading ? (
+            <PageSkeleton cards={2} />
+          ) : (
+            <Tabs defaultValue="axiom-memory" className="space-y-6 tabs-apple">
+              <TabsList className="bg-muted/50 p-1 rounded-xl">
+                <TabsTrigger value="axiom-memory" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Cpu className="h-4 w-4" />
+                  Axiom Memory
+                </TabsTrigger>
+                <TabsTrigger value="thoughts" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <Brain className="h-4 w-4" />
+                  Pensamentos ({notes.length})
+                </TabsTrigger>
+                <TabsTrigger value="journal" className="gap-2 rounded-lg data-[state=active]:bg-card data-[state=active]:shadow-sm">
+                  <BookOpen className="h-4 w-4" />
+                  Diário ({entries.length})
+                </TabsTrigger>
+              </TabsList>
 
-            {/* PENSAMENTOS */}
-            <TabsContent value="thoughts" className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar notas..." className="pl-10" />
-                </div>
-                <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button><Plus className="h-4 w-4 mr-2" />Nova Nota</Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader><DialogTitle>Nova Nota</DialogTitle></DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Título (opcional)</Label>
-                        <Input value={newNote.title} onChange={(e) => setNewNote({ ...newNote, title: e.target.value })} placeholder="Título da nota" />
-                      </div>
-                      <div>
-                        <Label>Conteúdo</Label>
-                        <Textarea value={newNote.content} onChange={(e) => setNewNote({ ...newNote, content: e.target.value })} placeholder="Escreva sua ideia..." className="min-h-[150px]" />
-                      </div>
-                      <Button onClick={createNote} className="w-full">Salvar</Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
+              {/* AXIOM MEMORY DASHBOARD */}
+              <TabsContent value="axiom-memory" className="space-y-4">
+                <MemoryDashboard />
+              </TabsContent>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  {pinnedNotes.length > 0 && (
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1"><Pin className="h-3 w-3" /> Fixadas</h3>
-                      <div className="space-y-2">
-                        {pinnedNotes.map((note) => (
-                          <NoteCard key={note.id} note={note} onSelect={() => setSelectedNote(note)} onTogglePin={() => togglePin(note)} onDelete={() => deleteNote(note.id)} isSelected={selectedNote?.id === note.id} />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  <div>
-                    {pinnedNotes.length > 0 && <h3 className="text-sm font-medium text-muted-foreground mb-2">Outras notas</h3>}
-                  {otherNotes.length === 0 && pinnedNotes.length === 0 ? (
-                      <EmptyState
-                        icon={<Lightbulb className="h-8 w-8" />}
-                        title="Nenhum pensamento registrado"
-                        description="Capture suas ideias criando uma nota ou converse com Axiom para organizar seus pensamentos."
-                        action={{
-                          label: 'Nova Nota',
-                          onClick: () => setNoteDialogOpen(true),
-                        }}
-                        secondaryAction={{
-                          label: 'Conversar com Axiom',
-                          onClick: () => navigate('/'),
-                        }}
-                      />
-                    ) : (
-                      <div className="space-y-2">
-                        {otherNotes.map((note) => (
-                          <NoteCard key={note.id} note={note} onSelect={() => setSelectedNote(note)} onTogglePin={() => togglePin(note)} onDelete={() => deleteNote(note.id)} isSelected={selectedNote?.id === note.id} />
-                        ))}
-                      </div>
-                    )}
+              {/* PENSAMENTOS */}
+              <TabsContent value="thoughts" className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar notas..." className="pl-10" />
                   </div>
-                </div>
-
-                <div className="lg:sticky lg:top-6 h-fit space-y-4">
-                  {selectedNote ? (
-                    <>
-                      <Card>
-                        <CardContent className="p-4 space-y-4">
-                          <Input value={selectedNote.title || ''} onChange={(e) => setSelectedNote({ ...selectedNote, title: e.target.value })} onBlur={() => updateNote(selectedNote)} placeholder="Título" className="text-lg font-semibold border-none p-0 focus-visible:ring-0" />
-                          <Textarea value={selectedNote.content} onChange={(e) => setSelectedNote({ ...selectedNote, content: e.target.value })} onBlur={() => updateNote(selectedNote)} className="min-h-[300px] resize-none border-none p-0 focus-visible:ring-0" />
-                          <p className="text-xs text-muted-foreground">Última atualização: {format(new Date(selectedNote.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                        </CardContent>
-                      </Card>
-                      <InsightCard insight={selectedNote.ai_insights} generating={generatingInsights} onRegenerate={() => generateInsights('note', selectedNote.id, selectedNote.content)} />
-                    </>
-                  ) : (
-                    <Card className="p-8 text-center text-muted-foreground">Selecione uma nota para editar</Card>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* DIÁRIO */}
-            <TabsContent value="journal" className="space-y-4">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-1">
-                  <CardContent className="p-4">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={(date) => date && setSelectedDate(date)}
-                      locale={ptBR}
-                      modifiers={{ hasEntry }}
-                      modifiersStyles={{ hasEntry: { fontWeight: 'bold', textDecoration: 'underline', textDecorationColor: 'hsl(var(--primary))' } }}
-                      className="rounded-md"
-                    />
-                  </CardContent>
-                </Card>
-
-                <div className="lg:col-span-2 space-y-4">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-center justify-between">
-                        <CardTitle>{format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</CardTitle>
-                        {currentEntry && (
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={deleteJournalEntry}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
+                  <Dialog open={noteDialogOpen} onOpenChange={setNoteDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button><Plus className="h-4 w-4 mr-2" />Nova Nota</Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader><DialogTitle>Nova Nota</DialogTitle></DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>Título (opcional)</Label>
+                          <Input value={newNote.title} onChange={(e) => setNewNote({ ...newNote, title: e.target.value })} placeholder="Título da nota" />
+                        </div>
+                        <div>
+                          <Label>Conteúdo</Label>
+                          <Textarea value={newNote.content} onChange={(e) => setNewNote({ ...newNote, content: e.target.value })} placeholder="Escreva sua ideia..." className="min-h-[150px]" />
+                        </div>
+                        <Button onClick={createNote} className="w-full">Salvar</Button>
                       </div>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
+                    </DialogContent>
+                  </Dialog>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    {pinnedNotes.length > 0 && (
                       <div>
-                        <p className="text-sm text-muted-foreground mb-2">Como você está se sentindo?</p>
-                        <div className="flex flex-wrap gap-2">
-                          {(Object.keys(moodEmojis) as Array<keyof typeof moodEmojis>).map((m) => (
-                            <Button key={m} variant={mood === m ? 'default' : 'outline'} size="sm" onClick={() => setMood(m)} className="gap-1">
-                              <span>{moodEmojis[m]}</span>
-                              <span className="hidden sm:inline">{moodLabels[m]}</span>
-                            </Button>
+                        <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-1"><Pin className="h-3 w-3" /> Fixadas</h3>
+                        <div className="space-y-2">
+                          {pinnedNotes.map((note) => (
+                            <NoteCard key={note.id} note={note} onSelect={() => setSelectedNote(note)} onTogglePin={() => togglePin(note)} onDelete={() => confirmDeleteNote(note.id, note.title)} isSelected={selectedNote?.id === note.id} />
                           ))}
                         </div>
                       </div>
-                      <Textarea value={journalContent} onChange={(e) => setJournalContent(e.target.value)} placeholder="Escreva sobre o seu dia..." className="min-h-[200px] resize-none" />
-                      <Button onClick={saveJournalEntry} disabled={saving || !journalContent.trim()} className="w-full">
-                        {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-                        Salvar
-                      </Button>
+                    )}
+                    <div>
+                      {pinnedNotes.length > 0 && <h3 className="text-sm font-medium text-muted-foreground mb-2">Outras notas</h3>}
+                      {otherNotes.length === 0 && pinnedNotes.length === 0 ? (
+                        <EmptyState
+                          icon={<Lightbulb className="h-8 w-8" />}
+                          title="Nenhum pensamento registrado"
+                          description="Capture suas ideias criando uma nota ou converse com Axiom para organizar seus pensamentos."
+                          action={{
+                            label: 'Nova Nota',
+                            onClick: () => setNoteDialogOpen(true),
+                          }}
+                          secondaryAction={{
+                            label: 'Conversar com Axiom',
+                            onClick: () => navigate('/'),
+                          }}
+                        />
+                      ) : (
+                        <div className="space-y-2">
+                          {otherNotes.map((note) => (
+                            <NoteCard key={note.id} note={note} onSelect={() => setSelectedNote(note)} onTogglePin={() => togglePin(note)} onDelete={() => confirmDeleteNote(note.id, note.title)} isSelected={selectedNote?.id === note.id} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="lg:sticky lg:top-6 h-fit space-y-4">
+                    {selectedNote ? (
+                      <>
+                        <Card>
+                          <CardContent className="p-4 space-y-4">
+                            <Input value={selectedNote.title || ''} onChange={(e) => setSelectedNote({ ...selectedNote, title: e.target.value })} onBlur={() => updateNote(selectedNote)} placeholder="Título" className="text-lg font-semibold border-none p-0 focus-visible:ring-0" />
+                            <Textarea value={selectedNote.content} onChange={(e) => setSelectedNote({ ...selectedNote, content: e.target.value })} onBlur={() => updateNote(selectedNote)} className="min-h-[300px] resize-none border-none p-0 focus-visible:ring-0" />
+                            <p className="text-xs text-muted-foreground">Última atualização: {format(new Date(selectedNote.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                          </CardContent>
+                        </Card>
+                        <InsightCard insight={selectedNote.ai_insights} generating={generatingInsights} onRegenerate={() => generateInsights('note', selectedNote.id, selectedNote.content)} />
+                      </>
+                    ) : (
+                      <Card className="p-8 text-center text-muted-foreground">Selecione uma nota para editar</Card>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* DIÁRIO */}
+              <TabsContent value="journal" className="space-y-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <Card className="lg:col-span-1">
+                    <CardContent className="p-4">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => date && setSelectedDate(date)}
+                        locale={ptBR}
+                        modifiers={{ hasEntry }}
+                        modifiersStyles={{ hasEntry: { fontWeight: 'bold', textDecoration: 'underline', textDecorationColor: 'hsl(var(--primary))' } }}
+                        className="rounded-md"
+                      />
                     </CardContent>
                   </Card>
 
-                  {currentEntry && (
-                    <InsightCard insight={currentEntry.ai_insights} generating={generatingInsights} onRegenerate={() => generateInsights('journal', currentEntry.id, currentEntry.content, currentEntry.mood)} />
-                  )}
+                  <div className="lg:col-span-2 space-y-4">
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center justify-between">
+                          <CardTitle>{format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}</CardTitle>
+                          {currentEntry && (
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={confirmDeleteJournal}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div>
+                          <p className="text-sm text-muted-foreground mb-2">Como você está se sentindo?</p>
+                          <div className="flex flex-wrap gap-2">
+                            {(Object.keys(moodEmojis) as Array<keyof typeof moodEmojis>).map((m) => (
+                              <Button key={m} variant={mood === m ? 'default' : 'outline'} size="sm" onClick={() => setMood(m)} className="gap-1">
+                                <span>{moodEmojis[m]}</span>
+                                <span className="hidden sm:inline">{moodLabels[m]}</span>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        <Textarea value={journalContent} onChange={(e) => setJournalContent(e.target.value)} placeholder="Escreva sobre o seu dia..." className="min-h-[200px] resize-none" />
+                        <Button onClick={saveJournalEntry} disabled={saving || !journalContent.trim()} className="w-full">
+                          {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+                          Salvar
+                        </Button>
+                      </CardContent>
+                    </Card>
+
+                    {currentEntry && (
+                      <InsightCard insight={currentEntry.ai_insights} generating={generatingInsights} onRegenerate={() => generateInsights('journal', currentEntry.id, currentEntry.content, currentEntry.mood)} />
+                    )}
+                  </div>
                 </div>
-              </div>
-            </TabsContent>
-          </Tabs>
-        )}
-      </div>
-    </AppLayout>
+              </TabsContent>
+            </Tabs>
+          )}
+        </div>
+      </AppLayout>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir "{deleteTarget?.label}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={executeDeleteTarget} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Sim, excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 

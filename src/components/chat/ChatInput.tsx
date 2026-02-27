@@ -46,7 +46,7 @@ export function ChatInput({
       }
       setRecordingTime(0);
     }
-    
+
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -59,7 +59,7 @@ export function ChatInput({
     if (value.trim() && !isLoading && !isRecording) {
       setIsSending(true);
       onSend();
-      
+
       // Show checkmark for 500ms
       setTimeout(() => {
         setIsSending(false);
@@ -73,6 +73,13 @@ export function ChatInput({
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Reset textarea height when value is cleared (e.g., after sending)
+  useEffect(() => {
+    if (value === "" && inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
+  }, [value]);
 
   return (
     <div className="chat-input-area">
@@ -114,7 +121,7 @@ export function ChatInput({
               <span className="chat-mic-pulse-ring delay-2" aria-hidden="true" />
             </>
           )}
-          
+
           {isTranscribing ? (
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
           ) : isRecording ? (
@@ -129,8 +136,8 @@ export function ChatInput({
           <div className="chat-waveform-container">
             <div className="chat-waveform">
               {[...Array(5)].map((_, i) => (
-                <span 
-                  key={i} 
+                <span
+                  key={i}
                   className="chat-wave"
                   style={{ animationDelay: `${i * 0.1}s` }}
                 />
@@ -142,12 +149,17 @@ export function ChatInput({
           <Textarea
             ref={inputRef}
             value={value}
-            onChange={e => onChange(e.target.value)}
+            onChange={e => {
+              onChange(e.target.value);
+              // Auto-resize
+              e.target.style.height = "auto";
+              e.target.style.height = e.target.scrollHeight + "px";
+            }}
             onKeyDown={onKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             placeholder="Converse com Axiom..."
-            className="chat-input-field"
+            className="chat-input-field min-h-[40px] max-h-[250px] overflow-y-auto"
             rows={1}
             maxLength={4000}
             disabled={isLoading || isTranscribing || disabled}
