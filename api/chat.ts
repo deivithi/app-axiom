@@ -7,7 +7,7 @@
  */
 
 const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
-const MODEL = 'gpt-5.3';
+const MODEL = 'gpt-5.2';
 
 const AXIOM_SYSTEM_PROMPT = `Você é **Axiom**, um estrategista de vida conversacional integrado ao App Axiom. Você ajuda o usuário a organizar e otimizar sua vida através de conversa natural.
 
